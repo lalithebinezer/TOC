@@ -4,7 +4,8 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Enterprise Digital Twin & BIM Visualization Portal</title>
+    <title>BIM Viewer — Lalith Ebinezer</title>
+    <meta name="description" content="Enterprise BIM Viewer with IFC model loading, 3D navigation, digital twin data, and section cutting tools." />
   </head>
   <body>
     <div id="app">
@@ -17,45 +18,25 @@
         <header>
           <div class="brand">
             <div class="brand-logo">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#a3e635" stroke-width="3">
-                <circle cx="12" cy="12" r="9" />
-                <path d="M12 3a9 9 0 0 1 9 9" />
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5">
+                <polygon points="12 2 2 7 12 12 22 7 12 2"/>
+                <polyline points="2 17 12 22 22 17"/>
+                <polyline points="2 12 12 17 22 12"/>
               </svg>
             </div>
             <div class="brand-text">
-              <h1>That Open Company</h1>
+              <h1>BIM Viewer — Lalith Ebinezer</h1>
             </div>
           </div>
 
-          <!-- Top Navigation Links -->
+          <!-- Navigation -->
           <nav class="nav-links">
             <a href="#" class="nav-link active">Projects</a>
-            <a href="#" class="nav-link">Data</a>
-            <a href="#" class="nav-link">Admin</a>
           </nav>
 
-          <!-- User Controls -->
+          <!-- Header Controls -->
           <div class="header-controls">
-            <button class="btn-header-badge" title="Control C">C</button>
-            <button class="btn-header-badge" title="Control N">N</button>
-            <button class="btn-header-icon" title="Code">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/>
-              </svg>
-            </button>
-            <button class="btn-header-icon" title="Menu">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/>
-              </svg>
-            </button>
-            <button class="btn-header-icon" title="Settings">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
-              </svg>
-            </button>
-            <div class="user-avatar">
-              <img src="https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=32&h=32&q=80" alt="Avatar" />
-            </div>
+            <button class="btn-theme-toggle" id="btn-theme-toggle" title="Toggle Day/Night Mode">🌙</button>
           </div>
         </header>
 
@@ -74,58 +55,11 @@
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
                 </svg>
-                <input type="text" id="file-search" placeholder="Search.." />
+                <input type="text" id="file-search" placeholder="Search files.." />
               </div>
               <div class="file-list thin-scrollbar" id="file-list">
-                <div class="file-item active">
-                  <div class="file-info">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>
-                    </svg>
-                    <span id="model-name-label">BLOXHUB.ifc</span>
-                  </div>
-                  <div class="file-actions">
-                    <button class="btn-icon active-icon" id="btn-toggle-model-visibility" title="Toggle Visibility">
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
-                      </svg>
-                    </button>
-                    <button class="btn-icon" title="Filter / Pin">
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm0 18a8 8 0 1 1 8-8 8 8 0 0 1-8 8z"/>
-                      </svg>
-                    </button>
-                  </div>
-                </div>
-                <div class="file-item">
-                  <div class="file-info">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>
-                    </svg>
-                    <span>BLOXHUB_STRUCTURE.ifc</span>
-                  </div>
-                  <div class="file-actions">
-                    <button class="btn-icon" title="Toggle Visibility">
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
-                      </svg>
-                    </button>
-                  </div>
-                </div>
-                <div class="file-item">
-                  <div class="file-info">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>
-                    </svg>
-                    <span>BLOXHUB_MEP.ifc</span>
-                  </div>
-                  <div class="file-actions">
-                    <button class="btn-icon" title="Toggle Visibility">
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
-                      </svg>
-                    </button>
-                  </div>
+                <div class="file-list-empty" id="file-list-empty">
+                  No models loaded. Upload an IFC file or load a sample.
                 </div>
               </div>
               <div class="file-actions-row">
@@ -133,13 +67,13 @@
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>
                   </svg>
-                  Load Sample Model
+                  Load Sample
                 </button>
                 <div class="btn-file-upload">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
                   </svg>
-                  <span>Upload Local</span>
+                  <span>Upload IFC</span>
                   <input type="file" id="file-input" accept=".ifc,.frag" />
                 </div>
               </div>
@@ -160,7 +94,7 @@
               <div class="query-item">
                 <div class="query-info">
                   <div class="query-name">Walls & Slabs</div>
-                  <div class="query-desc">Isolate all floors, slabs, and partitions.</div>
+                  <div class="query-desc">Isolate all walls and slabs.</div>
                 </div>
                 <div class="query-actions">
                   <button class="btn-secondary btn-query-execute" data-query="Walls & Slabs" title="Isolate elements">Isolate</button>
@@ -178,7 +112,7 @@
               <div class="query-item">
                 <div class="query-info">
                   <div class="query-name">First Level Columns</div>
-                  <div class="query-desc">Columns contained in Entry level storey.</div>
+                  <div class="query-desc">Columns in Entry level storey.</div>
                 </div>
                 <div class="query-actions">
                   <button class="btn-secondary btn-query-execute" data-query="First Level Columns" title="Isolate elements">Isolate</button>
@@ -216,7 +150,7 @@
                     </svg>
                     <span>Navigation Mode</span>
                   </div>
-                  <select id="settings-camera-mode" class="btn-secondary" style="padding: 0.15rem 0.5rem; font-size: 0.72rem; outline: none; border-color: var(--border-color); background: var(--bg-input); color: var(--text-main); border-radius: 5px;">
+                  <select id="settings-camera-mode" class="btn-secondary" style="padding: 0.15rem 0.5rem; font-size: 0.7rem; outline: none; border-color: var(--border-color); background: var(--bg-input); color: var(--text-main); border-radius: 6px;">
                     <option value="Orbit">Orbit</option>
                     <option value="FirstPerson">First Person</option>
                     <option value="Plan">Plan</option>
@@ -229,7 +163,7 @@
                     </svg>
                     <span>Projection</span>
                   </div>
-                  <select id="settings-camera-projection" class="btn-secondary" style="padding: 0.15rem 0.5rem; font-size: 0.72rem; outline: none; border-color: var(--border-color); background: var(--bg-input); color: var(--text-main); border-radius: 5px;">
+                  <select id="settings-camera-projection" class="btn-secondary" style="padding: 0.15rem 0.5rem; font-size: 0.7rem; outline: none; border-color: var(--border-color); background: var(--bg-input); color: var(--text-main); border-radius: 6px;">
                     <option value="Perspective">Perspective</option>
                     <option value="Orthographic">Orthographic</option>
                   </select>
@@ -264,7 +198,7 @@
                 <div class="scene-control-item">
                   <div class="scene-control-label">
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                      <circle cx="12" cy="12" r="10"/><path d="M12 8h.01"/><path d="M11 12h1v4h1"/><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2z"/>
+                      <circle cx="12" cy="12" r="10"/><path d="M12 8h.01"/><path d="M11 12h1v4h1"/>
                     </svg>
                     <span>Show Logo</span>
                   </div>
@@ -281,7 +215,7 @@
                     <span>Background</span>
                   </div>
                   <div class="setting-toggle-row">
-                    <input type="color" id="settings-bg-color" value="#080b11" />
+                    <input type="color" id="settings-bg-color" value="#0c1021" />
                   </div>
                 </div>
                 <div class="scene-control-item">
@@ -345,12 +279,12 @@
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
                 </svg>
-                <input type="text" id="scene-search" placeholder="Search.." />
+                <input type="text" id="scene-search" placeholder="Search tree.." />
               </div>
 
               <div class="scene-tree thin-scrollbar" id="classification-tree" style="display: flex; flex-direction: column; gap: 0.35rem;">
                 <div class="empty-state-container" style="padding: 2rem 1rem; text-align: center;">
-                  <span class="empty-state-text" style="font-size: 0.75rem; color: var(--text-dim);">Load a model to view categories and storeys classification.</span>
+                  <span class="empty-state-text" style="font-size: 0.73rem; color: var(--text-dim);">Load a model to view categories and storeys classification.</span>
                 </div>
               </div>
             </div>
@@ -365,7 +299,7 @@
               <span>Properties</span>
             </div>
             <div class="panel-body thin-scrollbar">
-              <div id="properties-selected-state" style="display:none; flex-direction:column; gap:0.75rem; width:100%;">
+              <div id="properties-selected-state" style="display:none; flex-direction:column; gap:0.65rem; width:100%;">
                 <div class="section-subtitle">BIM Element Metadata</div>
                 <div class="property-table">
                   <div class="prop-row">
@@ -392,7 +326,7 @@
                     <label for="cost-quantity">Quantity</label>
                     <input type="number" id="cost-quantity" min="0" step="0.1" />
                   </div>
-                  <div class="prop-row" style="margin-top:0.25rem;">
+                  <div class="prop-row" style="margin-top:0.2rem;">
                     <span class="prop-label">Calculated Cost</span>
                     <span class="prop-val color-purple font-bold" id="cost-calculated-total">$0.00</span>
                   </div>
@@ -433,7 +367,7 @@
               <div id="properties-empty-state" class="empty-state-container">
                 <div class="empty-state-card">
                   <div class="empty-card-icon">
-                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
                       <rect x="4" y="4" width="16" height="16" rx="2" ry="2"/>
                       <line x1="8" y1="10" x2="16" y2="10"/>
                       <line x1="8" y1="14" x2="14" y2="14"/>
@@ -453,8 +387,8 @@
               <span>Measurements</span>
             </div>
             <div class="panel-body thin-scrollbar" style="gap: 0.5rem; display: flex; flex-direction: column;">
-              <div class="scene-control-item" style="display: flex; justify-content: space-between; align-items: center; background: rgba(18, 20, 32, 0.5); border: 1px solid var(--border-subtle); padding: 0.4rem 0.65rem; border-radius: 7px;">
-                <div class="scene-control-label" style="display: flex; align-items: center; gap: 0.45rem; font-size: 0.72rem; color: var(--text-muted);">
+              <div class="scene-control-item" style="display: flex; justify-content: space-between; align-items: center; background: var(--bg-card); border: 1px solid var(--border-subtle); padding: 0.35rem 0.6rem; border-radius: 8px;">
+                <div class="scene-control-label" style="display: flex; align-items: center; gap: 0.4rem; font-size: 0.7rem; color: var(--text-muted);">
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="15" y2="6"/><line x1="3" y1="18" x2="18" y2="18"/>
                   </svg>
@@ -465,7 +399,7 @@
                   <span class="toggle-slider"></span>
                 </label>
               </div>
-              <button class="btn-secondary" id="btn-clear-measurements" style="width: 100%; border-color: var(--color-warning); color: var(--color-warning); display: flex; align-items: center; justify-content: center; gap: 0.35rem; font-size: 0.72rem; padding: 0.45rem;">
+              <button class="btn-secondary" id="btn-clear-measurements" style="width: 100%; border-color: var(--color-warning); color: var(--color-warning); display: flex; align-items: center; justify-content: center; gap: 0.35rem; font-size: 0.7rem; padding: 0.4rem;">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
                 </svg>
@@ -475,7 +409,7 @@
           </div>
         </aside>
 
-        <!-- Centered Bottom Floating Toolbar -->
+        <!-- Bottom Floating Toolbar -->
         <div class="bottom-toolbar">
           <div class="toolbar-section">
             <span class="section-label">Visibility</span>
@@ -536,7 +470,7 @@
         </div>
       </div>
 
-      <!-- Compact Glass Loading / Telemetry Overlay -->
+      <!-- Loading Overlay -->
       <div class="loading-overlay" id="loading-overlay">
         <div class="spinner-wrapper">
           <div class="spinner-ring"></div>

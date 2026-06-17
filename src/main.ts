@@ -3,6 +3,15 @@ import * as THREE from "three";
 import * as OBC from "@thatopen/components";
 import * as OBF from "@thatopen/components-front";
 
+// --- THEME TOGGLE ---
+function initTheme() {
+  const saved = localStorage.getItem('bim-theme');
+  if (saved === 'light') {
+    document.documentElement.setAttribute('data-theme', 'light');
+  }
+}
+initTheme();
+
 // --- 3D ENVIRONMENT SETUP ---
 const components = new OBC.Components();
 const worlds = components.get(OBC.Worlds);
@@ -653,6 +662,9 @@ const initBim = async () => {
     }
     window.dispatchEvent(new Event('resize'));
 
+    // Initialize empty file list
+    refreshFileList();
+
   } catch (err) {
     console.error("Failed to initialize BIM components:", err);
     const text = document.getElementById("loading-text")!;
@@ -664,6 +676,97 @@ const initBim = async () => {
 
 // Start the initialization
 initBim();
+
+// --- DYNAMIC FILE LIST MANAGEMENT ---
+function refreshFileList() {
+  const fileListEl = document.getElementById("file-list")!;
+  fileListEl.innerHTML = '';
+
+  if (fragments.list.size === 0) {
+    const empty = document.createElement('div');
+    empty.className = 'file-list-empty';
+    empty.id = 'file-list-empty';
+    empty.textContent = 'No models loaded. Upload an IFC file or load a sample.';
+    fileListEl.appendChild(empty);
+    return;
+  }
+
+  for (const [modelId, model] of fragments.list) {
+    const item = document.createElement('div');
+    item.className = 'file-item';
+    item.setAttribute('data-model-id', modelId);
+
+    const anyModel = model as any;
+    const name = anyModel.modelId || anyModel.name || modelId;
+
+    item.innerHTML = `
+      <div class="file-info">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/>
+        </svg>
+        <span>${name}</span>
+      </div>
+      <div class="file-actions">
+        <button class="btn-icon btn-visibility" title="Toggle Visibility">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+          </svg>
+        </button>
+        <button class="btn-icon btn-delete" title="Remove Model">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+          </svg>
+        </button>
+      </div>
+    `;
+
+    // Visibility toggle
+    let visible = true;
+    const visBtn = item.querySelector('.btn-visibility')!;
+    visBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      visible = !visible;
+      model.object.visible = visible;
+      visBtn.classList.toggle('active-icon', !visible);
+      if (!visible) {
+        (visBtn as HTMLElement).style.opacity = '0.4';
+      } else {
+        (visBtn as HTMLElement).style.opacity = '1';
+      }
+    });
+
+    // Delete button
+    const delBtn = item.querySelector('.btn-delete')!;
+    delBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      try {
+        world.scene.three.remove(model.object);
+        fragments.list.delete(modelId);
+        fragments.core.update(true);
+      } catch (err) {
+        console.warn('Error removing model:', err);
+      }
+      refreshFileList();
+      updateClassificationUI();
+      resetPropertiesPanel();
+    });
+
+    fileListEl.appendChild(item);
+  }
+}
+
+// File search filter
+const fileSearchInput = document.getElementById('file-search') as HTMLInputElement;
+if (fileSearchInput) {
+  fileSearchInput.addEventListener('input', () => {
+    const filter = fileSearchInput.value.toLowerCase();
+    const items = document.querySelectorAll('#file-list .file-item');
+    items.forEach((item) => {
+      const name = item.querySelector('.file-info span')?.textContent?.toLowerCase() || '';
+      (item as HTMLElement).style.display = name.includes(filter) ? 'flex' : 'none';
+    });
+  });
+}
 
 // --- MODEL LOADING WRAPPER ---
 async function loadModelData(name: string, buffer: Uint8Array) {
@@ -747,8 +850,6 @@ async function loadModelData(name: string, buffer: Uint8Array) {
     text.innerText = "Building Semantic Model database...";
 
     if (model) {
-      // Set active model labels
-      document.getElementById("model-name-label")!.innerText = name;
 
       // Sync/generate local database twin properties
       await initializeModelTwinData(model);
@@ -782,6 +883,9 @@ async function loadModelData(name: string, buffer: Uint8Array) {
         }
       }, 300);
     }
+
+    // Update dynamic file list
+    refreshFileList();
 
     // Success path: hide overlay after a short delay
     setTimeout(() => {
@@ -840,7 +944,7 @@ loadSampleBtn.addEventListener("click", async () => {
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>
       </svg>
-      Load Sample Model
+      Load Sample
     `;
   }
 });
@@ -1221,3 +1325,23 @@ if (sceneSearchInput) {
 // Initial empty state call
 updateClassificationUI();
 
+// --- THEME TOGGLE BUTTON ---
+const themeToggleBtn = document.getElementById('btn-theme-toggle');
+if (themeToggleBtn) {
+  // Set initial icon based on current theme
+  const isLight = document.documentElement.getAttribute('data-theme') === 'light';
+  themeToggleBtn.textContent = isLight ? '☀️' : '🌙';
+
+  themeToggleBtn.addEventListener('click', () => {
+    const currentTheme = document.documentElement.getAttribute('data-theme');
+    if (currentTheme === 'light') {
+      document.documentElement.removeAttribute('data-theme');
+      localStorage.setItem('bim-theme', 'dark');
+      themeToggleBtn.textContent = '🌙';
+    } else {
+      document.documentElement.setAttribute('data-theme', 'light');
+      localStorage.setItem('bim-theme', 'light');
+      themeToggleBtn.textContent = '☀️';
+    }
+  });
+}
