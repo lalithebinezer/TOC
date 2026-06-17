@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Enterprise Digital Twin & BIM Visualization Portal</title>
+  </head>
+  <body>
+    <div id="app">
+      <!-- 3D Canvas Viewport -->
+      <div id="container"></div>
+
+      <!-- UI Overlay Layer -->
+      <div class="ui-layer">
+        <!-- Full-Width Header -->
+        <header>
+          <div class="brand">
+            <div class="brand-logo">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#a3e635" stroke-width="3">
+                <circle cx="12" cy="12" r="9" />
+                <path d="M12 3a9 9 0 0 1 9 9" />
+              </svg>
+            </div>
+            <div class="brand-text">
+              <h1>That Open Company</h1>
+            </div>
+          </div>
+
+          <!-- Top Navigation Links -->
+          <nav class="nav-links">
+            <a href="#" class="nav-link active">Projects</a>
+            <a href="#" class="nav-link">Data</a>
+            <a href="#" class="nav-link">Admin</a>
+          </nav>
+
+          <!-- User Controls -->
+          <div class="header-controls">
+            <button class="btn-header-badge" title="Control C">C</button>
+            <button class="btn-header-badge" title="Control N">N</button>
+            <button class="btn-header-icon" title="Code">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/>
+              </svg>
+            </button>
+            <button class="btn-header-icon" title="Menu">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/>
+              </svg>
+            </button>
+            <button class="btn-header-icon" title="Settings">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+              </svg>
+            </button>
+            <div class="user-avatar">
+              <img src="https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=32&h=32&q=80" alt="Avatar" />
+            </div>
+          </div>
+        </header>
+
+        <!-- Left Docked Panel -->
+        <aside class="sidebar left-sidebar">
+          <!-- Project Files Widget -->
+          <div class="panel widget-panel">
+            <div class="panel-header">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+              </svg>
+              <span>Project Files</span>
+            </div>
+            <div class="panel-body">
+              <div class="search-box">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                </svg>
+                <input type="text" id="file-search" placeholder="Search.." />
+              </div>
+              <div class="file-list thin-scrollbar" id="file-list">
+                <div class="file-item active">
+                  <div class="file-info">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>
+                    </svg>
+                    <span id="model-name-label">BLOXHUB.ifc</span>
+                  </div>
+                  <div class="file-actions">
+                    <button class="btn-icon active-icon" id="btn-toggle-model-visibility" title="Toggle Visibility">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+                      </svg>
+                    </button>
+                    <button class="btn-icon" title="Filter / Pin">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm0 18a8 8 0 1 1 8-8 8 8 0 0 1-8 8z"/>
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+                <div class="file-item">
+                  <div class="file-info">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>
+                    </svg>
+                    <span>BLOXHUB_STRUCTURE.ifc</span>
+                  </div>
+                  <div class="file-actions">
+                    <button class="btn-icon" title="Toggle Visibility">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+                <div class="file-item">
+                  <div class="file-info">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>
+                    </svg>
+                    <span>BLOXHUB_MEP.ifc</span>
+                  </div>
+                  <div class="file-actions">
+                    <button class="btn-icon" title="Toggle Visibility">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+              </div>
+              <div class="file-actions-row">
+                <button class="btn-secondary" id="load-sample-btn">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>
+                  </svg>
+                  Load Sample Model
+                </button>
+                <div class="btn-file-upload">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+                  </svg>
+                  <span>Upload Local</span>
+                  <input type="file" id="file-input" accept=".ifc,.frag" />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Items Finder Widget -->
+          <div class="panel widget-panel items-finder-widget">
+            <div class="panel-header">
+              <div class="header-title-group">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                </svg>
+                <span>Items Finder</span>
+              </div>
+            </div>
+            <div class="panel-body thin-scrollbar" id="finder-queries-list">
+              <div class="query-item">
+                <div class="query-info">
+                  <div class="query-name">Walls & Slabs</div>
+                  <div class="query-desc">Isolate all floors, slabs, and partitions.</div>
+                </div>
+                <div class="query-actions">
+                  <button class="btn-secondary btn-query-execute" data-query="Walls & Slabs" title="Isolate elements">Isolate</button>
+                </div>
+              </div>
+              <div class="query-item">
+                <div class="query-info">
+                  <div class="query-name">Masonry Walls</div>
+                  <div class="query-desc">Walls with "Masonry" in their name.</div>
+                </div>
+                <div class="query-actions">
+                  <button class="btn-secondary btn-query-execute" data-query="Masonry Walls" title="Isolate elements">Isolate</button>
+                </div>
+              </div>
+              <div class="query-item">
+                <div class="query-info">
+                  <div class="query-name">First Level Columns</div>
+                  <div class="query-desc">Columns contained in Entry level storey.</div>
+                </div>
+                <div class="query-actions">
+                  <button class="btn-secondary btn-query-execute" data-query="First Level Columns" title="Isolate elements">Isolate</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </aside>
+
+        <!-- Right Docked Panel -->
+        <aside class="sidebar right-sidebar">
+          <!-- Scene / Model Structure Widget -->
+          <div class="panel widget-panel">
+            <div class="panel-header">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/>
+              </svg>
+              <span>Scene</span>
+            </div>
+            <div class="panel-body thin-scrollbar">
+              <div class="scene-controls-grid">
+                <div class="scene-control-item">
+                  <div class="scene-control-label">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/>
+                    </svg>
+                    <span>Camera far</span>
+                  </div>
+                  <button class="pill-value font-purple" id="val-camera-far">3000m</button>
+                </div>
+                <div class="scene-control-item" style="grid-column: span 2;">
+                  <div class="scene-control-label">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <polygon points="12 2 2 22 12 17 22 22 12 2"/>
+                    </svg>
+                    <span>Navigation Mode</span>
+                  </div>
+                  <select id="settings-camera-mode" class="btn-secondary" style="padding: 0.15rem 0.5rem; font-size: 0.72rem; outline: none; border-color: var(--border-color); background: var(--bg-input); color: var(--text-main); border-radius: 5px;">
+                    <option value="Orbit">Orbit</option>
+                    <option value="FirstPerson">First Person</option>
+                    <option value="Plan">Plan</option>
+                  </select>
+                </div>
+                <div class="scene-control-item" style="grid-column: span 2;">
+                  <div class="scene-control-label">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <polygon points="12 2 2 7 12 12 22 7 12 2"/>
+                    </svg>
+                    <span>Projection</span>
+                  </div>
+                  <select id="settings-camera-projection" class="btn-secondary" style="padding: 0.15rem 0.5rem; font-size: 0.72rem; outline: none; border-color: var(--border-color); background: var(--bg-input); color: var(--text-main); border-radius: 5px;">
+                    <option value="Perspective">Perspective</option>
+                    <option value="Orthographic">Orthographic</option>
+                  </select>
+                </div>
+                <div class="scene-control-item">
+                  <div class="scene-control-label">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/>
+                    </svg>
+                    <span>Allow Input</span>
+                  </div>
+                  <label class="toggle-switch">
+                    <input type="checkbox" id="settings-camera-input" checked />
+                    <span class="toggle-slider"></span>
+                  </label>
+                </div>
+                <div class="scene-control-item">
+                  <button class="pill-value font-purple" id="btn-camera-fit" style="width: 100%; border: none; cursor: pointer; text-align: center; height: 18px; line-height: 14px;">Fit Model</button>
+                </div>
+                <div class="scene-control-item">
+                  <div class="scene-control-label">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+                    </svg>
+                    <span>Grid layer</span>
+                  </div>
+                  <label class="toggle-switch">
+                    <input type="checkbox" id="settings-toggle-grid" checked />
+                    <span class="toggle-slider"></span>
+                  </label>
+                </div>
+                <div class="scene-control-item">
+                  <div class="scene-control-label">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <circle cx="12" cy="12" r="10"/><path d="M12 8h.01"/><path d="M11 12h1v4h1"/><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2z"/>
+                    </svg>
+                    <span>Show Logo</span>
+                  </div>
+                  <label class="toggle-switch">
+                    <input type="checkbox" id="settings-toggle-logo" checked />
+                    <span class="toggle-slider"></span>
+                  </label>
+                </div>
+                <div class="scene-control-item">
+                  <div class="scene-control-label">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <circle cx="12" cy="12" r="12"/>
+                    </svg>
+                    <span>Background</span>
+                  </div>
+                  <div class="setting-toggle-row">
+                    <input type="color" id="settings-bg-color" value="#080b11" />
+                  </div>
+                </div>
+                <div class="scene-control-item">
+                  <div class="scene-control-label">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <circle cx="12" cy="12" r="8"/>
+                    </svg>
+                    <span>Select Color</span>
+                  </div>
+                  <div class="setting-toggle-row">
+                    <input type="color" id="settings-select-color" value="#00d2ff" />
+                  </div>
+                </div>
+                <div class="scene-control-item">
+                  <div class="scene-control-label">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <circle cx="12" cy="12" r="8"/>
+                    </svg>
+                    <span>Hover Color</span>
+                  </div>
+                  <div class="setting-toggle-row">
+                    <input type="color" id="settings-hover-color" value="#00f5a0" />
+                  </div>
+                </div>
+                <div class="scene-control-item" style="grid-column: span 2;">
+                  <button class="btn-secondary" id="btn-clear-select-colors" style="width: 100%; border-color: var(--color-warning); color: var(--color-warning); display: flex; align-items: center; justify-content: center; gap: 0.35rem;">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                    </svg>
+                    Clear Selection Highlight
+                  </button>
+                </div>
+                <div class="scene-control-item" style="grid-column: span 2;">
+                  <button class="btn-secondary" id="btn-clear-cache" style="width: 100%; border-color: var(--color-error); color: var(--color-error); display: flex; align-items: center; justify-content: center; gap: 0.35rem;">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/>
+                    </svg>
+                    Clear Offline Cache
+                  </button>
+                </div>
+              </div>
+
+              <!-- Lighting Controls -->
+              <div class="control-row">
+                <div class="control-label">
+                  <span>Ambient Light</span>
+                  <span class="value-badge" id="val-ambient-light">1.5</span>
+                </div>
+                <input type="range" class="custom-slider" id="ambient-light-slider" min="0" max="4" step="0.1" value="1.5" />
+              </div>
+
+              <div class="control-row">
+                <div class="control-label">
+                  <span>Directional Light</span>
+                  <span class="value-badge" id="val-dir-light">1.5</span>
+                </div>
+                <input type="range" class="custom-slider" id="dir-light-slider" min="0" max="4" step="0.1" value="1.5" />
+              </div>
+
+              <div class="tree-search">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                </svg>
+                <input type="text" id="scene-search" placeholder="Search.." />
+              </div>
+
+              <div class="scene-tree thin-scrollbar" id="classification-tree" style="display: flex; flex-direction: column; gap: 0.35rem;">
+                <div class="empty-state-container" style="padding: 2rem 1rem; text-align: center;">
+                  <span class="empty-state-text" style="font-size: 0.75rem; color: var(--text-dim);">Load a model to view categories and storeys classification.</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Properties Widget -->
+          <div class="panel widget-panel properties-widget">
+            <div class="panel-header">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+              </svg>
+              <span>Properties</span>
+            </div>
+            <div class="panel-body thin-scrollbar">
+              <div id="properties-selected-state" style="display:none; flex-direction:column; gap:0.75rem; width:100%;">
+                <div class="section-subtitle">BIM Element Metadata</div>
+                <div class="property-table">
+                  <div class="prop-row">
+                    <span class="prop-label">Express ID</span>
+                    <span class="prop-val" id="prop-express-id">-</span>
+                  </div>
+                  <div class="prop-row">
+                    <span class="prop-label">IFC Entity</span>
+                    <span class="prop-val color-green" id="prop-ifc-type">-</span>
+                  </div>
+                  <div class="prop-row">
+                    <span class="prop-label">Name</span>
+                    <span class="prop-val" id="prop-name">-</span>
+                  </div>
+                </div>
+
+                <div class="section-subtitle">5D Cost Estimating</div>
+                <div class="form-inputs-group">
+                  <div class="form-input-box">
+                    <label for="cost-unit-cost">Unit Cost ($)</label>
+                    <input type="number" id="cost-unit-cost" min="0" step="1" />
+                  </div>
+                  <div class="form-input-box">
+                    <label for="cost-quantity">Quantity</label>
+                    <input type="number" id="cost-quantity" min="0" step="0.1" />
+                  </div>
+                  <div class="prop-row" style="margin-top:0.25rem;">
+                    <span class="prop-label">Calculated Cost</span>
+                    <span class="prop-val color-purple font-bold" id="cost-calculated-total">$0.00</span>
+                  </div>
+                </div>
+
+                <div class="section-subtitle">4D Construction Schedule</div>
+                <div class="form-inputs-group">
+                  <div class="form-input-box">
+                    <label for="sched-task">Associated Task</label>
+                    <input type="text" id="sched-task" placeholder="e.g., Bricklaying Work" />
+                  </div>
+                  <div class="form-input-box">
+                    <label for="sched-status">Task Status</label>
+                    <select id="sched-status">
+                      <option value="Planned">Planned</option>
+                      <option value="In Progress">In Progress</option>
+                      <option value="Completed">Completed</option>
+                    </select>
+                  </div>
+                  <div class="form-input-box">
+                    <label for="sched-start">Start Date</label>
+                    <input type="date" id="sched-start" />
+                  </div>
+                  <div class="form-input-box">
+                    <label for="sched-end">End Date</label>
+                    <input type="date" id="sched-end" />
+                  </div>
+                </div>
+
+                <button class="btn-action-primary" id="save-data-btn">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                    <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/>
+                  </svg>
+                  Sync Digital Twin Data
+                </button>
+              </div>
+
+              <div id="properties-empty-state" class="empty-state-container">
+                <div class="empty-state-card">
+                  <div class="empty-card-icon">
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
+                      <rect x="4" y="4" width="16" height="16" rx="2" ry="2"/>
+                      <line x1="8" y1="10" x2="16" y2="10"/>
+                      <line x1="8" y1="14" x2="14" y2="14"/>
+                    </svg>
+                  </div>
+                </div>
+                <span class="empty-state-text">Select an object in the viewport to link project data.</span>
+              </div>
+          </div>
+
+          <!-- Measurements Widget -->
+          <div class="panel widget-panel measurements-widget" style="flex: 0.8; min-height: 0;">
+            <div class="panel-header">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="5" y1="5" x2="19" y2="19"/><circle cx="5" cy="5" r="2"/><circle cx="19" cy="19" r="2"/>
+              </svg>
+              <span>Measurements</span>
+            </div>
+            <div class="panel-body thin-scrollbar" style="gap: 0.5rem; display: flex; flex-direction: column;">
+              <div class="scene-control-item" style="display: flex; justify-content: space-between; align-items: center; background: rgba(18, 20, 32, 0.5); border: 1px solid var(--border-subtle); padding: 0.4rem 0.65rem; border-radius: 7px;">
+                <div class="scene-control-label" style="display: flex; align-items: center; gap: 0.45rem; font-size: 0.72rem; color: var(--text-muted);">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="15" y2="6"/><line x1="3" y1="18" x2="18" y2="18"/>
+                  </svg>
+                  <span>Tape Measure</span>
+                </div>
+                <label class="toggle-switch">
+                  <input type="checkbox" id="settings-toggle-measure" />
+                  <span class="toggle-slider"></span>
+                </label>
+              </div>
+              <button class="btn-secondary" id="btn-clear-measurements" style="width: 100%; border-color: var(--color-warning); color: var(--color-warning); display: flex; align-items: center; justify-content: center; gap: 0.35rem; font-size: 0.72rem; padding: 0.45rem;">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                </svg>
+                Delete All Measures
+              </button>
+            </div>
+          </div>
+        </aside>
+
+        <!-- Centered Bottom Floating Toolbar -->
+        <div class="bottom-toolbar">
+          <div class="toolbar-section">
+            <span class="section-label">Visibility</span>
+            <div class="toolbar-buttons">
+              <button class="btn-tool" id="btn-show-all" title="Show All Elements">
+                Show All
+              </button>
+              <button class="btn-tool" id="btn-hide-all" title="Hide All Elements">
+                Hide All
+              </button>
+            </div>
+          </div>
+
+          <div class="toolbar-divider"></div>
+
+          <div class="toolbar-section">
+            <span class="section-label">Data</span>
+            <div class="toolbar-buttons">
+              <button class="btn-tool btn-tool-accent" id="btn-load-ifc" title="Load Local Model">
+                Load IFC
+              </button>
+            </div>
+          </div>
+
+          <div class="toolbar-divider"></div>
+
+          <div class="toolbar-section">
+            <span class="section-label">Selection</span>
+            <div class="toolbar-buttons">
+              <button class="btn-tool" id="btn-focus" title="Zoom Fit Selection">
+                Focus
+              </button>
+              <button class="btn-tool" id="btn-hide-selected" title="Hide Selected Element">
+                Hide
+              </button>
+              <button class="btn-tool" id="btn-isolate" title="Isolate Selected Element">
+                Isolate
+              </button>
+              <button class="btn-tool" id="btn-clear-selection" title="Clear selection">
+                Clear
+              </button>
+            </div>
+          </div>
+
+          <div class="toolbar-divider"></div>
+
+          <div class="toolbar-section">
+            <span class="section-label">Sectioning</span>
+            <div class="toolbar-buttons">
+              <button class="btn-tool" id="btn-section-cut" title="Toggle Section Cut mode (double-click viewport)">
+                Section Cut
+              </button>
+              <button class="btn-tool" id="btn-clear-sections" title="Delete all section planes">
+                Clear Cuts
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Compact Glass Loading / Telemetry Overlay -->
+      <div class="loading-overlay" id="loading-overlay">
+        <div class="spinner-wrapper">
+          <div class="spinner-ring"></div>
+          <div class="spinner-glow"></div>
+        </div>
+        <div class="loading-content">
+          <div class="loading-title" id="loading-text">Initializing 3D Twin Environment</div>
+          <div class="loading-pct" id="loading-progress">0%</div>
+          <div class="loading-desc" id="loading-subtitle">Hosting WASM modules locally and setting up hardware acceleration.</div>
+        </div>
+      </div>
+    </div>
+    
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
