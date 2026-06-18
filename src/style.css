@@ -1868,3 +1868,72 @@ body.mode-4d::after {
 
   .bottom-toolbar::before { display: none; }
 }
+
+/* ============================================================
+   3D VIEW CUBE STYLE
+   ============================================================ */
+.view-cube-layer {
+  grid-column: 2;
+  grid-row: 2;
+  position: relative;
+  pointer-events: none;
+}
+
+.view-cube-container {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  width: 80px;
+  height: 80px;
+  perspective: 400px;
+  pointer-events: auto;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.view-cube {
+  width: 60px;
+  height: 60px;
+  position: relative;
+  transform-style: preserve-3d;
+  transition: transform 0.1s ease-out;
+}
+
+.cube-face {
+  position: absolute;
+  width: 60px;
+  height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-body);
+  font-size: 0.62rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  background: var(--bg-panel);
+  border: 1px solid var(--border-color);
+  box-shadow: var(--shadow-xs), var(--glass-shine);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  cursor: pointer;
+  user-select: none;
+  transition: all var(--ease-fast);
+}
+
+.cube-face:hover {
+  background: rgba(56, 189, 248, 0.2);
+  border-color: var(--accent-400);
+  color: var(--text-primary);
+  box-shadow: 0 0 12px var(--accent-glow);
+}
+
+/* Face positions in 3D */
+.cube-front  { transform: translateZ(30px); }
+.cube-back   { transform: rotateY(180deg) translateZ(30px); }
+.cube-left   { transform: rotateY(-90deg) translateZ(30px); }
+.cube-right  { transform: rotateY(90deg) translateZ(30px); }
+.cube-top    { transform: rotateX(90deg) translateZ(30px); }
+.cube-bottom { transform: rotateX(-90deg) translateZ(30px); }
+

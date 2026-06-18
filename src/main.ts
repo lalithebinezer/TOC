@@ -1955,3 +1955,89 @@ function apply4dMode(active: boolean) {
 apply4dMode(is4dMode);
 
 btn4dMode.addEventListener('click', () => apply4dMode(!is4dMode));
+
+// --- 3D VIEW CUBE CONTROLLER ---
+function updateViewCubeOrientation() {
+  const cube = document.getElementById("view-cube");
+  if (!cube) return;
+
+  const camera = world.camera.three;
+  const matrix = new THREE.Matrix4();
+  matrix.extractRotation(camera.matrixWorld);
+  matrix.invert();
+
+  const e = matrix.elements;
+  // Apply inverted rotation matrix to CSS 3D matrix3d to map Three.js coordinates to CSS
+  cube.style.transform = `matrix3d(
+    ${e[0].toFixed(6)}, ${-e[1].toFixed(6)}, ${-e[2].toFixed(6)}, 0,
+    ${e[4].toFixed(6)}, ${-e[5].toFixed(6)}, ${-e[6].toFixed(6)}, 0,
+    ${e[8].toFixed(6)}, ${-e[9].toFixed(6)}, ${-e[10].toFixed(6)}, 0,
+    0, 0, 0, 1
+  )`;
+}
+
+// Add event listener to camera changes to sync rotation
+world.onCameraChanged.add(() => {
+  updateViewCubeOrientation();
+});
+
+// Click handlers for view cube faces to re-orient camera
+document.querySelectorAll(".cube-face").forEach((faceEl) => {
+  faceEl.addEventListener("click", async (e) => {
+    const face = (e.currentTarget as HTMLElement).getAttribute("data-face");
+    if (!face) return;
+
+    const target = new THREE.Vector3();
+    world.camera.controls.getTarget(target);
+
+    const box = new THREE.Box3();
+    let hasModel = false;
+    for (const [, model] of fragments.list) {
+      box.expandByObject(model.object);
+      hasModel = true;
+    }
+
+    let center = new THREE.Vector3();
+    let d = 20;
+    if (hasModel) {
+      box.getCenter(center);
+      const size = new THREE.Vector3();
+      box.getSize(size);
+      d = Math.max(size.x, size.y, size.z) * 1.5;
+    } else {
+      center.copy(target);
+      d = world.camera.controls.distance || 20;
+    }
+
+    let posX = center.x;
+    let posY = center.y;
+    let posZ = center.z;
+
+    switch (face) {
+      case "front":
+        posZ += d;
+        break;
+      case "back":
+        posZ -= d;
+        break;
+      case "left":
+        posX -= d;
+        break;
+      case "right":
+        posX += d;
+        break;
+      case "top":
+        posY += d;
+        break;
+      case "bottom":
+        posY -= d;
+        break;
+    }
+
+    await world.camera.controls.setLookAt(posX, posY, posZ, center.x, center.y, center.z, true);
+  });
+});
+
+// Initial update
+setTimeout(updateViewCubeOrientation, 500);
+
