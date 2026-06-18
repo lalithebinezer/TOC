@@ -862,6 +862,7 @@ function refreshFileList() {
 
     fileListEl.appendChild(item);
   }
+  updateHeaderLabel();
 }
 
 // File search filter
@@ -981,6 +982,9 @@ async function loadModelData(name: string, buffer: Uint8Array) {
         world.renderer.resize();
       }
       window.dispatchEvent(new Event('resize'));
+
+      // Set to viewer mode (exit 4D) initially when a project is loaded
+      apply4dMode(false);
 
       // Fit camera controls box around loaded model
       setTimeout(async () => {
@@ -1904,6 +1908,26 @@ let is4dMode = localStorage.getItem('bim-4d-mode') === 'true';
 const btn4dMode = document.getElementById('btn-4d-mode')!;
 const btn4dLabel = document.getElementById('btn-4d-label')!;
 
+function updateHeaderLabel() {
+  const labelEl = document.getElementById('project-header-label');
+  if (!labelEl) return;
+  
+  let projectName = "Projects";
+  if (fragments.list.size > 0) {
+    // Get the name of the first loaded model
+    const firstEntry = fragments.list.entries().next().value;
+    if (firstEntry) {
+      const [firstModelId, firstModel] = firstEntry;
+      const anyModel = firstModel as any;
+      const rawName = anyModel.modelId || anyModel.name || firstModelId;
+      projectName = rawName.replace(/\.[^/.]+$/, ""); // strip extension
+    }
+  }
+  
+  const modeName = is4dMode ? "4D Simulation" : "Viewer";
+  labelEl.textContent = `${projectName} - ${modeName}`;
+}
+
 function apply4dMode(active: boolean) {
   is4dMode = active;
   localStorage.setItem('bim-4d-mode', String(active));
@@ -1924,6 +1948,7 @@ function apply4dMode(active: boolean) {
     const hider = components.get(OBC.Hider);
     hider.set(true);
   }
+  updateHeaderLabel();
 }
 
 // Restore last 4D mode state on load
