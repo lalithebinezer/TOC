@@ -65,7 +65,7 @@ if (dirLight) dirLight.intensity = 1.5;
 
 // --- BIM & GEOMETRY INGESTION SETUP ---
 const fragments = components.get(OBC.FragmentsManager);
-fragments.init("/worker.mjs");
+fragments.init(import.meta.env.BASE_URL + "worker.mjs");
 const ifcLoader = components.get(OBC.IfcLoader);
 
 // --- CLIPPER (SECTION PLANES) SETUP ---
@@ -907,7 +907,7 @@ async function loadModelData(name: string, buffer: Uint8Array) {
         await ifcLoader.setup({
           autoSetWasm: false,
           wasm: {
-            path: "/",
+            path: import.meta.env.BASE_URL,
             absolute: true,
           }
         });
