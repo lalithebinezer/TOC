@@ -1976,8 +1976,8 @@ function updateViewCubeOrientation() {
   )`;
 }
 
-// Add event listener to camera changes to sync rotation
-world.onCameraChanged.add(() => {
+// Add event listener to camera controls to sync rotation on every update
+world.camera.controls.addEventListener("update", () => {
   updateViewCubeOrientation();
 });
 
