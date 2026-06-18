@@ -109,6 +109,12 @@ highlighter.styles.set("hover", {
   transparent: true,
   renderedFaces: true as any,
 });
+highlighter.styles.set("timeline-inprogress", {
+  color: new THREE.Color("#8b5cf6"), // Electric Violet
+  opacity: 0.6,
+  transparent: true,
+  renderedFaces: true as any,
+});
 
 // --- ITEMS FINDER / SEMANTIC QUERIES ---
 const finder = components.get(OBC.ItemsFinder);
@@ -163,9 +169,51 @@ interface TwinData {
   status: "Planned" | "In Progress" | "Completed";
   startDate: string;
   endDate: string;
+  isCustomized?: boolean;
 }
 
 const twinDatabase: Record<string, TwinData> = {};
+const globalElementStoreysMap: Record<string, string> = {};
+
+// Define sequencing helpers globally
+function getStoreyIndex(storeyName: string): number {
+  const name = storeyName.toUpperCase();
+  if (name.includes("FOUNDATION") || name.includes("SUBSTRUCTURE") || name.includes("BASEMENT") || name.includes("GROUND")) return 0;
+  if (name.includes("ENTRY") || name.includes("LEVEL 0") || name.includes("FLOOR 0")) return 1;
+  if (name.includes("LEVEL 1") || name.includes("FLOOR 1") || name.includes("FIRST")) return 2;
+  if (name.includes("LEVEL 2") || name.includes("FLOOR 2") || name.includes("SECOND")) return 3;
+  if (name.includes("LEVEL 3") || name.includes("FLOOR 3") || name.includes("THIRD")) return 4;
+  if (name.includes("ROOF") || name.includes("PENTHOUSE")) return 5;
+  
+  const match = name.match(/\d+/);
+  if (match) {
+    return parseInt(match[0], 10) + 1;
+  }
+  return 1; // Default
+}
+
+function getCategorySequence(ifcType: string): { startOffset: number, duration: number, task: string, unitCost: number } {
+  const type = ifcType.toUpperCase();
+  if (type.includes("SLAB")) {
+    return { startOffset: 0, duration: 6, task: "Foundation & Slab Concrete", unitCost: 450 };
+  }
+  if (type.includes("COLUMN") || type.includes("BEAM") || type.includes("MEMBER") || type.includes("PLATE")) {
+    return { startOffset: 5, duration: 6, task: "Structural Steel Framing", unitCost: 650 };
+  }
+  if (type.includes("WALL")) {
+    return { startOffset: 9, duration: 8, task: "Masonry & Wall Partitioning", unitCost: 280 };
+  }
+  if (type.includes("PIPE") || type.includes("DUCT") || type.includes("CABLE") || type.includes("FLOW")) {
+    return { startOffset: 14, duration: 7, task: "MEP Rough-in Services", unitCost: 180 };
+  }
+  if (type.includes("WINDOW") || type.includes("DOOR")) {
+    return { startOffset: 18, duration: 5, task: "Exterior Glazing & Doors", unitCost: 350 };
+  }
+  if (type.includes("ROOF")) {
+    return { startOffset: 20, duration: 6, task: "Roofing Systems Installation", unitCost: 550 };
+  }
+  return { startOffset: 16, duration: 8, task: "Interior Finishes & Fit-Out", unitCost: 120 };
+}
 
 function loadDatabase() {
   try {
@@ -180,7 +228,14 @@ function loadDatabase() {
 
 function saveDatabase() {
   try {
-    localStorage.setItem("bim_twin_db_v1", JSON.stringify(twinDatabase));
+    // Only serialize customized elements to prevent LocalStorage quota limits (5MB)
+    const customizedDb: Record<string, TwinData> = {};
+    for (const key in twinDatabase) {
+      if (twinDatabase[key].isCustomized) {
+        customizedDb[key] = twinDatabase[key];
+      }
+    }
+    localStorage.setItem("bim_twin_db_v1", JSON.stringify(customizedDb));
   } catch (e) {
     console.error("Failed to save local database", e);
   }
@@ -277,59 +332,34 @@ function getOrGenerateTwinData(modelId: string, expressId: number, ifcType: stri
     return twinDatabase[dbKey];
   }
 
-  const typeUpper = ifcType.toUpperCase();
-  let unitCost = 150;
-  let quantity = 1.0;
-  let task = "General Construction Works";
-  let status: "Planned" | "In Progress" | "Completed" = "Planned";
-  let startDate = "2026-07-01";
-  let endDate = "2026-07-05";
+  const storeyName = globalElementStoreysMap[dbKey] || "Entry Level";
+  const storeyIndex = getStoreyIndex(storeyName);
+  
+  // 12 days construction cycle per floor with overlap
+  const storeyOffset = storeyIndex * 12;
+  const { startOffset, duration, task, unitCost } = getCategorySequence(ifcType);
+  
+  const projectStart = new Date("2026-06-18");
+  const start = new Date(projectStart);
+  start.setDate(start.getDate() + storeyOffset + startOffset);
+  
+  const end = new Date(projectStart);
+  end.setDate(end.getDate() + storeyOffset + startOffset + duration);
 
-  // Pseudo-random but deterministic values based on expressId so they stay consistent
+  const startDate = start.toISOString().split("T")[0];
+  const endDate = end.toISOString().split("T")[0];
+
   const rand = (expressId % 100) / 100;
+  const quantity = Math.max(1, Math.floor(rand * 15 + 1));
+  const calculatedCost = unitCost * quantity;
 
-  if (typeUpper.includes("WALL")) {
-    unitCost = 280;
-    quantity = Math.floor(rand * 20 + 5);
-    task = "Partition & Wall Framing";
-    startDate = "2026-06-18";
-    endDate = "2026-06-25";
-    status = "In Progress";
-  } else if (typeUpper.includes("SLAB")) {
-    unitCost = 450;
-    quantity = Math.floor(rand * 50 + 10);
-    task = "Foundation & Slab Concrete";
-    startDate = "2026-06-10";
-    endDate = "2026-06-17";
+  // Initial status determined by start date relative to project start/current date
+  let status: "Planned" | "In Progress" | "Completed" = "Planned";
+  const currentMs = projectStart.getTime();
+  if (currentMs > end.getTime()) {
     status = "Completed";
-  } else if (typeUpper.includes("COLUMN") || typeUpper.includes("BEAM")) {
-    unitCost = 650;
-    quantity = Math.floor(rand * 5 + 1);
-    task = "Structural Steel Framing";
-    startDate = "2026-06-15";
-    endDate = "2026-06-22";
+  } else if (currentMs >= start.getTime() && currentMs <= end.getTime()) {
     status = "In Progress";
-  } else if (typeUpper.includes("DOOR") || typeUpper.includes("WINDOW")) {
-    unitCost = 350;
-    quantity = Math.floor(rand * 4 + 1);
-    task = "Exterior Doors & Glazing";
-    startDate = "2026-07-02";
-    endDate = "2026-07-08";
-    status = "Planned";
-  } else if (typeUpper.includes("ROOF")) {
-    unitCost = 550;
-    quantity = 1;
-    task = "Roofing Systems Installation";
-    startDate = "2026-07-10";
-    endDate = "2026-07-15";
-    status = "Planned";
-  } else if (typeUpper.includes("PIPE") || typeUpper.includes("DUCT") || typeUpper.includes("CABLE")) {
-    unitCost = 180;
-    quantity = Math.floor(rand * 30 + 10);
-    task = "MEP System Distribution";
-    startDate = "2026-07-05";
-    endDate = "2026-07-12";
-    status = "Planned";
   }
 
   return {
@@ -337,7 +367,7 @@ function getOrGenerateTwinData(modelId: string, expressId: number, ifcType: stri
     expressId,
     unitCost,
     quantity,
-    calculatedCost: unitCost * quantity,
+    calculatedCost,
     task,
     status,
     startDate,
@@ -345,8 +375,9 @@ function getOrGenerateTwinData(modelId: string, expressId: number, ifcType: stri
   };
 }
 
-// Pre-fill mock data for loaded elements based on their IFC type
+// Pre-fill mock data for loaded elements based on their IFC type using standard construction sequencing
 async function initializeModelTwinData(model: any) {
+  const modelId = model.modelId || model.uuid || model.id || (model.object && model.object.uuid) || "default-model";
   let properties = model.properties || (model as any).getLocalProperties?.() || {};
 
   if (!properties || Object.keys(properties).length === 0) {
@@ -367,6 +398,76 @@ async function initializeModelTwinData(model: any) {
     }
   }
 
+  // Pre-build a map of expressId -> storeyName from classifier Storeys classification
+  const storeys = classifier.list.get("Storeys");
+  if (storeys) {
+    for (const [storeyName, groupData] of storeys) {
+      const map = await groupData.get();
+      for (const mId in map) {
+        if (mId === modelId || fragments.list.get(mId) === model) {
+          for (const id of map[mId]) {
+            globalElementStoreysMap[`${mId}-${id}`] = storeyName;
+          }
+        }
+      }
+    }
+  }
+
+  const projectStart = new Date("2026-06-18");
+
+  for (const expressIdStr in properties) {
+    const expressId = Number(expressIdStr);
+    if (isNaN(expressId)) continue;
+
+    const elementProps = properties[expressId];
+    if (!elementProps) continue;
+
+    const dbKey = `${modelId}-${expressId}`;
+    if (twinDatabase[dbKey]) continue; // Skip if already customized by user
+
+    const ifcType = String(elementProps.type ?? "").toUpperCase();
+    const storeyName = globalElementStoreysMap[dbKey] || "Entry Level";
+    const storeyIndex = getStoreyIndex(storeyName);
+    
+    // 12 days construction cycle per floor with overlap
+    const storeyOffset = storeyIndex * 12;
+    const { startOffset, duration, task, unitCost } = getCategorySequence(ifcType);
+    
+    const start = new Date(projectStart);
+    start.setDate(start.getDate() + storeyOffset + startOffset);
+    
+    const end = new Date(projectStart);
+    end.setDate(end.getDate() + storeyOffset + startOffset + duration);
+
+    const startDate = start.toISOString().split("T")[0];
+    const endDate = end.toISOString().split("T")[0];
+
+    const rand = (expressId % 100) / 100;
+    const quantity = Math.max(1, Math.floor(rand * 15 + 1));
+
+    // Initial status determined by start date relative to project start/current date
+    let status: "Planned" | "In Progress" | "Completed" = "Planned";
+    const currentMs = projectStart.getTime(); // Treat projectStart as current date initially
+    if (currentMs > end.getTime()) {
+      status = "Completed";
+    } else if (currentMs >= start.getTime() && currentMs <= end.getTime()) {
+      status = "In Progress";
+    }
+
+    twinDatabase[dbKey] = {
+      modelId,
+      expressId,
+      unitCost,
+      quantity,
+      calculatedCost: unitCost * quantity,
+      task,
+      status,
+      startDate,
+      endDate
+    };
+  }
+
+  saveDatabase();
   updateDashboardMetrics();
 }
 
@@ -580,10 +681,17 @@ saveBtn.addEventListener("click", () => {
     status,
     startDate,
     endDate,
+    isCustomized: true,
   };
 
   saveDatabase();
   updateDashboardMetrics();
+  // Refresh timeline at current scrub position — properly await the async call
+  if (currentTimelineDate) {
+    (async () => { await updateTimelineVisualState(); })();
+  } else {
+    calculateTimelineBounds();
+  }
 
   // Show success animation inside the button
   const originalHtml = saveBtn.innerHTML;
@@ -749,6 +857,7 @@ function refreshFileList() {
       refreshFileList();
       updateClassificationUI();
       resetPropertiesPanel();
+      calculateTimelineBounds();
     });
 
     fileListEl.appendChild(item);
@@ -851,9 +960,6 @@ async function loadModelData(name: string, buffer: Uint8Array) {
 
     if (model) {
 
-      // Sync/generate local database twin properties
-      await initializeModelTwinData(model);
-
       // Run dynamic classifications
       console.log("CLASSIFIER: starting byCategory");
       await classifier.byCategory({ classificationName: "Categories" });
@@ -861,9 +967,14 @@ async function loadModelData(name: string, buffer: Uint8Array) {
       console.log("CLASSIFIER: starting byIfcBuildingStorey");
       await classifier.byIfcBuildingStorey({ classificationName: "Storeys" });
       console.log("CLASSIFIER: byIfcBuildingStorey done");
+
+      // Sync/generate local database twin properties using classifications
+      await initializeModelTwinData(model);
+
       console.log("CLASSIFIER: starting updateClassificationUI");
       await updateClassificationUI();
       console.log("CLASSIFIER: updateClassificationUI done");
+      calculateTimelineBounds();
 
       // Force renderer to resize and update layout
       if (world.renderer) {
@@ -1138,9 +1249,22 @@ logoToggle.addEventListener("change", () => {
 
 const clearCacheBtn = document.getElementById("btn-clear-cache")!;
 clearCacheBtn.addEventListener("click", async () => {
-  if (confirm("Are you sure you want to clear the offline fragments cache? This will force re-conversion on all models next load.")) {
+  if (confirm("Are you sure you want to clear the offline fragments cache and reset the digital twin database? This will apply the new standard construction sequencing to all models.")) {
     await clearFragmentCache();
-    alert("Offline cache cleared successfully.");
+    localStorage.removeItem("bim_twin_db_v1");
+    for (const key in twinDatabase) {
+      delete twinDatabase[key];
+    }
+    alert("Offline cache and digital twin database reset successfully. Please reload the model to see the new sequence.");
+  }
+});
+
+// Clear only localStorage (no fragment cache)
+const clearStorageBtn = document.getElementById("btn-clear-storage");
+clearStorageBtn?.addEventListener("click", () => {
+  if (confirm("Clear all localStorage entries? This will remove saved twin data and settings.")) {
+    localStorage.clear();
+    alert("Local storage cleared. Reload the page to start fresh.");
   }
 });
 
@@ -1322,8 +1446,437 @@ if (sceneSearchInput) {
   });
 }
 
+// --- 4D CONSTRUCTION TIMELINE SIMULATION ENGINE ---
+let timelineMinDate: Date | null = null;
+let timelineMaxDate: Date | null = null;
+let currentTimelineDate: Date | null = null;
+let timelineTimer: number | null = null;
+let timelineIsPlaying = false;
+let timelineSpeed = 2; // Days per second
+
+const timelineSlider = document.getElementById("timeline-slider")! as HTMLInputElement;
+const timelinePlayBtn = document.getElementById("timeline-play-btn")!;
+const timelineSpeedSelect = document.getElementById("timeline-speed")! as HTMLSelectElement;
+const timelineDateBadge = document.getElementById("timeline-date-badge")!;
+
+function calculateTimelineBounds() {
+  let minTime = Infinity;
+  let maxTime = -Infinity;
+  let hasDates = false;
+
+  for (const [, model] of fragments.list) {
+    const anyModel = model as any;
+    const modelId = anyModel.modelId || anyModel.uuid || anyModel.id || anyModel.object?.uuid || "default-model";
+    const properties = anyModel.properties || anyModel.getLocalProperties?.() || {};
+
+    for (const expressIdStr in properties) {
+      const expressId = Number(expressIdStr);
+      if (isNaN(expressId)) continue;
+
+      const elementProps = properties[expressId];
+      if (!elementProps) continue;
+
+      const ifcType = String(elementProps.type ?? "").toUpperCase();
+      const twinData = getOrGenerateTwinData(modelId, expressId, ifcType);
+
+      if (twinData.startDate) {
+        const start = new Date(twinData.startDate).getTime();
+        if (start < minTime) minTime = start;
+        hasDates = true;
+      }
+      if (twinData.endDate) {
+        const end = new Date(twinData.endDate).getTime();
+        if (end > maxTime) maxTime = end;
+        hasDates = true;
+      }
+    }
+  }
+
+  if (hasDates && minTime !== Infinity && maxTime !== -Infinity) {
+    timelineMinDate = new Date(minTime);
+    timelineMaxDate = new Date(maxTime);
+    
+    // Add buffer: 1 day before start, 1 day after end
+    timelineMinDate.setDate(timelineMinDate.getDate() - 1);
+    timelineMaxDate.setDate(timelineMaxDate.getDate() + 1);
+
+    currentTimelineDate = new Date(timelineMinDate);
+
+    // Enable inputs
+    timelineSlider.removeAttribute("disabled");
+    timelinePlayBtn.removeAttribute("disabled");
+
+    // Configure slider range (in total days)
+    const diffDays = Math.ceil((timelineMaxDate.getTime() - timelineMinDate.getTime()) / (1000 * 60 * 60 * 24));
+    timelineSlider.max = String(diffDays);
+    timelineSlider.value = "0";
+
+    updateTimelineDateUI();
+    updateTimelineVisualState();
+  } else {
+    timelineMinDate = null;
+    timelineMaxDate = null;
+    currentTimelineDate = null;
+    timelineSlider.value = "0";
+    timelineSlider.setAttribute("disabled", "true");
+    timelinePlayBtn.setAttribute("disabled", "true");
+    timelineDateBadge.innerText = "No Dates";
+  }
+}
+
+function updateTimelineDateUI() {
+  if (!currentTimelineDate) return;
+  const year = currentTimelineDate.getFullYear();
+  const month = String(currentTimelineDate.getMonth() + 1).padStart(2, '0');
+  const day = String(currentTimelineDate.getDate()).padStart(2, '0');
+  timelineDateBadge.innerText = `${year}-${month}-${day}`;
+}
+
+async function updateTimelineVisualState() {
+  if (!currentTimelineDate) return;
+
+  const hider = components.get(OBC.Hider);
+  
+  // Clear previous timeline highlighting
+  await highlighter.clear("timeline-inprogress");
+
+  const plannedMap: Record<string, Set<number>> = {};
+  const inProgressMap: Record<string, Set<number>> = {};
+  const completedMap: Record<string, Set<number>> = {};
+
+  let hasPlanned = false;
+  let hasInProgress = false;
+  let hasCompleted = false;
+
+  for (const [, model] of fragments.list) {
+    const anyModel = model as any;
+    const modelId = anyModel.modelId || anyModel.uuid || anyModel.id || anyModel.object?.uuid || "default-model";
+    const properties = anyModel.properties || anyModel.getLocalProperties?.() || {};
+
+    const plannedIds = new Set<number>();
+    const inProgressIds = new Set<number>();
+    const completedIds = new Set<number>();
+
+    for (const expressIdStr in properties) {
+      const expressId = Number(expressIdStr);
+      if (isNaN(expressId)) continue;
+
+      const elementProps = properties[expressId];
+      if (!elementProps) continue;
+
+      const ifcType = String(elementProps.type ?? "").toUpperCase();
+      const twinData = getOrGenerateTwinData(modelId, expressId, ifcType);
+
+      const start = new Date(twinData.startDate);
+      const end = new Date(twinData.endDate);
+
+      // Compare dates (midnight boundary)
+      const currentMs = currentTimelineDate.getTime();
+      const startMs = start.getTime();
+      const endMs = end.getTime();
+
+      let status: "Planned" | "In Progress" | "Completed" = "Planned";
+      if (currentMs < startMs) {
+        plannedIds.add(expressId);
+        status = "Planned";
+      } else if (currentMs >= startMs && currentMs <= endMs) {
+        inProgressIds.add(expressId);
+        status = "In Progress";
+      } else {
+        completedIds.add(expressId);
+        status = "Completed";
+      }
+
+      // Dynamic 4D properties update — preserve user-customized statuses
+      if (!twinData.isCustomized) {
+        twinData.status = status;
+      }
+    }
+
+    if (plannedIds.size > 0) {
+      plannedMap[modelId] = plannedIds;
+      hasPlanned = true;
+    }
+    if (inProgressIds.size > 0) {
+      inProgressMap[modelId] = inProgressIds;
+      hasInProgress = true;
+    }
+    if (completedIds.size > 0) {
+      completedMap[modelId] = completedIds;
+      hasCompleted = true;
+    }
+  }
+
+  // Update visibility & highlight
+  if (hasPlanned) {
+    await hider.set(false, plannedMap);
+  }
+  if (hasInProgress) {
+    await hider.set(true, inProgressMap);
+    await highlighter.highlightByID("timeline-inprogress", inProgressMap, true, false);
+  }
+  if (hasCompleted) {
+    await hider.set(true, completedMap);
+  }
+
+  // Sync selected element inputs dynamically if properties panel is open for it
+  if (activeModelId && activeExpressId !== null) {
+    const selectedModel = fragments.list.get(activeModelId) as any;
+    if (selectedModel && selectedModel.properties && selectedModel.properties[activeExpressId]) {
+      const ifcType = String(selectedModel.properties[activeExpressId].type ?? "").toUpperCase();
+      const twinData = getOrGenerateTwinData(activeModelId, activeExpressId, ifcType);
+      
+      const elStatus = document.getElementById("sched-status") as HTMLSelectElement;
+      if (elStatus) elStatus.value = twinData.status;
+
+      const elCostTotal = document.getElementById("cost-calculated-total");
+      if (elCostTotal) elCostTotal.innerText = new Intl.NumberFormat("en-US", {
+        style: "currency",
+        currency: "USD"
+      }).format(twinData.calculatedCost);
+    }
+  }
+
+  // Update real-time stats and timeline progress bar on dashboard
+  updateDashboardMetrics();
+  updateScheduleWidgetUI();
+
+  fragments.core.update(true);
+}
+
+function updateScheduleWidgetUI() {
+  const container = document.getElementById("schedule-tasks-list");
+  if (!container) return;
+
+  if (fragments.list.size === 0) {
+    container.innerHTML = `<div class="empty-state">Load a model to view the construction schedule.</div>`;
+    return;
+  }
+
+  // Aggregate stats per task name
+  const taskStats: Record<string, {
+    startDate: string;
+    endDate: string;
+    totalCount: number;
+    completedCount: number;
+    modelIdMaps: Record<string, Set<number>>;
+  }> = {};
+
+  for (const [, model] of fragments.list) {
+    const anyModel = model as any;
+    const modelId = anyModel.modelId || anyModel.uuid || anyModel.id || anyModel.object?.uuid || "default-model";
+    const properties = anyModel.properties || anyModel.getLocalProperties?.() || {};
+
+    for (const expressIdStr in properties) {
+      const expressId = Number(expressIdStr);
+      if (isNaN(expressId)) continue;
+
+      const elementProps = properties[expressId];
+      if (!elementProps) continue;
+
+      const ifcType = String(elementProps.type ?? "").toUpperCase();
+      const twinData = getOrGenerateTwinData(modelId, expressId, ifcType);
+
+      const taskName = twinData.task;
+      if (!taskStats[taskName]) {
+        taskStats[taskName] = {
+          startDate: twinData.startDate,
+          endDate: twinData.endDate,
+          totalCount: 0,
+          completedCount: 0,
+          modelIdMaps: {},
+        };
+      }
+
+      const stats = taskStats[taskName];
+      stats.totalCount++;
+      if (twinData.status === "Completed") {
+        stats.completedCount++;
+      }
+
+      // Update min/max dates
+      if (new Date(twinData.startDate) < new Date(stats.startDate)) {
+        stats.startDate = twinData.startDate;
+      }
+      if (new Date(twinData.endDate) > new Date(stats.endDate)) {
+        stats.endDate = twinData.endDate;
+      }
+
+      // Add to model map for isolation
+      if (!stats.modelIdMaps[modelId]) {
+        stats.modelIdMaps[modelId] = new Set<number>();
+      }
+      stats.modelIdMaps[modelId].add(expressId);
+    }
+  }
+
+  container.innerHTML = "";
+  
+  // Sort tasks by start date
+  const sortedTasks = Object.entries(taskStats).sort((a, b) => {
+    return new Date(a[1].startDate).getTime() - new Date(b[1].startDate).getTime();
+  });
+
+  for (const [taskName, stats] of sortedTasks) {
+    const item = document.createElement("div");
+    item.className = "schedule-task-item";
+    
+    // Determine overall task status
+    let taskStatus: "Planned" | "In Progress" | "Completed" = "Planned";
+    if (stats.completedCount === stats.totalCount) {
+      taskStatus = "Completed";
+    } else if (stats.completedCount > 0) {
+      taskStatus = "In Progress";
+    }
+    
+    // Check if the current timeline date is within this task's date range
+    if (currentTimelineDate) {
+      const currentMs = currentTimelineDate.getTime();
+      const startMs = new Date(stats.startDate).getTime();
+      const endMs = new Date(stats.endDate).getTime();
+      if (currentMs >= startMs && currentMs <= endMs) {
+        item.classList.add("active-task");
+      }
+    }
+
+    const pct = Math.round((stats.completedCount / stats.totalCount) * 100);
+    const badgeClass = taskStatus === "Completed" ? "task-badge-complete" : (taskStatus === "In Progress" ? "task-badge-active" : "task-badge-planned");
+
+    item.innerHTML = `
+      <div class="task-header-row">
+        <span class="task-title" title="${taskName}">${taskName}</span>
+        <span class="task-status-badge ${badgeClass}">${taskStatus}</span>
+      </div>
+      <div class="task-date-info">
+        <span>Start: ${stats.startDate}</span>
+        <span>End: ${stats.endDate}</span>
+      </div>
+      <div class="task-progress-row">
+        <div class="task-progress-bar">
+          <div class="task-progress-fill" style="width: ${pct}%"></div>
+        </div>
+        <span>${pct}% (${stats.completedCount}/${stats.totalCount})</span>
+      </div>
+    `;
+
+    // Click event to isolate task elements and jump scrubber/timeline to task start date!
+    item.addEventListener("click", async () => {
+      // Isolate elements
+      const hider = components.get(OBC.Hider);
+      await hider.isolate(stats.modelIdMaps);
+      
+      // Focus Camera on isolated elements
+      try {
+        const boundingBoxer = components.get(OBC.BoundingBoxer);
+        boundingBoxer.list.clear();
+        await boundingBoxer.addFromModelIdMap(stats.modelIdMaps);
+        const box = boundingBoxer.get();
+        await world.camera.controls.fitToBox(box, true);
+        boundingBoxer.list.clear();
+      } catch (err) {
+        console.warn("Fit to task elements failed:", err);
+      }
+
+      // Jump timeline scrubber to task's start date
+      if (timelineMinDate) {
+        const taskStart = new Date(stats.startDate);
+        currentTimelineDate = new Date(taskStart);
+        const diffMs = currentTimelineDate.getTime() - timelineMinDate.getTime();
+        const diffDays = Math.max(0, Math.floor(diffMs / (1000 * 60 * 60 * 24)));
+        timelineSlider.value = String(diffDays);
+        
+        updateTimelineDateUI();
+        await updateTimelineVisualState();
+      }
+    });
+
+    container.appendChild(item);
+  }
+}
+
+function startTimelinePlayback() {
+  if (timelineIsPlaying || !timelineMinDate) return;
+  timelineIsPlaying = true;
+  timelinePlayBtn.classList.add("playing");
+  timelinePlayBtn.innerHTML = `
+    <span class="ctrl-icon">⏸</span>
+    <span>Pause Simulation</span>
+  `;
+
+  let lastTime = performance.now();
+  const tick = () => {
+    if (!timelineIsPlaying || !timelineMinDate || !timelineMaxDate || !currentTimelineDate) return;
+    
+    const now = performance.now();
+    const elapsedSec = (now - lastTime) / 1000;
+    lastTime = now;
+
+    // Increment date based on speed (days per second)
+    const daysToIncrement = elapsedSec * timelineSpeed;
+    const newMs = currentTimelineDate.getTime() + (daysToIncrement * 24 * 60 * 60 * 1000);
+
+    if (newMs >= timelineMaxDate.getTime()) {
+      currentTimelineDate = new Date(timelineMaxDate);
+      timelineSlider.value = timelineSlider.max;
+      updateTimelineDateUI();
+      updateTimelineVisualState();
+      stopTimelinePlayback();
+    } else {
+      currentTimelineDate = new Date(newMs);
+      const diffMs = currentTimelineDate.getTime() - timelineMinDate.getTime();
+      const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+      timelineSlider.value = String(diffDays);
+      updateTimelineDateUI();
+      updateTimelineVisualState();
+      timelineTimer = requestAnimationFrame(tick);
+    }
+  };
+
+  timelineTimer = requestAnimationFrame(tick);
+}
+
+function stopTimelinePlayback() {
+  timelineIsPlaying = false;
+  if (timelineTimer) {
+    cancelAnimationFrame(timelineTimer);
+    timelineTimer = null;
+  }
+  timelinePlayBtn.classList.remove("playing");
+  timelinePlayBtn.innerHTML = `
+    <span class="ctrl-icon">▶</span>
+    <span>Play Simulation</span>
+  `;
+}
+
+// Scrubber events
+timelineSlider.addEventListener("input", () => {
+  if (!timelineMinDate) return;
+  const daysOffset = Number(timelineSlider.value);
+  currentTimelineDate = new Date(timelineMinDate.getTime() + (daysOffset * 24 * 60 * 60 * 1000));
+  updateTimelineDateUI();
+  updateTimelineVisualState();
+});
+
+timelinePlayBtn.addEventListener("click", () => {
+  if (timelineIsPlaying) {
+    stopTimelinePlayback();
+  } else {
+    // If we are at the end, restart from beginning
+    if (currentTimelineDate && timelineMaxDate && currentTimelineDate.getTime() >= timelineMaxDate.getTime()) {
+      currentTimelineDate = new Date(timelineMinDate!);
+      timelineSlider.value = "0";
+    }
+    startTimelinePlayback();
+  }
+});
+
+timelineSpeedSelect.addEventListener("change", () => {
+  timelineSpeed = Number(timelineSpeedSelect.value);
+});
+
 // Initial empty state call
 updateClassificationUI();
+calculateTimelineBounds();
 
 // --- THEME TOGGLE BUTTON ---
 const themeToggleBtn = document.getElementById('btn-theme-toggle');
@@ -1345,3 +1898,35 @@ if (themeToggleBtn) {
     }
   });
 }
+
+// --- 4D MODE TOGGLE ---
+let is4dMode = localStorage.getItem('bim-4d-mode') === 'true';
+const btn4dMode = document.getElementById('btn-4d-mode')!;
+const btn4dLabel = document.getElementById('btn-4d-label')!;
+
+function apply4dMode(active: boolean) {
+  is4dMode = active;
+  localStorage.setItem('bim-4d-mode', String(active));
+
+  if (active) {
+    document.body.classList.add('mode-4d');
+    btn4dMode.classList.add('active');
+    btn4dLabel.textContent = 'Exit 4D';
+    // Initialize timeline when 4D is first activated
+    calculateTimelineBounds();
+    updateScheduleWidgetUI();
+  } else {
+    document.body.classList.remove('mode-4d');
+    btn4dMode.classList.remove('active');
+    btn4dLabel.textContent = 'Activate 4D';
+    // Stop playback and restore all element visibility when leaving 4D mode
+    stopTimelinePlayback();
+    const hider = components.get(OBC.Hider);
+    hider.set(true);
+  }
+}
+
+// Restore last 4D mode state on load
+apply4dMode(is4dMode);
+
+btn4dMode.addEventListener('click', () => apply4dMode(!is4dMode));
