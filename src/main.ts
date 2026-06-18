@@ -1970,8 +1970,8 @@ function updateViewCubeOrientation() {
   // Apply inverted rotation matrix to CSS 3D matrix3d to map Three.js coordinates to CSS
   cube.style.transform = `matrix3d(
     ${e[0].toFixed(6)}, ${-e[1].toFixed(6)}, ${-e[2].toFixed(6)}, 0,
-    ${e[4].toFixed(6)}, ${-e[5].toFixed(6)}, ${-e[6].toFixed(6)}, 0,
-    ${e[8].toFixed(6)}, ${-e[9].toFixed(6)}, ${-e[10].toFixed(6)}, 0,
+    ${-e[4].toFixed(6)}, ${e[5].toFixed(6)}, ${e[6].toFixed(6)}, 0,
+    ${-e[8].toFixed(6)}, ${e[9].toFixed(6)}, ${e[10].toFixed(6)}, 0,
     0, 0, 0, 1
   )`;
 }
