@@ -18,18 +18,22 @@ const worlds = components.get(OBC.Worlds);
 
 // Create world with SimpleScene, SimpleCamera, and PostproductionRenderer
 const world = worlds.create<
-  OBC.SimpleScene,
+  OBC.ShadowedScene,
   OBC.OrthoPerspectiveCamera,
   OBF.PostproductionRenderer
 >();
 
-world.scene = new OBC.SimpleScene(components);
-world.scene.setup();
-world.scene.three.background = null; // Use transparent background for our body styling
+const scene = new OBC.ShadowedScene(components);
+world.scene = scene;
 
 const container = document.getElementById("container")!;
 world.renderer = new OBF.PostproductionRenderer(components, container);
+world.renderer.three.shadowMap.enabled = true;
+world.renderer.three.shadowMap.type = THREE.PCFSoftShadowMap;
 world.camera = new OBC.OrthoPerspectiveCamera(components);
+
+scene.setup();
+scene.three.background = null; // Use transparent background for our body styling
 world.onCameraChanged.add((camera) => {
   for (const [, model] of fragments.list) {
     model.useCamera(camera.three);
@@ -76,8 +80,8 @@ clipper.enabled = false;
 const raycasters = components.get(OBC.Raycasters);
 raycasters.get(world);
 
-// Add double-click listener to create section cuts when Clipper is active
-container.addEventListener("dblclick", () => {
+// Add double-click listener to create section cuts when Clipper is active, or pick elements when it is disabled
+container.addEventListener("dblclick", async () => {
   if (clipper.enabled) {
     try {
       clipper.create(world);
@@ -87,6 +91,31 @@ container.addEventListener("dblclick", () => {
       } catch (err) {
         console.error("Clipper failed to create plane:", err);
       }
+    }
+  } else {
+    try {
+      const caster = components.get(OBC.Raycasters).get(world);
+      const result = (await caster.castRay()) as any;
+      if (!result || !result.fragments) {
+        await highlighter.clear("select");
+        resetPropertiesPanel();
+        return;
+      }
+
+      const modelId = result.fragments.modelId;
+      const localId = result.localId;
+      const modelIdMap = { [modelId]: new Set([localId]) };
+
+      // Highlight the clicked element
+      await highlighter.highlightByID("select", modelIdMap, true, false);
+
+      // Display properties in panel
+      const model = fragments.list.get(modelId);
+      if (model) {
+        displayElementProperties(model, localId);
+      }
+    } catch (err) {
+      console.error("Raycaster element picking failed:", err);
     }
   }
 });
@@ -194,25 +223,38 @@ function getStoreyIndex(storeyName: string): number {
 
 function getCategorySequence(ifcType: string): { startOffset: number, duration: number, task: string, unitCost: number } {
   const type = ifcType.toUpperCase();
+  
+  if (type.includes("SITE") || type.includes("FOOTING") || type.includes("PILE")) {
+    return { startOffset: 0, duration: 8, task: "Site & Substructure Foundations", unitCost: 500 };
+  }
   if (type.includes("SLAB")) {
-    return { startOffset: 0, duration: 6, task: "Foundation & Slab Concrete", unitCost: 450 };
+    return { startOffset: 3, duration: 6, task: "Slab Concrete Pouring", unitCost: 450 };
   }
   if (type.includes("COLUMN") || type.includes("BEAM") || type.includes("MEMBER") || type.includes("PLATE")) {
-    return { startOffset: 5, duration: 6, task: "Structural Steel Framing", unitCost: 650 };
+    return { startOffset: 8, duration: 7, task: "Structural Framing", unitCost: 600 };
   }
   if (type.includes("WALL")) {
-    return { startOffset: 9, duration: 8, task: "Masonry & Wall Partitioning", unitCost: 280 };
+    return { startOffset: 14, duration: 8, task: "Wall Partitioning & Masonry", unitCost: 300 };
   }
-  if (type.includes("PIPE") || type.includes("DUCT") || type.includes("CABLE") || type.includes("FLOW")) {
-    return { startOffset: 14, duration: 7, task: "MEP Rough-in Services", unitCost: 180 };
+  if (type.includes("STAIR") || type.includes("RAMP")) {
+    return { startOffset: 15, duration: 6, task: "Vertical Core & Stairs", unitCost: 400 };
+  }
+  if (type.includes("RAILING")) {
+    return { startOffset: 18, duration: 5, task: "Safety Railings & Handrails", unitCost: 180 };
   }
   if (type.includes("WINDOW") || type.includes("DOOR")) {
-    return { startOffset: 18, duration: 5, task: "Exterior Glazing & Doors", unitCost: 350 };
+    return { startOffset: 20, duration: 5, task: "Exterior Glazing & Doors", unitCost: 350 };
+  }
+  if (type.includes("COVERING")) {
+    return { startOffset: 24, duration: 7, task: "Wall & Ceiling Cladding", unitCost: 220 };
+  }
+  if (type.includes("PIPE") || type.includes("DUCT") || type.includes("CABLE") || type.includes("FLOW")) {
+    return { startOffset: 22, duration: 8, task: "MEP Services & Rough-in", unitCost: 200 };
   }
   if (type.includes("ROOF")) {
-    return { startOffset: 20, duration: 6, task: "Roofing Systems Installation", unitCost: 550 };
+    return { startOffset: 28, duration: 8, task: "Roofing & Waterproofing", unitCost: 550 };
   }
-  return { startOffset: 16, duration: 8, task: "Interior Finishes & Fit-Out", unitCost: 120 };
+  return { startOffset: 26, duration: 10, task: "Interior Finishes & Fit-out", unitCost: 150 };
 }
 
 function loadDatabase() {
@@ -425,7 +467,7 @@ async function initializeModelTwinData(model: any) {
     const dbKey = `${modelId}-${expressId}`;
     if (twinDatabase[dbKey]) continue; // Skip if already customized by user
 
-    const ifcType = String(elementProps.type ?? "").toUpperCase();
+    const ifcType = getIfcEntityName(elementProps.type).toUpperCase();
     const storeyName = globalElementStoreysMap[dbKey] || "Entry Level";
     const storeyIndex = getStoreyIndex(storeyName);
     
@@ -492,7 +534,7 @@ function updateDashboardMetrics() {
       const elementProps = properties[expressId];
       if (!elementProps) continue;
 
-      const ifcType = String(elementProps.type ?? "").toUpperCase();
+      const ifcType = getIfcEntityName(elementProps.type).toUpperCase();
       const twinData = getOrGenerateTwinData(modelId, expressId, ifcType);
 
       totalCost += twinData.calculatedCost;
@@ -503,7 +545,7 @@ function updateDashboardMetrics() {
         completedCount++;
       }
 
-      const rawType = String(elementProps.type ?? "Other").replace("IFC", "");
+      const rawType = getIfcEntityName(elementProps.type || "Other").replace("IFC", "");
       // Beautify IFC types (e.g. WALLSTANDARDCASE -> Wall Standard Case)
       const formattedType = rawType
         .toLowerCase()
@@ -607,6 +649,145 @@ function getPropValue(prop: any): string {
   return JSON.stringify(prop);
 }
 
+// Convert IFC type code (integer) to readable entity name
+function getIfcEntityName(type: any): string {
+  if (type === undefined || type === null) return "";
+  if (typeof type === "number") {
+    try {
+      if (ifcLoader && (ifcLoader as any).api) {
+        const name = (ifcLoader as any).api.GetNameFromTypeCode(type);
+        if (name) return name;
+      }
+    } catch (e) {
+      // fallback
+    }
+  }
+  return String(type);
+}
+
+// Helper function to resolve IFC Property Sets (Psets) and Element Quantities for a given element ID
+function resolveElementPropertySets(properties: any, elementId: number): Record<string, Record<string, string>> {
+  const result: Record<string, Record<string, string>> = {};
+  if (!properties) return result;
+
+  const parsePset = (propSet: any, propDefId: number) => {
+    if (!propSet) return;
+    const psetName = getPropValue(propSet.Name) || `PropertySet_${propDefId}`;
+    if (!result[psetName]) {
+      result[psetName] = {};
+    }
+
+    // Check for HasProperties (for IFCPROPERTYSET)
+    const hasProps = propSet.HasProperties;
+    if (hasProps && Array.isArray(hasProps)) {
+      for (const propRef of hasProps) {
+        const propId = Number(propRef.value ?? propRef);
+        const prop = properties[propId];
+        if (!prop) continue;
+
+        const propName = getPropValue(prop.Name);
+        const propValue = getPropValue(prop.NominalValue) || getPropValue(prop.Value);
+        if (propName) {
+          result[psetName][propName] = propValue;
+        }
+      }
+    }
+
+    // Check for Quantities (for IFCELEMENTQUANTITY)
+    const quantities = propSet.Quantities;
+    if (quantities && Array.isArray(quantities)) {
+      for (const qtyRef of quantities) {
+        const qtyId = Number(qtyRef.value ?? qtyRef);
+        const qty = properties[qtyId];
+        if (!qty) continue;
+
+        const qtyName = getPropValue(qty.Name);
+        let qtyValue = "";
+        for (const key in qty) {
+          if (key.endsWith("Value")) {
+            qtyValue = getPropValue(qty[key]);
+            break;
+          }
+        }
+        if (!qtyValue) {
+          qtyValue = getPropValue(qty.NominalValue) || getPropValue(qty.Value);
+        }
+        if (qtyName) {
+          result[psetName][qtyName] = qtyValue;
+        }
+      }
+    }
+  };
+
+  // 1. Check direct HasPropertySets (common for IfcTypeObject / Type elements)
+  const element = properties[elementId];
+  if (element && element.HasPropertySets) {
+    const psetRefs = Array.isArray(element.HasPropertySets)
+      ? element.HasPropertySets
+      : [element.HasPropertySets];
+    for (const psetRef of psetRefs) {
+      const psetId = Number(psetRef.value ?? psetRef);
+      const propSet = properties[psetId];
+      if (propSet) {
+        parsePset(propSet, psetId);
+      }
+    }
+  }
+
+  // 2. Resolve property sets via IFCRELDEFINESBYPROPERTIES
+  for (const id in properties) {
+    const rel = properties[id];
+    if (!rel || rel.type !== "IFCRELDEFINESBYPROPERTIES") continue;
+
+    // Check if this relation relates to our element
+    const relatedObjects = rel.RelatedObjects;
+    if (!relatedObjects) continue;
+
+    let isRelated = false;
+    if (Array.isArray(relatedObjects)) {
+      isRelated = relatedObjects.some((obj: any) => {
+        const val = obj.value ?? obj;
+        return Number(val) === elementId;
+      });
+    } else {
+      const val = relatedObjects.value ?? relatedObjects;
+      isRelated = Number(val) === elementId;
+    }
+
+    if (!isRelated) continue;
+
+    // Get the relating property definition
+    const relPropDef = rel.RelatingPropertyDefinition;
+    if (!relPropDef) continue;
+    const propDefId = Number(relPropDef.value ?? relPropDef);
+    const propSet = properties[propDefId];
+    if (propSet) {
+      parsePset(propSet, propDefId);
+    }
+  }
+
+  return result;
+}
+
+// Helper function to append a row to the property table
+function addPropertyRow(container: Element, label: string, value: string, extraClass: string = "") {
+  const row = document.createElement("div");
+  row.className = "prop-row";
+  
+  const labelSpan = document.createElement("span");
+  labelSpan.className = "prop-label";
+  labelSpan.innerText = label;
+  
+  const valSpan = document.createElement("span");
+  valSpan.className = `prop-val ${extraClass}`;
+  valSpan.title = value; // Show full value on hover
+  valSpan.innerText = value;
+  
+  row.appendChild(labelSpan);
+  row.appendChild(valSpan);
+  container.appendChild(row);
+}
+
 // Display element properties in the panel
 function displayElementProperties(model: any, expressId: number) {
   const properties = model.properties || (model as any).getLocalProperties?.() || {};
@@ -619,10 +800,115 @@ function displayElementProperties(model: any, expressId: number) {
   document.getElementById("properties-empty-state")!.style.display = "none";
   document.getElementById("properties-selected-state")!.style.display = "flex";
 
-  // Fill standard metadata
-  document.getElementById("prop-express-id")!.innerText = String(expressId);
-  document.getElementById("prop-ifc-type")!.innerText = String(elementProps.type ?? "Unknown");
-  document.getElementById("prop-name")!.innerText = getPropValue(elementProps.Name);
+  // Render all properties dynamically
+  const tableEl = document.querySelector(".properties-widget .property-table")!;
+  tableEl.innerHTML = "";
+
+  addPropertyRow(tableEl, "Express ID", String(expressId));
+  if (elementProps.type) {
+    const entityName = getIfcEntityName(elementProps.type);
+    addPropertyRow(tableEl, "IFC Entity", entityName, "color-green");
+  }
+  
+  const nameVal = elementProps.Name ? getPropValue(elementProps.Name) : "Unnamed Element";
+  addPropertyRow(tableEl, "Name", nameVal);
+
+  for (const key in elementProps) {
+    if (key === "type" || key === "expressId" || key === "Name") continue;
+    
+    // Format label to separate PascalCase words
+    const formattedLabel = key.replace(/([A-Z])/g, " $1").trim();
+    const val = getPropValue(elementProps[key]);
+    if (val !== undefined && val !== null && val !== "" && val !== "[]" && val !== "{}") {
+      addPropertyRow(tableEl, formattedLabel, val);
+    }
+  }
+
+  // Resolve type relation (IFCRELDEFINESBYTYPE)
+  let typeElementId: number | null = null;
+  for (const id in properties) {
+    const rel = properties[id];
+    if (rel && rel.type === "IFCRELDEFINESBYTYPE") {
+      const relatedObjects = rel.RelatedObjects;
+      if (relatedObjects) {
+        let isRelated = false;
+        if (Array.isArray(relatedObjects)) {
+          isRelated = relatedObjects.some((obj: any) => {
+            const val = obj.value ?? obj;
+            return Number(val) === expressId;
+          });
+        } else {
+          const val = relatedObjects.value ?? relatedObjects;
+          isRelated = Number(val) === expressId;
+        }
+
+        if (isRelated) {
+          const relatingType = rel.RelatingType;
+          if (relatingType) {
+            typeElementId = Number(relatingType.value ?? relatingType);
+          }
+          break;
+        }
+      }
+    }
+  }
+
+  // Resolve and render property sets!
+  const psets = resolveElementPropertySets(properties, expressId);
+  for (const psetName in psets) {
+    const divider = document.createElement("div");
+    divider.className = "prop-set-header";
+    divider.style.cssText = "font-size: 0.65rem; font-weight: 700; color: var(--accent-300); margin: 0.5rem 0.25rem 0.2rem 0.25rem; text-transform: uppercase; border-bottom: 1px solid var(--border-subtle); padding-bottom: 0.15rem; display: flex; align-items: center; gap: 0.25rem;";
+    divider.innerHTML = `<span>⚡</span> <span>${psetName}</span>`;
+    tableEl.appendChild(divider);
+
+    const psetProps = psets[psetName];
+    for (const propName in psetProps) {
+      addPropertyRow(tableEl, propName, psetProps[propName]);
+    }
+  }
+
+  // If a type relation is found, append type details and resolve type property sets
+  if (typeElementId !== null) {
+    const typeProps = properties[typeElementId];
+    if (typeProps) {
+      const typeDivider = document.createElement("div");
+      typeDivider.className = "prop-set-header";
+      typeDivider.style.cssText = "font-size: 0.65rem; font-weight: 700; color: var(--color-purple); margin: 0.8rem 0.25rem 0.2rem 0.25rem; text-transform: uppercase; border-bottom: 1px solid var(--border-subtle); padding-bottom: 0.15rem; display: flex; align-items: center; gap: 0.25rem;";
+      typeDivider.innerHTML = `<span>🏷️</span> <span>Type: ${typeProps.Name?.value || typeProps.Name || "IFC Type"}</span>`;
+      tableEl.appendChild(typeDivider);
+
+      addPropertyRow(tableEl, "Type Express ID", String(typeElementId));
+      if (typeProps.type) {
+        const typeEntityName = getIfcEntityName(typeProps.type);
+        addPropertyRow(tableEl, "Type Entity", typeEntityName, "color-green");
+      }
+      
+      for (const key in typeProps) {
+        if (key === "type" || key === "expressId" || key === "Name") continue;
+        const formattedLabel = key.replace(/([A-Z])/g, " $1").trim();
+        const val = getPropValue(typeProps[key]);
+        if (val !== undefined && val !== null && val !== "" && val !== "[]" && val !== "{}") {
+          addPropertyRow(tableEl, formattedLabel, val);
+        }
+      }
+    }
+
+    // Resolve type-level property sets and append them
+    const typePsets = resolveElementPropertySets(properties, typeElementId);
+    for (const psetName in typePsets) {
+      const divider = document.createElement("div");
+      divider.className = "prop-set-header";
+      divider.style.cssText = "font-size: 0.65rem; font-weight: 700; color: var(--accent-300); margin: 0.5rem 0.25rem 0.2rem 0.25rem; text-transform: uppercase; border-bottom: 1px solid var(--border-subtle); padding-bottom: 0.15rem; display: flex; align-items: center; gap: 0.25rem;";
+      divider.innerHTML = `<span>⚡</span> <span>Type: ${psetName}</span>`;
+      tableEl.appendChild(divider);
+
+      const psetProps = typePsets[psetName];
+      for (const propName in psetProps) {
+        addPropertyRow(tableEl, propName, psetProps[propName]);
+      }
+    }
+  }
 
   // Retrieve 4D/5D data from local twin database or generate mock
   const ifcType = String(elementProps.type ?? "").toUpperCase();
@@ -719,9 +1005,29 @@ const initBim = async () => {
       fragments.core.update();
     });
 
+    world.camera.controls.addEventListener("rest", async () => {
+      if (world.scene && (world.scene as any).updateShadows) {
+        await (world.scene as any).updateShadows();
+      }
+    });
+
     fragments.list.onItemSet.add(({ value: model }) => {
       model.useCamera(world.camera.three);
       world.scene.three.add(model.object);
+      
+      // Enable cast/receive shadows for all meshes in the model
+      model.object.traverse((child: any) => {
+        if (child.isMesh) {
+          child.castShadow = true;
+          child.receiveShadow = true;
+        }
+      });
+      
+      // Force shadowed scene to update shadows
+      if (world.scene && (world.scene as any).updateShadows) {
+        (world.scene as any).updateShadows();
+      }
+
       fragments.core.update(true);
     });
 
@@ -1251,6 +1557,11 @@ logoToggle.addEventListener("change", () => {
   }
 });
 
+const shadowsToggle = document.getElementById("settings-toggle-shadows")! as HTMLInputElement;
+shadowsToggle.addEventListener("change", () => {
+  world.scene.shadowsEnabled = shadowsToggle.checked;
+});
+
 const clearCacheBtn = document.getElementById("btn-clear-cache")!;
 clearCacheBtn.addEventListener("click", async () => {
   if (confirm("Are you sure you want to clear the offline fragments cache and reset the digital twin database? This will apply the new standard construction sequencing to all models.")) {
@@ -1303,6 +1614,133 @@ const settingsCameraMode = document.getElementById("settings-camera-mode")! as H
 settingsCameraMode.addEventListener("change", () => {
   world.camera.set(settingsCameraMode.value);
 });
+
+// WASD Keyboard Navigation for First Person Mode
+const keyBindings = {
+  forward: localStorage.getItem("key-bind-forward") || "w",
+  left: localStorage.getItem("key-bind-left") || "a",
+  backward: localStorage.getItem("key-bind-backward") || "s",
+  right: localStorage.getItem("key-bind-right") || "d",
+};
+
+const firstPersonKeys = { forward: false, left: false, backward: false, right: false };
+
+// UI Elements for Gaming settings
+const toggleWASD = document.getElementById("settings-enable-wasd") as HTMLInputElement;
+const wasdSpeedSlider = document.getElementById("settings-wasd-speed") as HTMLInputElement;
+const wasdSpeedVal = document.getElementById("val-wasd-speed")!;
+const mouseSensitivitySlider = document.getElementById("settings-mouse-sensitivity") as HTMLInputElement;
+const mouseSensitivityVal = document.getElementById("val-mouse-sensitivity")!;
+const keyBindBtns = document.querySelectorAll(".key-bind-btn");
+
+let activeBindingAction: string | null = null;
+
+// Initialize speed and sensitivity values from settings elements
+let movementSpeed = Number(wasdSpeedSlider.value);
+let mouseSensitivity = Number(mouseSensitivitySlider.value);
+
+wasdSpeedSlider.addEventListener("input", () => {
+  movementSpeed = Number(wasdSpeedSlider.value);
+  wasdSpeedVal.innerText = movementSpeed.toFixed(2);
+});
+
+mouseSensitivitySlider.addEventListener("input", () => {
+  mouseSensitivity = Number(mouseSensitivitySlider.value);
+  mouseSensitivityVal.innerText = mouseSensitivity.toFixed(1);
+  if (world.camera.controls) {
+    (world.camera.controls as any).rotateSpeed = mouseSensitivity;
+  }
+});
+
+// Setup key bind button listeners
+keyBindBtns.forEach((btn) => {
+  const action = btn.getAttribute("data-action")!;
+  // Set initial display text from bindings
+  btn.textContent = keyBindings[action as keyof typeof keyBindings].toUpperCase();
+
+  btn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    // Reset all buttons text/state
+    keyBindBtns.forEach((b) => {
+      const act = b.getAttribute("data-action")!;
+      b.textContent = keyBindings[act as keyof typeof keyBindings].toUpperCase();
+      b.classList.remove("active");
+    });
+
+    activeBindingAction = action;
+    btn.textContent = "Press key...";
+    btn.classList.add("active");
+  });
+});
+
+window.addEventListener("keydown", (e) => {
+  // If we are actively rebinding a key
+  if (activeBindingAction) {
+    e.preventDefault();
+    e.stopPropagation();
+    const newKey = e.key.toLowerCase();
+    
+    // Save new binding
+    keyBindings[activeBindingAction as keyof typeof keyBindings] = newKey;
+    localStorage.setItem(`key-bind-${activeBindingAction}`, newKey);
+    
+    // Update button text
+    const activeBtn = document.querySelector(`.key-bind-btn[data-action="${activeBindingAction}"]`);
+    if (activeBtn) {
+      activeBtn.textContent = newKey.toUpperCase();
+      activeBtn.classList.remove("active");
+    }
+    
+    activeBindingAction = null;
+    return;
+  }
+
+  // Normal keyboard navigation keydown
+  if (!toggleWASD.checked) return;
+
+  const activeEl = document.activeElement;
+  if (activeEl && (activeEl.tagName === "INPUT" || activeEl.tagName === "TEXTAREA" || activeEl.tagName === "SELECT")) {
+    return;
+  }
+
+  const pressedKey = e.key.toLowerCase();
+  if (pressedKey === keyBindings.forward) firstPersonKeys.forward = true;
+  if (pressedKey === keyBindings.left) firstPersonKeys.left = true;
+  if (pressedKey === keyBindings.backward) firstPersonKeys.backward = true;
+  if (pressedKey === keyBindings.right) firstPersonKeys.right = true;
+});
+
+window.addEventListener("keyup", (e) => {
+  if (activeBindingAction) return;
+
+  const pressedKey = e.key.toLowerCase();
+  if (pressedKey === keyBindings.forward) firstPersonKeys.forward = false;
+  if (pressedKey === keyBindings.left) firstPersonKeys.left = false;
+  if (pressedKey === keyBindings.backward) firstPersonKeys.backward = false;
+  if (pressedKey === keyBindings.right) firstPersonKeys.right = false;
+});
+
+// Update rotateSpeed on camera controls initialization/change
+world.camera.controls.addEventListener("update", () => {
+  if (world.camera.controls && (world.camera.controls as any).rotateSpeed !== mouseSensitivity) {
+    (world.camera.controls as any).rotateSpeed = mouseSensitivity;
+  }
+});
+
+function animateFirstPerson() {
+  requestAnimationFrame(animateFirstPerson);
+  if (settingsCameraMode.value !== "FirstPerson") return;
+  if (!toggleWASD.checked) return;
+
+  const controls = world.camera.controls;
+  if (!controls) return;
+
+  if (firstPersonKeys.forward) controls.forward(movementSpeed, false);
+  if (firstPersonKeys.backward) controls.forward(-movementSpeed, false);
+  if (firstPersonKeys.left) controls.truck(-movementSpeed, 0, false);
+  if (firstPersonKeys.right) controls.truck(movementSpeed, 0, false);
+}
+animateFirstPerson();
 
 const settingsCameraProjection = document.getElementById("settings-camera-projection")! as HTMLSelectElement;
 settingsCameraProjection.addEventListener("change", () => {
@@ -1538,6 +1976,7 @@ function updateTimelineDateUI() {
 
 async function updateTimelineVisualState() {
   if (!currentTimelineDate) return;
+  if (!is4dMode) return;
 
   const hider = components.get(OBC.Hider);
   
@@ -1947,6 +2386,7 @@ function apply4dMode(active: boolean) {
     stopTimelinePlayback();
     const hider = components.get(OBC.Hider);
     hider.set(true);
+    highlighter.clear("timeline-inprogress");
   }
   updateHeaderLabel();
 }
@@ -1962,6 +2402,7 @@ function updateViewCubeOrientation() {
   if (!cube) return;
 
   const camera = world.camera.three;
+  camera.updateMatrixWorld(true);
   const matrix = new THREE.Matrix4();
   matrix.extractRotation(camera.matrixWorld);
   matrix.invert();
@@ -1976,14 +2417,58 @@ function updateViewCubeOrientation() {
   )`;
 }
 
+// Track dragging variables
+let isDraggingCube = false;
+let startPointerX = 0;
+let startPointerY = 0;
+let hasDraggedCube = false;
+
+const viewCubeContainer = document.querySelector(".view-cube-container");
+if (viewCubeContainer) {
+  viewCubeContainer.addEventListener("pointerdown", (e: any) => {
+    isDraggingCube = true;
+    hasDraggedCube = false;
+    startPointerX = e.clientX;
+    startPointerY = e.clientY;
+    viewCubeContainer.setPointerCapture(e.pointerId);
+  });
+
+  viewCubeContainer.addEventListener("pointermove", (e: any) => {
+    if (!isDraggingCube) return;
+    const dx = e.clientX - startPointerX;
+    const dy = e.clientY - startPointerY;
+    if (Math.abs(dx) > 3 || Math.abs(dy) > 3) {
+      hasDraggedCube = true;
+    }
+    
+    // Scale factor to translate screen pixels to relative rotation in camera controls
+    const speed = mouseSensitivity * 0.005; 
+    
+    world.camera.controls.rotate(-dx * speed, -dy * speed, false);
+    
+    startPointerX = e.clientX;
+    startPointerY = e.clientY;
+  });
+
+  const stopDragging = (e: any) => {
+    if (isDraggingCube) {
+      isDraggingCube = false;
+      viewCubeContainer.releasePointerCapture(e.pointerId);
+    }
+  };
+
+  viewCubeContainer.addEventListener("pointerup", stopDragging);
+  viewCubeContainer.addEventListener("pointercancel", stopDragging);
+}
+
 // Add event listener to camera controls to sync rotation on every update
-world.camera.controls.addEventListener("update", () => {
-  updateViewCubeOrientation();
-});
+world.camera.controls.addEventListener("control", updateViewCubeOrientation);
+world.camera.controls.addEventListener("update", updateViewCubeOrientation);
 
 // Click handlers for view cube faces to re-orient camera
 document.querySelectorAll(".cube-face").forEach((faceEl) => {
   faceEl.addEventListener("click", async (e) => {
+    if (hasDraggedCube) return; // Prevent click action if user was dragging
     const face = (e.currentTarget as HTMLElement).getAttribute("data-face");
     if (!face) return;
 

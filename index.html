@@ -228,6 +228,18 @@
                 <div class="scene-control-item">
                   <div class="scene-control-label">
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+                    </svg>
+                    <span>Shadows</span>
+                  </div>
+                  <label class="toggle-switch">
+                    <input type="checkbox" id="settings-toggle-shadows" checked />
+                    <span class="toggle-slider"></span>
+                  </label>
+                </div>
+                <div class="scene-control-item">
+                  <div class="scene-control-label">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                       <circle cx="12" cy="12" r="12"/>
                     </svg>
                     <span>Background</span>
@@ -397,6 +409,63 @@
                 </div>
                 <span class="empty-state-text">Select an object in the viewport to link project data.</span>
               </div>
+          </div>
+          
+          <!-- Controls & Gaming Options Widget -->
+          <div class="panel widget-panel gaming-settings-widget" style="flex: 1.1; min-height: 0;">
+            <div class="panel-header">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+              </svg>
+              <span>Controls & Gaming Options</span>
+            </div>
+            <div class="panel-body thin-scrollbar" style="gap: 0.55rem; display: flex; flex-direction: column;">
+              <div class="scene-control-item" style="display: flex; justify-content: space-between; align-items: center; background: var(--bg-card); border: 1px solid var(--border-subtle); padding: 0.35rem 0.6rem; border-radius: 8px;">
+                <div class="scene-control-label" style="display: flex; align-items: center; gap: 0.4rem; font-size: 0.7rem; color: var(--text-muted);">
+                  <span>Keyboard Controls</span>
+                </div>
+                <label class="toggle-switch">
+                  <input type="checkbox" id="settings-enable-wasd" checked />
+                  <span class="toggle-slider"></span>
+                </label>
+              </div>
+
+              <div class="control-row">
+                <div class="control-label" style="display: flex; justify-content: space-between; font-size: 0.7rem; color: var(--text-muted);">
+                  <span>Movement Speed</span>
+                  <span class="value-badge" id="val-wasd-speed">0.4</span>
+                </div>
+                <input type="range" class="custom-slider" id="settings-wasd-speed" min="0.1" max="2.0" step="0.05" value="0.4" style="width: 100%;" />
+              </div>
+
+              <div class="control-row">
+                <div class="control-label" style="display: flex; justify-content: space-between; font-size: 0.7rem; color: var(--text-muted);">
+                  <span>Mouse Sensitivity</span>
+                  <span class="value-badge" id="val-mouse-sensitivity">1.0</span>
+                </div>
+                <input type="range" class="custom-slider" id="settings-mouse-sensitivity" min="0.1" max="3.0" step="0.1" value="1.0" style="width: 100%;" />
+              </div>
+
+              <div class="section-subtitle" style="font-size: 0.65rem; margin-top: 0.2rem; text-transform: uppercase; color: var(--text-dim); font-weight: 600;">Key Bindings</div>
+              <div class="key-bindings-grid" style="display: flex; flex-direction: column; gap: 0.3rem; width: 100%;">
+                <div class="key-bind-row" style="display: flex; justify-content: space-between; align-items: center; background: var(--bg-input); padding: 0.25rem 0.5rem; border-radius: 6px; border: 1px solid var(--border-subtle);">
+                  <span style="font-size: 0.7rem; color: var(--text-muted);">Move Forward</span>
+                  <button class="btn-secondary key-bind-btn" data-action="forward" style="padding: 0.15rem 0.45rem; font-size: 0.68rem; min-width: 45px; border-color: var(--border-color);">W</button>
+                </div>
+                <div class="key-bind-row" style="display: flex; justify-content: space-between; align-items: center; background: var(--bg-input); padding: 0.25rem 0.5rem; border-radius: 6px; border: 1px solid var(--border-subtle);">
+                  <span style="font-size: 0.7rem; color: var(--text-muted);">Move Left</span>
+                  <button class="btn-secondary key-bind-btn" data-action="left" style="padding: 0.15rem 0.45rem; font-size: 0.68rem; min-width: 45px; border-color: var(--border-color);">A</button>
+                </div>
+                <div class="key-bind-row" style="display: flex; justify-content: space-between; align-items: center; background: var(--bg-input); padding: 0.25rem 0.5rem; border-radius: 6px; border: 1px solid var(--border-subtle);">
+                  <span style="font-size: 0.7rem; color: var(--text-muted);">Move Backward</span>
+                  <button class="btn-secondary key-bind-btn" data-action="backward" style="padding: 0.15rem 0.45rem; font-size: 0.68rem; min-width: 45px; border-color: var(--border-color);">S</button>
+                </div>
+                <div class="key-bind-row" style="display: flex; justify-content: space-between; align-items: center; background: var(--bg-input); padding: 0.25rem 0.5rem; border-radius: 6px; border: 1px solid var(--border-subtle);">
+                  <span style="font-size: 0.7rem; color: var(--text-muted);">Move Right</span>
+                  <button class="btn-secondary key-bind-btn" data-action="right" style="padding: 0.15rem 0.45rem; font-size: 0.68rem; min-width: 45px; border-color: var(--border-color);">D</button>
+                </div>
+              </div>
+            </div>
           </div>
 
           <!-- Measurements Widget -->

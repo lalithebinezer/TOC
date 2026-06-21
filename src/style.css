@@ -1118,7 +1118,8 @@ body.mode-4d::after {
   background: var(--bg-card);
   border: 1px solid var(--border-subtle);
   border-radius: 8px;
-  overflow: hidden;
+  max-height: 180px;
+  overflow-y: auto;
 }
 
 .prop-row {
@@ -1898,7 +1899,7 @@ body.mode-4d::after {
   height: 60px;
   position: relative;
   transform-style: preserve-3d;
-  transition: transform 0.1s ease-out;
+  transition: none;
 }
 
 .cube-face {
