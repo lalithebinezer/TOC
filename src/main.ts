@@ -2,6 +2,10 @@ import './style.css';
 import * as THREE from "three";
 import * as OBC from "@thatopen/components";
 import * as OBF from "@thatopen/components-front";
+import * as BUI from "@thatopen/ui";
+import { PropertyEditor, initPropertyEditorUI } from "./PropertyEditor";
+
+BUI.Manager.init();
 
 // --- THEME TOGGLE ---
 function initTheme() {
@@ -63,9 +67,13 @@ world.scene.three.traverse((child) => {
   }
 });
 
-// Configure default light intensities
+// Configure default light intensities and turn shadows off by default
 if (ambientLight) ambientLight.intensity = 1.5;
-if (dirLight) dirLight.intensity = 1.5;
+if (dirLight) {
+  dirLight.intensity = 1.5;
+  dirLight.castShadow = false;
+}
+world.scene.shadowsEnabled = false;
 
 // --- BIM & GEOMETRY INGESTION SETUP ---
 const fragments = components.get(OBC.FragmentsManager);
@@ -113,6 +121,9 @@ container.addEventListener("dblclick", async () => {
       const model = fragments.list.get(modelId);
       if (model) {
         displayElementProperties(model, localId);
+        if (propertyEditor) {
+          await propertyEditor.selectElement(model, localId);
+        }
       }
     } catch (err) {
       console.error("Raycaster element picking failed:", err);
@@ -788,6 +799,18 @@ function addPropertyRow(container: Element, label: string, value: string, extraC
   container.appendChild(row);
 }
 
+let propertyEditor: PropertyEditor | null = null;
+const propsContainer = document.getElementById("properties-selected-state");
+if (propsContainer) {
+  const editorContainer = document.createElement("div");
+  editorContainer.id = "properties-bui-container";
+  propsContainer.appendChild(editorContainer);
+  
+  propertyEditor = new PropertyEditor(world, fragments);
+  propertyEditor.init();
+  initPropertyEditorUI(propertyEditor, editorContainer);
+}
+
 // Display element properties in the panel
 function displayElementProperties(model: any, expressId: number) {
   const properties = model.properties || (model as any).getLocalProperties?.() || {};
@@ -932,6 +955,9 @@ function resetPropertiesPanel() {
   activeExpressId = null;
   document.getElementById("properties-empty-state")!.style.display = "flex";
   document.getElementById("properties-selected-state")!.style.display = "none";
+  if (propertyEditor) {
+    propertyEditor.deselect();
+  }
 }
 
 // Wire real-time cost calculator logic
@@ -1266,6 +1292,14 @@ async function loadModelData(name: string, buffer: Uint8Array) {
     text.innerText = "Building Semantic Model database...";
 
     if (model) {
+      // Enable shadows if checked
+      const shadowsOn = shadowsToggle.checked;
+      model.object.traverse((child: any) => {
+        if (child.isMesh) {
+          child.castShadow = shadowsOn;
+          child.receiveShadow = shadowsOn;
+        }
+      });
 
       // Run dynamic classifications
       console.log("CLASSIFIER: starting byCategory");
@@ -1482,33 +1516,132 @@ clearClipsBtn.addEventListener("click", () => {
   clipper.deleteAll();
 });
 
-// Wire Items Finder Query buttons
-document.querySelectorAll(".btn-query-execute").forEach((btn) => {
-  btn.addEventListener("click", async (e) => {
-    const target = e.currentTarget as HTMLButtonElement;
-    const queryName = target.getAttribute("data-query");
-    if (!queryName) return;
+// Wire and render Items Finder queries dynamically based on model classification categories
+function updateItemFinderQueries() {
+  const container = document.getElementById("finder-queries-list");
+  if (!container) return;
 
-    const originalText = target.innerText;
-    target.disabled = true;
-    target.innerText = "Finding...";
+  container.innerHTML = "";
 
-    try {
-      const results = await getQueryResults(queryName);
-      if (results && Object.keys(results).length > 0) {
-        const hider = components.get(OBC.Hider);
-        await hider.isolate(results);
-      } else {
-        alert(`No elements found matching query: "${queryName}". Make sure a model is loaded.`);
-      }
-    } catch (err) {
-      console.error("Query execution failed:", err);
-    } finally {
-      target.disabled = false;
-      target.innerText = originalText;
-    }
+  // 1. Add the 3 standard hardcoded queries
+  const defaultQueries = [
+    { name: "Walls & Slabs", desc: "Isolate all walls and slabs." },
+    { name: "Masonry Walls", desc: "Walls with \"Masonry\" in their name." },
+    { name: "First Level Columns", desc: "Columns in Entry level storey." }
+  ];
+
+  defaultQueries.forEach(q => {
+    const item = document.createElement("div");
+    item.className = "query-item";
+    item.innerHTML = `
+      <div class="query-info">
+        <div class="query-name">${q.name}</div>
+        <div class="query-desc">${q.desc}</div>
+      </div>
+      <div class="query-actions">
+        <button class="btn-secondary btn-query-execute" data-query="${q.name}">Isolate</button>
+      </div>
+    `;
+    container.appendChild(item);
   });
-});
+
+  // 2. Add dynamic categories found in model classification tree
+  const categoriesGroup = classifier.list.get("Categories");
+  if (categoriesGroup && fragments.list.size > 0) {
+    for (const [groupName] of categoriesGroup) {
+      // Clean up IFC prefix if present for visual elegance
+      const cleanName = groupName.replace(/^IFC/i, "");
+      
+      const item = document.createElement("div");
+      item.className = "query-item";
+      item.innerHTML = `
+        <div class="query-info">
+          <div class="query-name">${cleanName}</div>
+          <div class="query-desc">Isolate all elements of category ${groupName}.</div>
+        </div>
+        <div class="query-actions">
+          <button class="btn-secondary btn-query-execute" data-type="category" data-group-name="${groupName}">Isolate</button>
+        </div>
+      `;
+      container.appendChild(item);
+    }
+  }
+
+  // 3. Wire event listeners for all buttons
+  wireItemFinderButtons();
+}
+
+function wireItemFinderButtons() {
+  document.querySelectorAll(".btn-query-execute").forEach((btn) => {
+    btn.addEventListener("click", async (e) => {
+      const target = e.currentTarget as HTMLButtonElement;
+      const hider = components.get(OBC.Hider);
+      const currentText = target.textContent?.trim() || "";
+
+      // If already isolated, show opposite action (Show All) to restore visibility
+      if (currentText === "Show All") {
+        target.disabled = true;
+        target.textContent = "Restoring...";
+        try {
+          await hider.set(true);
+          target.textContent = "Isolate";
+        } catch (err) {
+          console.error("Failed to restore visibility:", err);
+          target.textContent = "Show All";
+        } finally {
+          target.disabled = false;
+        }
+        return;
+      }
+
+      target.disabled = true;
+      target.textContent = "Finding...";
+
+      try {
+        let results: Record<string, Set<number>> = {};
+        
+        if (target.getAttribute("data-type") === "category") {
+          const groupName = target.getAttribute("data-group-name");
+          if (groupName) {
+            const categoriesGroup = classifier.list.get("Categories");
+            const groupData = categoriesGroup?.get(groupName);
+            if (groupData) {
+              results = await groupData.get();
+            }
+          }
+        } else {
+          const queryName = target.getAttribute("data-query");
+          if (queryName) {
+            results = await getQueryResults(queryName);
+          }
+        }
+
+        if (results && Object.keys(results).length > 0) {
+          // Reset all other query buttons back to "Isolate"
+          document.querySelectorAll(".btn-query-execute").forEach((otherBtn) => {
+            if (otherBtn !== target) {
+              (otherBtn as HTMLButtonElement).textContent = "Isolate";
+            }
+          });
+
+          await hider.isolate(results);
+          target.textContent = "Show All";
+        } else {
+          alert(`No elements found matching query. Make sure a model is loaded.`);
+          target.textContent = "Isolate";
+        }
+      } catch (err) {
+        console.error("Query execution failed:", err);
+        target.textContent = "Isolate";
+      } finally {
+        target.disabled = false;
+      }
+    });
+  });
+}
+
+// Initial wire
+updateItemFinderQueries();
 
 // Sidebar Scene Controls bindings
 const ambientSlider = document.getElementById("ambient-light-slider")! as HTMLInputElement;
@@ -1559,7 +1692,20 @@ logoToggle.addEventListener("change", () => {
 
 const shadowsToggle = document.getElementById("settings-toggle-shadows")! as HTMLInputElement;
 shadowsToggle.addEventListener("change", () => {
-  world.scene.shadowsEnabled = shadowsToggle.checked;
+  const enabled = shadowsToggle.checked;
+  world.scene.shadowsEnabled = enabled;
+  if (dirLight) {
+    dirLight.castShadow = enabled;
+  }
+  for (const [, model] of fragments.list) {
+    model.object.traverse((child: any) => {
+      if (child.isMesh) {
+        child.castShadow = enabled;
+        child.receiveShadow = enabled;
+      }
+    });
+  }
+  fragments.core.update(true);
 });
 
 const clearCacheBtn = document.getElementById("btn-clear-cache")!;
@@ -1831,10 +1977,17 @@ async function updateClassificationUI() {
       `;
 
       leaf.addEventListener("click", async () => {
+        const hider = components.get(OBC.Hider);
+        
+        if (leaf.classList.contains("active")) {
+          leaf.classList.remove("active");
+          await hider.set(true);
+          return;
+        }
+
         document.querySelectorAll(".tree-node-leaf").forEach(el => el.classList.remove("active"));
         leaf.classList.add("active");
 
-        const hider = components.get(OBC.Hider);
         const map = await groupData.get();
         await hider.isolate(map);
 
@@ -1869,6 +2022,8 @@ async function updateClassificationUI() {
       });
     }
   }
+  // Sync Item Finder queries with newly populated category classification
+  updateItemFinderQueries();
 }
 
 // Scene search filtering for classification tree
@@ -2405,10 +2560,9 @@ function updateViewCubeOrientation() {
   camera.updateMatrixWorld(true);
   const matrix = new THREE.Matrix4();
   matrix.extractRotation(camera.matrixWorld);
-  matrix.invert();
 
   const e = matrix.elements;
-  // Apply inverted rotation matrix to CSS 3D matrix3d to map Three.js coordinates to CSS
+  // Apply rotation matrix to CSS 3D matrix3d to map Three.js coordinates to CSS
   cube.style.transform = `matrix3d(
     ${e[0].toFixed(6)}, ${-e[1].toFixed(6)}, ${-e[2].toFixed(6)}, 0,
     ${-e[4].toFixed(6)}, ${e[5].toFixed(6)}, ${e[6].toFixed(6)}, 0,
@@ -2422,10 +2576,65 @@ let isDraggingCube = false;
 let startPointerX = 0;
 let startPointerY = 0;
 let hasDraggedCube = false;
+let clickedFace: string | null = null;
+
+async function orientCameraToFace(face: string) {
+  const target = new THREE.Vector3();
+  world.camera.controls.getTarget(target);
+
+  const box = new THREE.Box3();
+  let hasModel = false;
+  for (const [, model] of fragments.list) {
+    box.expandByObject(model.object);
+    hasModel = true;
+  }
+
+  let center = new THREE.Vector3();
+  let d = 20;
+  if (hasModel) {
+    box.getCenter(center);
+    const size = new THREE.Vector3();
+    box.getSize(size);
+    d = Math.max(size.x, size.y, size.z) * 1.5;
+  } else {
+    center.copy(target);
+    d = world.camera.controls.distance || 20;
+  }
+
+  let posX = center.x;
+  let posY = center.y;
+  let posZ = center.z;
+
+  switch (face) {
+    case "front":
+      posZ += d;
+      break;
+    case "back":
+      posZ -= d;
+      break;
+    case "left":
+      posX -= d;
+      break;
+    case "right":
+      posX += d;
+      break;
+    case "top":
+      posY += d;
+      break;
+    case "bottom":
+      posY -= d;
+      break;
+  }
+
+  await world.camera.controls.setLookAt(posX, posY, posZ, center.x, center.y, center.z, true);
+}
 
 const viewCubeContainer = document.querySelector(".view-cube-container");
 if (viewCubeContainer) {
   viewCubeContainer.addEventListener("pointerdown", (e: any) => {
+    const faceEl = e.target.closest(".cube-face");
+    clickedFace = faceEl ? faceEl.getAttribute("data-face") : null;
+    
     isDraggingCube = true;
     hasDraggedCube = false;
     startPointerX = e.clientX;
@@ -2450,76 +2659,116 @@ if (viewCubeContainer) {
     startPointerY = e.clientY;
   });
 
-  const stopDragging = (e: any) => {
+  viewCubeContainer.addEventListener("pointerup", async (e: any) => {
+    if (isDraggingCube) {
+      isDraggingCube = false;
+      viewCubeContainer.releasePointerCapture(e.pointerId);
+      
+      if (!hasDraggedCube && clickedFace) {
+        await orientCameraToFace(clickedFace);
+      }
+    }
+    clickedFace = null;
+  });
+
+  viewCubeContainer.addEventListener("pointercancel", (e: any) => {
     if (isDraggingCube) {
       isDraggingCube = false;
       viewCubeContainer.releasePointerCapture(e.pointerId);
     }
-  };
-
-  viewCubeContainer.addEventListener("pointerup", stopDragging);
-  viewCubeContainer.addEventListener("pointercancel", stopDragging);
+    clickedFace = null;
+  });
 }
 
 // Add event listener to camera controls to sync rotation on every update
 world.camera.controls.addEventListener("control", updateViewCubeOrientation);
 world.camera.controls.addEventListener("update", updateViewCubeOrientation);
 
-// Click handlers for view cube faces to re-orient camera
-document.querySelectorAll(".cube-face").forEach((faceEl) => {
-  faceEl.addEventListener("click", async (e) => {
-    if (hasDraggedCube) return; // Prevent click action if user was dragging
-    const face = (e.currentTarget as HTMLElement).getAttribute("data-face");
-    if (!face) return;
+// --- RESPONSIVE SIDEBAR DRAWER INTERACTION ---
+const btnToggleLeft = document.getElementById("btn-toggle-left");
+const btnToggleRight = document.getElementById("btn-toggle-right");
+const leftSidebar = document.querySelector(".left-sidebar");
+const rightSidebar = document.querySelector(".right-sidebar");
+const sidebarBackdrop = document.getElementById("sidebar-backdrop");
 
-    const target = new THREE.Vector3();
-    world.camera.controls.getTarget(target);
+function closeAllSidebars() {
+  leftSidebar?.classList.remove("open");
+  rightSidebar?.classList.remove("open");
+  sidebarBackdrop?.classList.remove("active");
+}
 
-    const box = new THREE.Box3();
-    let hasModel = false;
-    for (const [, model] of fragments.list) {
-      box.expandByObject(model.object);
-      hasModel = true;
+if (btnToggleLeft && leftSidebar && sidebarBackdrop) {
+  btnToggleLeft.addEventListener("click", (e) => {
+    e.stopPropagation();
+    const isOpen = leftSidebar.classList.contains("open");
+    closeAllSidebars();
+    if (!isOpen) {
+      leftSidebar.classList.add("open");
+      sidebarBackdrop.classList.add("active");
     }
+  });
+}
 
-    let center = new THREE.Vector3();
-    let d = 20;
-    if (hasModel) {
-      box.getCenter(center);
-      const size = new THREE.Vector3();
-      box.getSize(size);
-      d = Math.max(size.x, size.y, size.z) * 1.5;
-    } else {
-      center.copy(target);
-      d = world.camera.controls.distance || 20;
+if (btnToggleRight && rightSidebar && sidebarBackdrop) {
+  btnToggleRight.addEventListener("click", (e) => {
+    e.stopPropagation();
+    const isOpen = rightSidebar.classList.contains("open");
+    closeAllSidebars();
+    if (!isOpen) {
+      rightSidebar.classList.add("open");
+      sidebarBackdrop.classList.add("active");
     }
+  });
+}
 
-    let posX = center.x;
-    let posY = center.y;
-    let posZ = center.z;
+if (sidebarBackdrop) {
+  sidebarBackdrop.addEventListener("click", () => {
+    closeAllSidebars();
+  });
+}
 
-    switch (face) {
-      case "front":
-        posZ += d;
-        break;
-      case "back":
-        posZ -= d;
-        break;
-      case "left":
-        posX -= d;
-        break;
-      case "right":
-        posX += d;
-        break;
-      case "top":
-        posY += d;
-        break;
-      case "bottom":
-        posY -= d;
-        break;
+window.addEventListener("resize", () => {
+  if (window.innerWidth > 1024) {
+    closeAllSidebars();
+  }
+});
+
+// --- COLLAPSIBLE PANEL HEADERS WITH MINIMIZE BUTTONS ---
+document.querySelectorAll(".panel").forEach((panel) => {
+  const header = panel.querySelector(".panel-header");
+  if (!header) return;
+
+  // Symmetrical layout alignment: ensure header has title group and minimize button
+  let titleGroup = header.querySelector(".header-title-group");
+  if (!titleGroup) {
+    titleGroup = document.createElement("div");
+    titleGroup.className = "header-title-group";
+    
+    // Move all current children to the title group
+    while (header.firstChild) {
+      titleGroup.appendChild(header.firstChild);
     }
+    header.appendChild(titleGroup);
+  }
 
-    await world.camera.controls.setLookAt(posX, posY, posZ, center.x, center.y, center.z, true);
+  // Create minimize button on the right side of header
+  const minimizeBtn = document.createElement("button");
+  minimizeBtn.className = "btn-panel-minimize";
+  minimizeBtn.title = "Collapse Panel";
+  minimizeBtn.innerHTML = `
+    <svg class="minimize-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+      <polyline points="18 15 12 9 6 15"></polyline>
+    </svg>
+  `;
+  header.appendChild(minimizeBtn);
+
+  // Toggle collapse class on header click
+  header.addEventListener("click", (e) => {
+    const target = e.target as HTMLElement;
+    if (target.closest("select") || target.closest("input") || target.closest("a") || target.closest("button:not(.btn-panel-minimize)")) {
+      return;
+    }
+    panel.classList.toggle("collapsed");
   });
 });
 
