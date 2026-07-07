@@ -4,6 +4,21 @@ import * as OBC from "@thatopen/components";
 import * as OBF from "@thatopen/components-front";
 import * as BUI from "@thatopen/ui";
 import { PropertyEditor, initPropertyEditorUI } from "./PropertyEditor";
+import "./BimViewCube";
+
+// Unregister any old service workers (like coi-serviceworker) to prevent unexpected crossOriginIsolated 
+// states that crash the web-ifc WebWorker loader in ES module environments.
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.getRegistrations().then((registrations) => {
+    if (registrations.length > 0) {
+      for (const registration of registrations) {
+        registration.unregister();
+      }
+      // Force reload to clear crossOriginIsolated state
+      window.location.reload();
+    }
+  });
+}
 
 BUI.Manager.init();
 
@@ -33,7 +48,7 @@ world.scene = scene;
 const container = document.getElementById("container")!;
 world.renderer = new OBF.PostproductionRenderer(components, container);
 world.renderer.three.shadowMap.enabled = true;
-world.renderer.three.shadowMap.type = THREE.PCFSoftShadowMap;
+world.renderer.three.shadowMap.type = THREE.PCFShadowMap;
 world.camera = new OBC.OrthoPerspectiveCamera(components);
 
 scene.setup();
@@ -1237,11 +1252,11 @@ async function loadModelData(name: string, buffer: Uint8Array) {
       if (!isIfcLoaderSetup) {
         text.innerText = "Initializing WASM engine...";
         await ifcLoader.setup({
-          autoSetWasm: false,
           wasm: {
             path: import.meta.env.BASE_URL,
             absolute: true,
-          }
+          },
+          autoSetWasm: false
         });
         isIfcLoaderSetup = true;
       }
@@ -1417,9 +1432,31 @@ hideAllBtn.addEventListener("click", async () => {
   await hider.set(false);
 });
 
-// Bottom Toolbar Actions: Data
+import { exportFrag } from "./components/FragExporter";
+
 const loadIfcBtn = document.getElementById("btn-load-ifc")!;
 loadIfcBtn.addEventListener("click", () => {
+  fileInput.accept = ".ifc";
+  fileInput.click();
+});
+
+const exportFragBtn = document.getElementById("btn-export-frag")!;
+exportFragBtn.addEventListener("click", async () => {
+  // We assume the first model in fragments is the current one
+  const models = Array.from(fragments.list.values());
+  if (models.length === 0) {
+    alert("No model loaded to export.");
+    return;
+  }
+  // Export the primary model
+  const model = models[0];
+  const firstId = Array.from(fragments.list.keys())[0];
+  await exportFrag(model, firstId || "exported-model");
+});
+
+const loadFragBtn = document.getElementById("btn-load-frag")!;
+loadFragBtn.addEventListener("click", () => {
+  fileInput.accept = ".frag";
   fileInput.click();
 });
 
@@ -2552,32 +2589,6 @@ apply4dMode(is4dMode);
 btn4dMode.addEventListener('click', () => apply4dMode(!is4dMode));
 
 // --- 3D VIEW CUBE CONTROLLER ---
-function updateViewCubeOrientation() {
-  const cube = document.getElementById("view-cube");
-  if (!cube) return;
-
-  const camera = world.camera.three;
-  camera.updateMatrixWorld(true);
-  const matrix = new THREE.Matrix4();
-  matrix.extractRotation(camera.matrixWorld);
-
-  const e = matrix.elements;
-  // Apply rotation matrix to CSS 3D matrix3d to map Three.js coordinates to CSS
-  cube.style.transform = `matrix3d(
-    ${e[0].toFixed(6)}, ${-e[1].toFixed(6)}, ${-e[2].toFixed(6)}, 0,
-    ${-e[4].toFixed(6)}, ${e[5].toFixed(6)}, ${e[6].toFixed(6)}, 0,
-    ${-e[8].toFixed(6)}, ${e[9].toFixed(6)}, ${e[10].toFixed(6)}, 0,
-    0, 0, 0, 1
-  )`;
-}
-
-// Track dragging variables
-let isDraggingCube = false;
-let startPointerX = 0;
-let startPointerY = 0;
-let hasDraggedCube = false;
-let clickedFace: string | null = null;
-
 async function orientCameraToFace(face: string) {
   const target = new THREE.Vector3();
   world.camera.controls.getTarget(target);
@@ -2606,83 +2617,35 @@ async function orientCameraToFace(face: string) {
   let posZ = center.z;
 
   switch (face) {
-    case "front":
-      posZ += d;
-      break;
-    case "back":
-      posZ -= d;
-      break;
-    case "left":
-      posX -= d;
-      break;
-    case "right":
-      posX += d;
-      break;
-    case "top":
-      posY += d;
-      break;
-    case "bottom":
-      posY -= d;
-      break;
+    case "front": posZ += d; break;
+    case "back": posZ -= d; break;
+    case "left": posX -= d; break;
+    case "right": posX += d; break;
+    case "top": posY += d; break;
+    case "bottom": posY -= d; break;
   }
 
   await world.camera.controls.setLookAt(posX, posY, posZ, center.x, center.y, center.z, true);
 }
 
-const viewCubeContainer = document.querySelector(".view-cube-container");
-if (viewCubeContainer) {
-  viewCubeContainer.addEventListener("pointerdown", (e: any) => {
-    const faceEl = e.target.closest(".cube-face");
-    clickedFace = faceEl ? faceEl.getAttribute("data-face") : null;
-    
-    isDraggingCube = true;
-    hasDraggedCube = false;
-    startPointerX = e.clientX;
-    startPointerY = e.clientY;
-    viewCubeContainer.setPointerCapture(e.pointerId);
+const viewCube = document.getElementById("view-cube") as any;
+if (viewCube) {
+  viewCube.camera = world.camera.three;
+
+  world.camera.controls.addEventListener("update", () => viewCube.updateOrientation());
+  world.camera.controls.addEventListener("control", () => viewCube.updateOrientation());
+
+  viewCube.addEventListener("drag", (e: any) => {
+    world.camera.controls.rotate(e.detail.dx, e.detail.dy, false);
   });
 
-  viewCubeContainer.addEventListener("pointermove", (e: any) => {
-    if (!isDraggingCube) return;
-    const dx = e.clientX - startPointerX;
-    const dy = e.clientY - startPointerY;
-    if (Math.abs(dx) > 3 || Math.abs(dy) > 3) {
-      hasDraggedCube = true;
-    }
-    
-    // Scale factor to translate screen pixels to relative rotation in camera controls
-    const speed = mouseSensitivity * 0.005; 
-    
-    world.camera.controls.rotate(-dx * speed, -dy * speed, false);
-    
-    startPointerX = e.clientX;
-    startPointerY = e.clientY;
-  });
-
-  viewCubeContainer.addEventListener("pointerup", async (e: any) => {
-    if (isDraggingCube) {
-      isDraggingCube = false;
-      viewCubeContainer.releasePointerCapture(e.pointerId);
-      
-      if (!hasDraggedCube && clickedFace) {
-        await orientCameraToFace(clickedFace);
-      }
-    }
-    clickedFace = null;
-  });
-
-  viewCubeContainer.addEventListener("pointercancel", (e: any) => {
-    if (isDraggingCube) {
-      isDraggingCube = false;
-      viewCubeContainer.releasePointerCapture(e.pointerId);
-    }
-    clickedFace = null;
-  });
+  viewCube.addEventListener("frontclick", () => orientCameraToFace("front"));
+  viewCube.addEventListener("backclick", () => orientCameraToFace("back"));
+  viewCube.addEventListener("leftclick", () => orientCameraToFace("left"));
+  viewCube.addEventListener("rightclick", () => orientCameraToFace("right"));
+  viewCube.addEventListener("topclick", () => orientCameraToFace("top"));
+  viewCube.addEventListener("bottomclick", () => orientCameraToFace("bottom"));
 }
-
-// Add event listener to camera controls to sync rotation on every update
-world.camera.controls.addEventListener("control", updateViewCubeOrientation);
-world.camera.controls.addEventListener("update", updateViewCubeOrientation);
 
 // --- RESPONSIVE SIDEBAR DRAWER INTERACTION ---
 const btnToggleLeft = document.getElementById("btn-toggle-left");
@@ -2773,5 +2736,5 @@ document.querySelectorAll(".panel").forEach((panel) => {
 });
 
 // Initial update
-setTimeout(updateViewCubeOrientation, 500);
+setTimeout(() => { if (viewCube) viewCube.updateOrientation(); }, 500);
 

@@ -108,7 +108,9 @@ export class PropertyEditor {
     this.itemsDataById.clear();
     this.updatedItems.clear();
     const data = await this.currentElement.getData();
-    const rootNode = this.getTableRecursively(data);
+    // Use a visited set to prevent infinite recursion from circular IFC relations
+    const visited = new Set<number>();
+    const rootNode = this.getTableRecursively(data, undefined, visited);
     this.onPropertiesUpdated.trigger([rootNode]);
   };
 
@@ -209,8 +211,36 @@ export class PropertyEditor {
     await this.updatePropertiesTable();
   }
 
-  private getTableRecursively(data: FRAGS.ItemData, parent?: TableNode) {
-    const localId = (data._localId as FRAGS.ItemAttribute).value;
+  /**
+   * Recursively converts FRAGS.ItemData to a TableNode tree.
+   * Uses a `visited` Set to detect and break circular references (common in IFC graphs).
+   */
+  private getTableRecursively(
+    data: FRAGS.ItemData,
+    parent?: TableNode,
+    visited: Set<number> = new Set()
+  ): TableNode {
+    const localId = (data._localId as FRAGS.ItemAttribute).value as number;
+
+    // Break cycles: if we've already processed this localId in this traversal, return a stub
+    if (visited.has(localId)) {
+      const stubNode: TableNode = {
+        data: {
+          Name: `[Circular ref: ${localId}]`,
+          LocalId: localId,
+          Type: "related",
+        },
+        children: [],
+      };
+      if (parent) {
+        parent.children!.push(stubNode);
+        stubNode.data.ParentLocalId = parent.data.LocalId;
+        stubNode.data.ParentName = parent.data.Name;
+      }
+      return stubNode;
+    }
+
+    visited.add(localId);
     this.itemsDataById.set(localId, data);
 
     const currentNode: TableNode = {
@@ -231,7 +261,7 @@ export class PropertyEditor {
     for (const name in data) {
       const current = data[name];
       if (Array.isArray(current)) {
-        // Is rel
+        // Is a relation array
         const relNode: TableNode = {
           data: {
             Name: name,
@@ -243,10 +273,10 @@ export class PropertyEditor {
 
         currentNode.children!.push(relNode);
         for (const item of current) {
-          this.getTableRecursively(item, relNode);
+          this.getTableRecursively(item, relNode, visited);
         }
       } else {
-        // Is attribute
+        // Is an attribute
         if (current.value === undefined || current.value === null) {
           continue;
         }
@@ -262,6 +292,10 @@ export class PropertyEditor {
         });
       }
     }
+
+    // Remove localId from visited so sibling branches can visit the same node
+    // (only prevent re-entry within the same ancestor chain)
+    visited.delete(localId);
 
     return currentNode;
   }
@@ -340,6 +374,31 @@ export function initPropertyEditorUI(editor: PropertyEditor, container: HTMLElem
     "ParentName",
   ];
 
+  // --- Search bar for properties table (simple stateless DOM element) ---
+  const searchSection = BUI.Component.create<HTMLDivElement>(() => {
+    return BUI.html`
+      <div style="padding: 0.25rem 0.5rem 0.5rem; display: flex; gap: 0.4rem; align-items: center;">
+        <bim-text-input
+          id="props-search-input"
+          placeholder="Search properties..."
+          style="flex: 1;"
+          @input=${(e: any) => {
+            propertiesTable.queryString = e.target.value;
+          }}
+        ></bim-text-input>
+        <bim-button
+          icon="material-symbols:clear"
+          style="transform: scale(0.8);"
+          @click=${() => {
+            const input = document.getElementById("props-search-input") as any;
+            if (input) { input.value = ""; }
+            propertiesTable.queryString = null;
+          }}
+        ></bim-button>
+      </div>
+    `;
+  });
+
   const onCloseAddItemModal = new OBC.Event<void>();
 
   const [addItemModal, updateAddItemModal] = BUI.Component.create<HTMLDialogElement, any>((_) => {
@@ -348,7 +407,7 @@ export function initPropertyEditorUI(editor: PropertyEditor, container: HTMLElem
     });
 
     const updateItemIds = async (category: string | undefined) => {
-      const children = [...itemIdsDropdownContainer.children];
+      const children = Array.from(itemIdsDropdownContainer.children);
       for (const child of children) {
         child.remove();
       }
@@ -513,7 +572,7 @@ export function initPropertyEditorUI(editor: PropertyEditor, container: HTMLElem
     });
 
     const updateItemIds = async (category: string | undefined) => {
-      const children = [...itemIdsDropdownContainer.children];
+      const children = Array.from(itemIdsDropdownContainer.children);
       for (const child of children) {
         child.remove();
       }
@@ -698,6 +757,11 @@ export function initPropertyEditorUI(editor: PropertyEditor, container: HTMLElem
     propertiesTable.data = data;
     const tableVisible = propertiesTable.data.length > 0;
     updateTableButton.style.display = tableVisible ? "block" : "none";
+    // Ensure search stays active across updates
+    const input = document.getElementById("props-search-input") as any;
+    if (input && input.value) {
+      propertiesTable.queryString = input.value;
+    }
   });
 
   const exportModel = async () => {
@@ -728,6 +792,7 @@ export function initPropertyEditorUI(editor: PropertyEditor, container: HTMLElem
         ${updateTableButton}
       </bim-panel-section>
       <bim-panel-section label="Properties">
+        ${searchSection}
         ${propertiesTable}
       </bim-panel-section>
     `;

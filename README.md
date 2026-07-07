@@ -4,6 +4,13 @@ An enterprise-grade, fully responsive Web BIM Viewer and 4D/5D Digital Twin Dash
 
 ---
 
+## 🏢 Introduction to BIM Development
+Building Information Modeling (BIM) replaces traditional 2D blueprint drawing with interactive 3D models populated with rich database metadata (e.g. dimensions, entities, property sets). Using these libraries, developers can easily build high-performance 3D BIM tools.
+
+For a complete walkthrough of concepts, prerequisites, features, and debugging guides, check out our **[Developer Onboarding Guide](ONBOARDING.md)**.
+
+---
+
 ## 🌟 Key Features
 
 ### 1. High-Performance 3D Viewport

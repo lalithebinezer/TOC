@@ -9,13 +9,45 @@ import { chromium } from 'playwright';
     if (msg.type() === 'error') logs.push(`Error: ${msg.text()}`);
   });
 
-  await page.goto('http://localhost:3000/TOC/');
+  const portArg = process.argv[2] || process.env.PORT;
+  let targetUrl = '';
+  if (portArg) {
+    targetUrl = `http://localhost:${portArg}/TOC/`;
+  } else {
+    const ports = [3000, 3001, 3002, 3003, 3004, 3005];
+    for (const port of ports) {
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 1000);
+        const res = await fetch(`http://localhost:${port}/TOC/`, { signal: controller.signal });
+        clearTimeout(timeoutId);
+        if (res.ok) {
+          targetUrl = `http://localhost:${port}/TOC/`;
+          break;
+        }
+      } catch (err) {
+        // Ignored
+      }
+    }
+  }
+
+  if (!targetUrl) {
+    console.error('Error: Could not find any running server on ports 3000-3005.');
+    await browser.close();
+    process.exit(1);
+  }
+
+  console.log(`Navigating to target url: ${targetUrl}`);
+  await page.goto(targetUrl);
   
   // Click load sample
   await page.click('#load-sample-btn');
   
-  // Wait for loading overlay to disappear
-  await page.waitForFunction(() => document.querySelector('#loading-overlay').classList.contains('hidden'), { timeout: 15000 });
+  // Wait for model to load and loading overlay to disappear
+  await page.waitForFunction(() => {
+    return typeof window.viewer_model !== 'undefined' && 
+           document.querySelector('#loading-overlay').classList.contains('hidden');
+  }, { timeout: 30000 });
   
   // Double click canvas to select element
   const canvas = await page.$('#container canvas');

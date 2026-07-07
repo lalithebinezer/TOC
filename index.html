@@ -8,7 +8,6 @@
   <title>BIM Viewer — Lalith Ebinezer</title>
   <meta name="description"
     content="Enterprise BIM Viewer with IFC model loading, 3D navigation, digital twin data, and section cutting tools." />
-  <script src="/coi-serviceworker.js"></script>
 </head>
 
 <body>
@@ -665,6 +664,12 @@
             <button class="btn-tool btn-tool-accent" id="btn-load-ifc" title="Load Local Model">
               Load IFC
             </button>
+            <button class="btn-tool btn-tool-accent" id="btn-export-frag" title="Export current model to FRAG">
+              Export FRAG
+            </button>
+            <button class="btn-tool btn-tool-accent" id="btn-load-frag" title="Load local FRAG model">
+              Load FRAG
+            </button>
           </div>
         </div>
 
@@ -704,16 +709,7 @@
       </div>
       <!-- View Cube Layer (Column 2) -->
       <div class="view-cube-layer">
-        <div class="view-cube-container">
-          <div class="view-cube" id="view-cube">
-            <div class="cube-face cube-front" data-face="front">FRONT</div>
-            <div class="cube-face cube-back" data-face="back">BACK</div>
-            <div class="cube-face cube-left" data-face="left">LEFT</div>
-            <div class="cube-face cube-right" data-face="right">RIGHT</div>
-            <div class="cube-face cube-top" data-face="top">TOP</div>
-            <div class="cube-face cube-bottom" data-face="bottom">BOTTOM</div>
-          </div>
-        </div>
+        <bim-view-cube id="view-cube"></bim-view-cube>
       </div>
 
       <!-- Loading Overlay -->

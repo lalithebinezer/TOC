@@ -21,6 +21,9 @@ if (typeof window !== "undefined") {
         if (event.request.cache === "only-if-cached" && event.request.mode !== "same-origin") {
             return;
         }
+        if (event.request.url.startsWith("chrome-extension://") || event.request.url.includes("extension")) {
+            return;
+        }
         event.respondWith(
             fetch(event.request)
                 .then(response => {
