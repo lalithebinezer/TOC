@@ -421,9 +421,9 @@ function getOrGenerateTwinData(modelId: string, expressId: number, ifcType: stri
   const quantity = Math.max(1, Math.floor(rand * 15 + 1));
   const calculatedCost = unitCost * quantity;
 
-  // Initial status determined by start date relative to project start/current date
+  // Initial status determined by start date relative to current real date
   let status: "Planned" | "In Progress" | "Completed" = "Planned";
-  const currentMs = projectStart.getTime();
+  const currentMs = Date.now();
   if (currentMs > end.getTime()) {
     status = "Completed";
   } else if (currentMs >= start.getTime() && currentMs <= end.getTime()) {
@@ -513,9 +513,9 @@ async function initializeModelTwinData(model: any) {
     const rand = (expressId % 100) / 100;
     const quantity = Math.max(1, Math.floor(rand * 15 + 1));
 
-    // Initial status determined by start date relative to project start/current date
+    // Initial status determined by start date relative to current real date
     let status: "Planned" | "In Progress" | "Completed" = "Planned";
-    const currentMs = projectStart.getTime(); // Treat projectStart as current date initially
+    const currentMs = Date.now();
     if (currentMs > end.getTime()) {
       status = "Completed";
     } else if (currentMs >= start.getTime() && currentMs <= end.getTime()) {
@@ -636,7 +636,7 @@ function updateDashboardMetrics() {
         <div class="list-item-name">${type}</div>
         <div style="font-size:0.65rem; color:var(--text-muted);">${stat.count} elements</div>
       </div>
-      <div class="list-item-val" style="font-weight:600; color:#fff;">
+      <div class="list-item-val" style="font-weight:600; color:var(--text-primary);">
         ${new Intl.NumberFormat("en-US", {
           style: "currency",
           currency: "USD",
@@ -829,7 +829,7 @@ if (propsContainer) {
 // Display element properties in the panel
 function displayElementProperties(model: any, expressId: number) {
   const properties = model.properties || (model as any).getLocalProperties?.() || {};
-  activeModelId = model.uuid || model.id || (model.object && model.object.uuid) || "default-model";
+  activeModelId = model.modelId || model.uuid || model.id || (model.object && model.object.uuid) || "default-model";
   activeExpressId = expressId;
 
   const elementProps = properties[expressId];
@@ -1178,10 +1178,18 @@ function refreshFileList() {
     // Visibility toggle
     let visible = true;
     const visBtn = item.querySelector('.btn-visibility')!;
-    visBtn.addEventListener('click', (e) => {
+    visBtn.addEventListener('click', async (e) => {
       e.stopPropagation();
       visible = !visible;
-      model.object.visible = visible;
+      try {
+        const hider = components.get(OBC.Hider);
+        const localIds = await model.getLocalIds();
+        await hider.set(visible, { [modelId]: new Set(localIds) });
+      } catch (err) {
+        console.warn('Error toggling visibility:', err);
+        // Fallback to standard visibility toggle
+        model.object.visible = visible;
+      }
       visBtn.classList.toggle('active-icon', !visible);
       if (!visible) {
         (visBtn as HTMLElement).style.opacity = '0.4';
@@ -1192,14 +1200,16 @@ function refreshFileList() {
 
     // Delete button
     const delBtn = item.querySelector('.btn-delete')!;
-    delBtn.addEventListener('click', (e) => {
+    delBtn.addEventListener('click', async (e) => {
       e.stopPropagation();
       try {
-        world.scene.three.remove(model.object);
-        fragments.list.delete(modelId);
-        fragments.core.update(true);
+        // Correctly dispose of the model using fragments core
+        await fragments.core.disposeModel(modelId);
       } catch (err) {
         console.warn('Error removing model:', err);
+        // Fallback
+        world.scene.three.remove(model.object);
+        fragments.list.delete(modelId);
       }
       refreshFileList();
       updateClassificationUI();
@@ -2548,7 +2558,7 @@ function updateHeaderLabel() {
     // Get the name of the first loaded model
     const firstEntry = fragments.list.entries().next().value;
     if (firstEntry) {
-      const [firstModelId, firstModel] = firstEntry;
+      const [firstModelId, firstModel] = firstEntry as [string, any];
       const anyModel = firstModel as any;
       const rawName = anyModel.modelId || anyModel.name || firstModelId;
       projectName = rawName.replace(/\.[^/.]+$/, ""); // strip extension

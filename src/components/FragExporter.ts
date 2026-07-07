@@ -1,4 +1,4 @@
-import * as OBC from "@thatopen/components";
+import type { FragmentsManager } from "@thatopen/components";
 import * as FRAGS from "@thatopen/fragments";
 
 /**
@@ -21,7 +21,7 @@ export async function exportFrag(model: FRAGS.FragmentsModel, fileName: string) 
 /**
  * Loads a .frag file and adds it to the FragmentsManager.
  */
-export async function loadFrag(fragmentsManager: OBC.FragmentsManager, file: File): Promise<FRAGS.FragmentsModel> {
+export async function loadFrag(fragmentsManager: FragmentsManager, file: File): Promise<FRAGS.FragmentsModel> {
   const arrayBuffer = await file.arrayBuffer();
   const buffer = new Uint8Array(arrayBuffer);
   
