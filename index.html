@@ -488,6 +488,98 @@
               <span>Controls & Gaming Options</span>
             </div>
             <div class="panel-body thin-scrollbar" style="gap: 0.55rem; display: flex; flex-direction: column;">
+              <!-- Game Camera Preset Selector -->
+              <div class="scene-control-item"
+                style="display: flex; flex-direction: column; gap: 0.35rem; background: var(--bg-card); border: 1px solid var(--border-subtle); padding: 0.45rem 0.6rem; border-radius: 8px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                  <div class="scene-control-label" style="display: flex; align-items: center; gap: 0.4rem; font-size: 0.7rem; color: var(--text-muted); font-weight: 600;">
+                    <span>Camera Gameplay Preset</span>
+                  </div>
+                  <select id="settings-game-camera-preset" class="btn-secondary"
+                    style="padding: 0.15rem 0.5rem; font-size: 0.7rem; outline: none; border-color: var(--border-color); background: var(--bg-input); color: var(--text-primary); border-radius: 6px;">
+                    <option value="Default">Default Viewer</option>
+                    <option value="FPS">FPS (First-Person)</option>
+                    <option value="Sports">Sports (Bird's Eye)</option>
+                    <option value="Racing">Racing Mode</option>
+                    <option value="ThirdPerson">Third-Person Action/RPG</option>
+                  </select>
+                </div>
+              </div>
+
+              <!-- FPS Preset Options -->
+              <div id="preset-options-fps" class="preset-options-subpanel" style="display: none; flex-direction: column; gap: 0.45rem; background: rgba(255,255,255,0.02); padding: 0.5rem; border-radius: 6px; border: 1px dashed var(--border-subtle);">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                  <span style="font-size: 0.68rem; color: var(--text-muted);">Custom FOV</span>
+                  <span class="value-badge" id="val-fps-fov">105</span>
+                </div>
+                <input type="range" class="custom-slider" id="settings-fps-fov" min="60" max="120" step="1" value="105" style="width: 100%;" />
+                
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 0.2rem;">
+                  <span style="font-size: 0.68rem; color: var(--text-muted);">Camera Shake</span>
+                  <label class="toggle-switch">
+                    <input type="checkbox" id="settings-fps-shake" />
+                    <span class="toggle-slider"></span>
+                  </label>
+                </div>
+                
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 0.2rem;">
+                  <span style="font-size: 0.68rem; color: var(--text-muted);">Weapon View</span>
+                  <select id="settings-fps-weapon-style" class="btn-secondary" style="padding: 0.1rem 0.35rem; font-size: 0.65rem; background: var(--bg-input); color: var(--text-primary); border-radius: 4px; border-color: var(--border-color);">
+                    <option value="Default">Default</option>
+                    <option value="Wide">Wide</option>
+                  </select>
+                </div>
+              </div>
+
+              <!-- Sports Preset Options -->
+              <div id="preset-options-sports" class="preset-options-subpanel" style="display: none; flex-direction: column; gap: 0.45rem; background: rgba(255,255,255,0.02); padding: 0.5rem; border-radius: 6px; border: 1px dashed var(--border-subtle);">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                  <span style="font-size: 0.68rem; color: var(--text-muted);">Camera Height</span>
+                  <span class="value-badge" id="val-sports-height">15.0</span>
+                </div>
+                <input type="range" class="custom-slider" id="settings-sports-height" min="0" max="20" step="0.5" value="15" style="width: 100%;" />
+                
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 0.2rem;">
+                  <span style="font-size: 0.68rem; color: var(--text-muted);">Zoom Level</span>
+                  <span class="value-badge" id="val-sports-zoom">5.0</span>
+                </div>
+                <input type="range" class="custom-slider" id="settings-sports-zoom" min="0" max="10" step="0.1" value="5" style="width: 100%;" />
+              </div>
+
+              <!-- Racing Preset Options -->
+              <div id="preset-options-racing" class="preset-options-subpanel" style="display: none; flex-direction: column; gap: 0.45rem; background: rgba(255,255,255,0.02); padding: 0.5rem; border-radius: 6px; border: 1px dashed var(--border-subtle);">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                  <span style="font-size: 0.68rem; color: var(--text-muted);">Attachment Point</span>
+                  <select id="settings-racing-attachment" class="btn-secondary" style="padding: 0.1rem 0.35rem; font-size: 0.65rem; background: var(--bg-input); color: var(--text-primary); border-radius: 4px; border-color: var(--border-color);">
+                    <option value="Bumper">Bumper (Front)</option>
+                    <option value="Hood">Hood (Rear/Top)</option>
+                  </select>
+                </div>
+                
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 0.2rem;">
+                  <span style="font-size: 0.68rem; color: var(--text-muted);">Racing FOV</span>
+                  <span class="value-badge" id="val-racing-fov">80</span>
+                </div>
+                <input type="range" class="custom-slider" id="settings-racing-fov" min="70" max="90" step="1" value="80" style="width: 100%;" />
+              </div>
+
+              <!-- Third-Person Preset Options -->
+              <div id="preset-options-thirdperson" class="preset-options-subpanel" style="display: none; flex-direction: column; gap: 0.45rem; background: rgba(255,255,255,0.02); padding: 0.5rem; border-radius: 6px; border: 1px dashed var(--border-subtle);">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                  <span style="font-size: 0.68rem; color: var(--text-muted);">Camera Distance</span>
+                  <span class="value-badge" id="val-thirdperson-distance">8.0</span>
+                </div>
+                <input type="range" class="custom-slider" id="settings-thirdperson-distance" min="2" max="30" step="0.5" value="8" style="width: 100%;" />
+                
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 0.2rem;">
+                  <span style="font-size: 0.68rem; color: var(--text-muted);">Auto-Follow Rotation</span>
+                  <label class="toggle-switch">
+                    <input type="checkbox" id="settings-thirdperson-autofollow" checked />
+                    <span class="toggle-slider"></span>
+                  </label>
+                </div>
+              </div>
+
               <div class="scene-control-item"
                 style="display: flex; justify-content: space-between; align-items: center; background: var(--bg-card); border: 1px solid var(--border-subtle); padding: 0.35rem 0.6rem; border-radius: 8px;">
                 <div class="scene-control-label"

@@ -809,6 +809,14 @@ function addPropertyRow(container: Element, label: string, value: string, extraC
   valSpan.title = value; // Show full value on hover
   valSpan.innerText = value;
   
+  if (label === "Express ID") {
+    valSpan.id = "prop-express-id";
+  } else if (label === "IFC Entity") {
+    valSpan.id = "prop-ifc-type";
+  } else if (label === "Name") {
+    valSpan.id = "prop-name";
+  }
+  
   row.appendChild(labelSpan);
   row.appendChild(valSpan);
   container.appendChild(row);
@@ -1317,6 +1325,7 @@ async function loadModelData(name: string, buffer: Uint8Array) {
     text.innerText = "Building Semantic Model database...";
 
     if (model) {
+      (window as any).viewer_model = model;
       // Enable shadows if checked
       const shadowsOn = shadowsToggle.checked;
       model.object.traverse((child: any) => {
@@ -1802,6 +1811,412 @@ clearSelectionColorsBtn.addEventListener("click", async () => {
   resetPropertiesPanel();
 });
 
+// --- GAMEPLAY CAMERA PRESET VARIABLES & STATE ---
+let activePreset: "Default" | "FPS" | "Sports" | "Racing" | "ThirdPerson" = "Default";
+
+let gameDrawingSheetMesh: THREE.Group | null = null;
+let gameCarMesh: THREE.Group | null = null;
+let gameCharacterMesh: THREE.Group | null = null;
+
+// Car movement state
+const carPosition = new THREE.Vector3(0, 0.01, 0);
+let carRotationY = 0;
+let carSpeed = 0;
+const CAR_MAX_SPEED = 0.5;
+const CAR_ACCEL = 0.02;
+const CAR_STEER_SPEED = 0.04;
+
+// Character movement state
+const charPosition = new THREE.Vector3(0, 0.01, 0);
+let charRotationY = 0;
+
+// Camera Shake variables
+const fpsShakeOffset = new THREE.Vector3();
+let fpsShakeTime = 0;
+
+// Collision system state
+let collisionMeshes: THREE.Mesh[] = [];
+let baseSurfaceY = 0;
+let fpsHeightOffset = 0;
+
+function isGlass(object: THREE.Object3D): boolean {
+  if (object instanceof THREE.Mesh) {
+    const materials = Array.isArray(object.material) ? object.material : [object.material];
+    for (const mat of materials) {
+      if (mat) {
+        if (mat.transparent && mat.opacity < 0.95) return true;
+        if (mat.name && (
+          mat.name.toLowerCase().includes("glass") || 
+          mat.name.toLowerCase().includes("glazing") || 
+          mat.name.toLowerCase().includes("translucent")
+        )) {
+          return true;
+        }
+      }
+    }
+  }
+  return false;
+}
+
+function updateCollisionMeshes() {
+  collisionMeshes = [];
+  for (const [, model] of fragments.list) {
+    if (model && model.object) {
+      model.object.traverse((child) => {
+        if (child instanceof THREE.Mesh) {
+          collisionMeshes.push(child);
+        }
+      });
+    }
+  }
+}
+
+
+function createDrawingSheetMesh(): THREE.Group {
+  const group = new THREE.Group();
+  
+  // A0 drawing sheet (thin blue rectangular box)
+  const sheetGeo = new THREE.BoxGeometry(0.7, 0.5, 0.005);
+  const sheetMat = new THREE.MeshStandardMaterial({ 
+    color: 0x1e40af, // Blueprint blue
+    roughness: 0.8,
+    metalness: 0.1 
+  });
+  const sheet = new THREE.Mesh(sheetGeo, sheetMat);
+  sheet.castShadow = true;
+  sheet.receiveShadow = true;
+  group.add(sheet);
+
+  // Border (thin white rectangle overlay)
+  const borderGeo = new THREE.BoxGeometry(0.66, 0.46, 0.006);
+  const borderMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.15 });
+  const border = new THREE.Mesh(borderGeo, borderMat);
+  border.position.z = 0.001;
+  group.add(border);
+
+  // Mock blueprint lines (light blue lines)
+  const lineMat = new THREE.MeshBasicMaterial({ color: 0x93c5fd });
+  
+  // Horizontal line
+  const l1 = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.003, 0.006), lineMat);
+  l1.position.set(-0.05, 0.1, 0.001);
+  group.add(l1);
+
+  // Vertical line
+  const l2 = new THREE.Mesh(new THREE.BoxGeometry(0.003, 0.3, 0.006), lineMat);
+  l2.position.set(-0.1, -0.05, 0.001);
+  group.add(l2);
+
+  // Mock building boxes
+  const box1 = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.15, 0.006), lineMat);
+  box1.position.set(0.12, 0.05, 0.001);
+  group.add(box1);
+
+  // Title block
+  const titleBlock = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.08, 0.006), lineMat);
+  titleBlock.position.set(0.22, -0.17, 0.001);
+  group.add(titleBlock);
+
+  // Two hands holding the bottom corners
+  const handMat = new THREE.MeshStandardMaterial({ 
+    color: 0xe0ac69, // skin tone
+    roughness: 0.6 
+  });
+  
+  const leftHand = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.1, 0.08), handMat);
+  leftHand.position.set(-0.35, -0.2, 0.03);
+  leftHand.rotation.z = 0.2;
+  group.add(leftHand);
+
+  const rightHand = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.1, 0.08), handMat);
+  rightHand.position.set(0.35, -0.2, 0.03);
+  rightHand.rotation.z = -0.2;
+  group.add(rightHand);
+
+  return group;
+}
+
+function createCarMesh(): THREE.Group {
+  const carGroup = new THREE.Group();
+  
+  // Car chassis body
+  const body = new THREE.Mesh(
+    new THREE.BoxGeometry(1.6, 0.5, 3.2),
+    new THREE.MeshStandardMaterial({ color: 0xe53e3e, metalness: 0.8, roughness: 0.2 })
+  );
+  body.position.y = 0.45;
+  body.castShadow = true;
+  body.receiveShadow = true;
+  carGroup.add(body);
+  
+  // Cabin
+  const cabin = new THREE.Mesh(
+    new THREE.BoxGeometry(1.2, 0.5, 1.4),
+    new THREE.MeshStandardMaterial({ color: 0x2d3748, transparent: true, opacity: 0.7, roughness: 0.1 })
+  );
+  cabin.position.set(0, 0.9, -0.2);
+  cabin.castShadow = true;
+  carGroup.add(cabin);
+
+  // Wheels (4 cylinders)
+  const wheelGeo = new THREE.CylinderGeometry(0.4, 0.4, 0.3, 16);
+  const wheelMat = new THREE.MeshStandardMaterial({ color: 0x1a202c, roughness: 0.8 });
+  wheelGeo.rotateZ(Math.PI / 2);
+
+  const wheelPositions = [
+    [0.85, 0.4, 1.0],
+    [-0.85, 0.4, 1.0],
+    [0.85, 0.4, -1.0],
+    [-0.85, 0.4, -1.0]
+  ];
+
+  for (const pos of wheelPositions) {
+    const wheel = new THREE.Mesh(wheelGeo, wheelMat);
+    wheel.position.set(pos[0], pos[1], pos[2]);
+    wheel.castShadow = true;
+    carGroup.add(wheel);
+  }
+
+  // Headlights
+  const lightGeo = new THREE.SphereGeometry(0.12, 8, 8);
+  const lightMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+  const l1 = new THREE.Mesh(lightGeo, lightMat); l1.position.set(0.6, 0.5, 1.6); carGroup.add(l1);
+  const l2 = new THREE.Mesh(lightGeo, lightMat); l2.position.set(-0.6, 0.5, 1.6); carGroup.add(l2);
+
+  return carGroup;
+}
+
+function createCharacterMesh(): THREE.Group {
+  const charGroup = new THREE.Group();
+  
+  // Capsule body
+  const body = new THREE.Mesh(
+    new THREE.CapsuleGeometry(0.35, 0.9, 4, 8),
+    new THREE.MeshStandardMaterial({ color: 0x3182ce, roughness: 0.4, metalness: 0.1 })
+  );
+  body.position.y = 0.8;
+  body.castShadow = true;
+  body.receiveShadow = true;
+  charGroup.add(body);
+  
+  // Eyes
+  const eyeGeo = new THREE.SphereGeometry(0.08, 8, 8);
+  const eyeMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+  const pupilMat = new THREE.MeshBasicMaterial({ color: 0x000000 });
+  
+  const leftEye = new THREE.Mesh(eyeGeo, eyeMat); leftEye.position.set(0.14, 1.0, 0.32); charGroup.add(leftEye);
+  const rightEye = new THREE.Mesh(eyeGeo, eyeMat); rightEye.position.set(-0.14, 1.0, 0.32); charGroup.add(rightEye);
+  
+  const leftPupil = new THREE.Mesh(new THREE.SphereGeometry(0.04, 8, 8), pupilMat); leftPupil.position.set(0.16, 1.0, 0.38); charGroup.add(leftPupil);
+  const rightPupil = new THREE.Mesh(new THREE.SphereGeometry(0.04, 8, 8), pupilMat); rightPupil.position.set(-0.12, 1.0, 0.38); charGroup.add(rightPupil);
+
+  // Cute hat
+  const hatGeo = new THREE.ConeGeometry(0.35, 0.4, 8);
+  const hatMat = new THREE.MeshStandardMaterial({ color: 0xdd6b20, roughness: 0.6 });
+  const hat = new THREE.Mesh(hatGeo, hatMat);
+  hat.position.set(0, 1.45, 0);
+  hat.castShadow = true;
+  charGroup.add(hat);
+
+  return charGroup;
+}
+
+// --- EVENT BINDINGS FOR CAMERA PRESETS ---
+const gamePresetSelect = document.getElementById("settings-game-camera-preset") as HTMLSelectElement;
+const fpsFovSlider = document.getElementById("settings-fps-fov") as HTMLInputElement;
+const fpsFovVal = document.getElementById("val-fps-fov")!;
+const fpsShakeToggle = document.getElementById("settings-fps-shake") as HTMLInputElement;
+const fpsWeaponSelect = document.getElementById("settings-fps-weapon-style") as HTMLSelectElement;
+
+const sportsHeightSlider = document.getElementById("settings-sports-height") as HTMLInputElement;
+const sportsHeightVal = document.getElementById("val-sports-height")!;
+const sportsZoomSlider = document.getElementById("settings-sports-zoom") as HTMLInputElement;
+const sportsZoomVal = document.getElementById("val-sports-zoom")!;
+
+const racingAttachmentSelect = document.getElementById("settings-racing-attachment") as HTMLSelectElement;
+const racingFovSlider = document.getElementById("settings-racing-fov") as HTMLInputElement;
+const racingFovVal = document.getElementById("val-racing-fov")!;
+
+const tpDistanceSlider = document.getElementById("settings-thirdperson-distance") as HTMLInputElement;
+const tpDistanceVal = document.getElementById("val-thirdperson-distance")!;
+const tpAutoFollowToggle = document.getElementById("settings-thirdperson-autofollow") as HTMLInputElement;
+
+const presetSubpanels = {
+  FPS: document.getElementById("preset-options-fps")!,
+  Sports: document.getElementById("preset-options-sports")!,
+  Racing: document.getElementById("preset-options-racing")!,
+  ThirdPerson: document.getElementById("preset-options-thirdperson")!,
+};
+
+function updatePresetSubpanels(activeMode: string) {
+  for (const key in presetSubpanels) {
+    const el = presetSubpanels[key as keyof typeof presetSubpanels];
+    if (el) {
+      el.style.display = key === activeMode ? "flex" : "none";
+    }
+  }
+}
+
+function exitActivePreset() {
+  if (gameDrawingSheetMesh && gameDrawingSheetMesh.parent) {
+    gameDrawingSheetMesh.parent.remove(gameDrawingSheetMesh);
+  }
+  if (gameCarMesh && gameCarMesh.parent) {
+    gameCarMesh.parent.remove(gameCarMesh);
+  }
+  if (gameCharacterMesh && gameCharacterMesh.parent) {
+    gameCharacterMesh.parent.remove(gameCharacterMesh);
+  }
+
+  // Restore camera defaults
+  world.camera.set("Orbit");
+  world.camera.projection.set("Perspective");
+  if (world.camera.three instanceof THREE.PerspectiveCamera) {
+    world.camera.three.near = 1.0; // Restore default near clipping plane
+    world.camera.three.fov = 60;
+    world.camera.three.updateProjectionMatrix();
+  }
+  fpsHeightOffset = 0; // Reset height offset
+  firstPersonKeys.forward = false;
+  firstPersonKeys.backward = false;
+  firstPersonKeys.left = false;
+  firstPersonKeys.right = false;
+  firstPersonKeys.up = false;
+  firstPersonKeys.down = false;
+  settingsCameraMode.value = "Orbit";
+  settingsCameraProjection.value = "Perspective";
+  settingsCameraMode.disabled = false;
+}
+
+gamePresetSelect.addEventListener("change", () => {
+  exitActivePreset();
+  activePreset = gamePresetSelect.value as any;
+  updatePresetSubpanels(activePreset);
+
+  if (activePreset === "Default") {
+    return;
+  }
+
+  settingsCameraMode.disabled = true;
+
+  if (activePreset === "FPS") {
+    world.camera.set("FirstPerson");
+    settingsCameraMode.value = "FirstPerson";
+    
+    // Ensure camera is added to the scene so attached children (the weapon mesh) render
+    if (!world.camera.three.parent) {
+      world.scene.three.add(world.camera.three);
+    }
+    
+    if (!gameDrawingSheetMesh) gameDrawingSheetMesh = createDrawingSheetMesh();
+    world.camera.three.add(gameDrawingSheetMesh);
+    
+    // Scan scene for collision meshes
+    updateCollisionMeshes();
+
+    // Adjust height of the camera to ground/base eye level of a 5'8" (1.727m) person
+    baseSurfaceY = 0;
+    const box = new THREE.Box3();
+    let hasModel = false;
+    for (const [, model] of fragments.list) {
+      if (model && model.object) {
+        box.expandByObject(model.object);
+        hasModel = true;
+      }
+    }
+    if (hasModel) {
+      baseSurfaceY = box.min.y;
+    }
+
+    const personHeight = 1.727; // 5'8" in meters
+    const eyeHeight = personHeight - 0.1; // Eye level approx 10cm below top of head (~1.627m)
+    const targetY = baseSurfaceY + eyeHeight;
+
+    const currentPosition = new THREE.Vector3();
+    world.camera.controls.getPosition(currentPosition);
+    
+    const forwardDirection = new THREE.Vector3();
+    world.camera.three.getWorldDirection(forwardDirection);
+    forwardDirection.y = 0;
+    forwardDirection.normalize();
+    
+    const newEyePos = new THREE.Vector3(currentPosition.x, targetY, currentPosition.z);
+    const newTargetPos = newEyePos.clone().add(forwardDirection);
+    
+    world.camera.controls.setLookAt(
+      newEyePos.x, newEyePos.y, newEyePos.z,
+      newTargetPos.x, newTargetPos.y, newTargetPos.z,
+      false
+    );
+    
+    // Apply initial FOV and near clipping plane
+    if (world.camera.three instanceof THREE.PerspectiveCamera) {
+      world.camera.three.near = 0.1; // Allow close rendering of the weapon
+      world.camera.three.fov = Number(fpsFovSlider.value);
+      world.camera.three.updateProjectionMatrix();
+    }
+  } else if (activePreset === "Sports") {
+    world.camera.set("Orbit");
+    settingsCameraMode.value = "Orbit";
+    world.camera.projection.set("Perspective");
+  } else if (activePreset === "Racing") {
+    world.camera.set("Orbit");
+    settingsCameraMode.value = "Orbit";
+    world.camera.projection.set("Perspective");
+    if (!gameCarMesh) gameCarMesh = createCarMesh();
+    world.scene.three.add(gameCarMesh);
+    carPosition.set(0, 0.01, 0);
+    carRotationY = 0;
+    carSpeed = 0;
+    gameCarMesh.position.copy(carPosition);
+    gameCarMesh.rotation.y = carRotationY;
+    
+    // Apply initial FOV
+    if (world.camera.three instanceof THREE.PerspectiveCamera) {
+      world.camera.three.fov = Number(racingFovSlider.value);
+      world.camera.three.updateProjectionMatrix();
+    }
+  } else if (activePreset === "ThirdPerson") {
+    world.camera.set("Orbit");
+    settingsCameraMode.value = "Orbit";
+    if (!gameCharacterMesh) gameCharacterMesh = createCharacterMesh();
+    world.scene.three.add(gameCharacterMesh);
+    charPosition.set(0, 0.01, 0);
+    charRotationY = 0;
+    gameCharacterMesh.position.copy(charPosition);
+    gameCharacterMesh.rotation.y = charRotationY;
+  }
+});
+
+// Update event listeners for sliders
+fpsFovSlider.addEventListener("input", () => {
+  fpsFovVal.innerText = fpsFovSlider.value;
+  if (activePreset === "FPS" && world.camera.three instanceof THREE.PerspectiveCamera) {
+    world.camera.three.fov = Number(fpsFovSlider.value);
+    world.camera.three.updateProjectionMatrix();
+  }
+});
+
+sportsHeightSlider.addEventListener("input", () => {
+  sportsHeightVal.innerText = Number(sportsHeightSlider.value).toFixed(1);
+});
+
+sportsZoomSlider.addEventListener("input", () => {
+  sportsZoomVal.innerText = Number(sportsZoomSlider.value).toFixed(1);
+});
+
+racingFovSlider.addEventListener("input", () => {
+  racingFovVal.innerText = racingFovSlider.value;
+  if (activePreset === "Racing" && world.camera.three instanceof THREE.PerspectiveCamera) {
+    world.camera.three.fov = Number(racingFovSlider.value);
+    world.camera.three.updateProjectionMatrix();
+  }
+});
+
+tpDistanceSlider.addEventListener("input", () => {
+  tpDistanceVal.innerText = Number(tpDistanceSlider.value).toFixed(1);
+});
+
 // --- CAMERA NAVIGATION & PROJECTIONS BINDINGS ---
 const settingsCameraMode = document.getElementById("settings-camera-mode")! as HTMLSelectElement;
 settingsCameraMode.addEventListener("change", () => {
@@ -1816,7 +2231,7 @@ const keyBindings = {
   right: localStorage.getItem("key-bind-right") || "d",
 };
 
-const firstPersonKeys = { forward: false, left: false, backward: false, right: false };
+const firstPersonKeys = { forward: false, left: false, backward: false, right: false, up: false, down: false };
 
 // UI Elements for Gaming settings
 const toggleWASD = document.getElementById("settings-enable-wasd") as HTMLInputElement;
@@ -1897,20 +2312,24 @@ window.addEventListener("keydown", (e) => {
   }
 
   const pressedKey = e.key.toLowerCase();
-  if (pressedKey === keyBindings.forward) firstPersonKeys.forward = true;
-  if (pressedKey === keyBindings.left) firstPersonKeys.left = true;
-  if (pressedKey === keyBindings.backward) firstPersonKeys.backward = true;
-  if (pressedKey === keyBindings.right) firstPersonKeys.right = true;
+  if (pressedKey === keyBindings.forward.toLowerCase()) firstPersonKeys.forward = true;
+  if (pressedKey === keyBindings.left.toLowerCase()) firstPersonKeys.left = true;
+  if (pressedKey === keyBindings.backward.toLowerCase()) firstPersonKeys.backward = true;
+  if (pressedKey === keyBindings.right.toLowerCase()) firstPersonKeys.right = true;
+  if (pressedKey === "q") firstPersonKeys.up = true;
+  if (pressedKey === "e") firstPersonKeys.down = true;
 });
 
 window.addEventListener("keyup", (e) => {
   if (activeBindingAction) return;
 
   const pressedKey = e.key.toLowerCase();
-  if (pressedKey === keyBindings.forward) firstPersonKeys.forward = false;
-  if (pressedKey === keyBindings.left) firstPersonKeys.left = false;
-  if (pressedKey === keyBindings.backward) firstPersonKeys.backward = false;
-  if (pressedKey === keyBindings.right) firstPersonKeys.right = false;
+  if (pressedKey === keyBindings.forward.toLowerCase()) firstPersonKeys.forward = false;
+  if (pressedKey === keyBindings.left.toLowerCase()) firstPersonKeys.left = false;
+  if (pressedKey === keyBindings.backward.toLowerCase()) firstPersonKeys.backward = false;
+  if (pressedKey === keyBindings.right.toLowerCase()) firstPersonKeys.right = false;
+  if (pressedKey === "q") firstPersonKeys.up = false;
+  if (pressedKey === "e") firstPersonKeys.down = false;
 });
 
 // Update rotateSpeed on camera controls initialization/change
@@ -1920,13 +2339,307 @@ world.camera.controls.addEventListener("update", () => {
   }
 });
 
+let animateFrameCount = 0;
 function animateFirstPerson() {
   requestAnimationFrame(animateFirstPerson);
-  if (settingsCameraMode.value !== "FirstPerson") return;
-  if (!toggleWASD.checked) return;
 
   const controls = world.camera.controls;
   if (!controls) return;
+
+  animateFrameCount++;
+  if (animateFrameCount % 60 === 0 && activePreset === "FPS") {
+    updateCollisionMeshes();
+  }
+
+  if (activePreset !== "Default") {
+    // --- FPS Preset Update ---
+    if (activePreset === "FPS") {
+      const previousPos = new THREE.Vector3();
+      controls.getPosition(previousPos);
+      
+      const moveDelta = new THREE.Vector3();
+
+      // 1. Calculate manual movement inputs relative to look vector
+      if (toggleWASD.checked) {
+        const forward = new THREE.Vector3();
+        world.camera.three.getWorldDirection(forward);
+        forward.y = 0;
+        forward.normalize();
+
+        const right = new THREE.Vector3();
+        right.crossVectors(forward, new THREE.Vector3(0, 1, 0)).normalize();
+
+        const speed = movementSpeed;
+        if (firstPersonKeys.forward) moveDelta.addScaledVector(forward, speed);
+        if (firstPersonKeys.backward) moveDelta.addScaledVector(forward, -speed);
+        if (firstPersonKeys.left) moveDelta.addScaledVector(right, -speed);
+        if (firstPersonKeys.right) moveDelta.addScaledVector(right, speed);
+      }
+
+      const newPos = previousPos.clone().add(moveDelta);
+
+      // Filter collision meshes to exclude glass objects
+      const nonGlassMeshes = collisionMeshes.filter((mesh) => !isGlass(mesh));
+      const caster = components.get(OBC.Raycasters).get(world);
+
+      // 2. Wall Collisions & Sliding
+      if (moveDelta.lengthSq() > 0.0001) {
+        const playerRadius = 0.45;
+        const rayDir = moveDelta.clone().normalize();
+        const rayOrigin = new THREE.Vector3(previousPos.x, previousPos.y - 0.5, previousPos.z);
+        
+        const hit = caster.castRayFromVector(rayOrigin, rayDir, nonGlassMeshes);
+
+        let hitNormal = new THREE.Vector3();
+        let normalFound = false;
+
+        if (hit && hit.distance <= playerRadius + moveDelta.length() && hit.face) {
+          hitNormal.copy(hit.face.normal).applyQuaternion(hit.object.getWorldQuaternion(new THREE.Quaternion()));
+          normalFound = true;
+        }
+
+        if (normalFound) {
+          const dot = moveDelta.dot(hitNormal);
+          if (dot < 0) {
+            // Project movement along wall normal to slide
+            moveDelta.addScaledVector(hitNormal, -dot);
+          } else {
+            moveDelta.set(0, 0, 0);
+          }
+          newPos.copy(previousPos).add(moveDelta);
+        }
+      }
+
+      // 3. Ground, Stairs & Gravity with Manual Q/E Height Adjustment
+      if (firstPersonKeys.up) {
+        fpsHeightOffset = Math.min(fpsHeightOffset + movementSpeed * 0.15, 12.0);
+      }
+      if (firstPersonKeys.down) {
+        fpsHeightOffset = Math.max(fpsHeightOffset - movementSpeed * 0.15, -1.2);
+      }
+
+      const stepLimit = 0.5;
+      const downOrigin = new THREE.Vector3(newPos.x, previousPos.y + stepLimit, newPos.z);
+      const downDir = new THREE.Vector3(0, -1, 0);
+      const downHit = caster.castRayFromVector(downOrigin, downDir, nonGlassMeshes);
+      let groundY = baseSurfaceY;
+
+      if (downHit && downHit.distance <= 15.0) {
+        groundY = downHit.point.y;
+      }
+
+      const personHeight = 1.727; // 5'8"
+      const eyeHeight = personHeight - 0.1; // ~1.627m
+      const targetCameraY = groundY + eyeHeight + fpsHeightOffset;
+
+      const currentHeight = previousPos.y;
+      let nextHeight = currentHeight;
+
+      if (targetCameraY > currentHeight) {
+        if (targetCameraY - currentHeight <= stepLimit + 0.1) {
+          nextHeight = THREE.MathUtils.lerp(currentHeight, targetCameraY, 0.25);
+        } else {
+          // Too steep to climb, keep Y height same (don't rise), but allow horizontal movement
+          nextHeight = currentHeight;
+        }
+      } else {
+        nextHeight = THREE.MathUtils.lerp(currentHeight, targetCameraY, 0.15);
+      }
+
+      newPos.y = nextHeight;
+
+      // Calculate actual world-space displacement vector
+      const displacement = new THREE.Vector3().subVectors(newPos, previousPos);
+
+      // Translate both position and target to preserve look rotation without drifting
+      if (displacement.lengthSq() > 0.000001) {
+        const targetVal = new THREE.Vector3();
+        controls.getTarget(targetVal);
+        targetVal.add(displacement);
+        controls.moveTo(targetVal.x, targetVal.y, targetVal.z, false);
+      }
+
+      if (gameDrawingSheetMesh) {
+        // Position drawing sheet group relative to camera
+        const weaponStyle = fpsWeaponSelect.value;
+        const scaleMult = weaponStyle === "Wide" ? 0.75 : 1.0;
+        gameDrawingSheetMesh.scale.set(scaleMult, scaleMult, scaleMult);
+
+        // Calculate sheet base position relative to camera view
+        const baseOffset = new THREE.Vector3(0, 0, 0);
+        if (weaponStyle === "Wide") {
+          // Shift sheet lower and further away
+          baseOffset.set(0, -0.42, -0.52);
+        } else {
+          baseOffset.set(0, -0.34, -0.42);
+        }
+
+        // Apply shake if enabled
+        if (fpsShakeToggle.checked) {
+          const isMoving = firstPersonKeys.forward || firstPersonKeys.backward || firstPersonKeys.left || firstPersonKeys.right;
+          const shakeFreq = isMoving ? 0.12 : 0.04;
+          const shakeAmp = isMoving ? 0.006 : 0.0015;
+          fpsShakeTime += shakeFreq;
+
+          fpsShakeOffset.set(
+            Math.sin(fpsShakeTime * 2.0) * shakeAmp * 0.7,
+            Math.cos(fpsShakeTime * 1.5) * shakeAmp,
+            Math.sin(fpsShakeTime * 1.0) * shakeAmp * 0.2
+          );
+          
+          // Apply shake directly to camera position offset
+          world.camera.three.position.x += fpsShakeOffset.x;
+          world.camera.three.position.y += fpsShakeOffset.y;
+          
+          // Also slightly bounce the drawing sheet
+          baseOffset.x += fpsShakeOffset.x * 0.5;
+          baseOffset.y += fpsShakeOffset.y * 1.2;
+        }
+
+        // Reset local drawing sheet position/rotation so it remains aligned with camera view
+        gameDrawingSheetMesh.position.copy(baseOffset);
+        // Angle the sheet further forward (X: -0.40) so it looks held at chest level
+        gameDrawingSheetMesh.rotation.set(-0.40, 0, 0);
+      }
+    }
+    
+    // --- Sports (Bird's Eye) Update ---
+    else if (activePreset === "Sports") {
+      const height = Number(sportsHeightSlider.value);
+      const zoom = Number(sportsZoomSlider.value);
+      
+      // Determine active target (selected element center or origin)
+      const target = new THREE.Vector3(0, 0, 0);
+      if (activeModelId && activeExpressId) {
+        const selectedModel = fragments.list.get(activeModelId);
+        if (selectedModel) {
+          try {
+            const box = new THREE.Box3().setFromObject(selectedModel.object);
+            box.getCenter(target);
+          } catch (e) {
+            // ignore
+          }
+        }
+      }
+      
+      // Calculate broadcast view positioning: pull back X/Z, lift Y, and adjust FOV
+      const offsetDist = 22 - zoom * 1.8;
+      const camPos = new THREE.Vector3(
+        target.x + offsetDist,
+        target.y + height + 3,
+        target.z + offsetDist
+      );
+      
+      // Force setting the camera matrix lookAt
+      controls.setLookAt(camPos.x, camPos.y, camPos.z, target.x, target.y, target.z, false);
+    }
+    
+    // --- Racing Mode Update ---
+    else if (activePreset === "Racing") {
+      if (gameCarMesh) {
+        // Steering & Throttle physics
+        if (firstPersonKeys.forward) {
+          carSpeed = Math.min(carSpeed + CAR_ACCEL, CAR_MAX_SPEED);
+        } else if (firstPersonKeys.backward) {
+          carSpeed = Math.max(carSpeed - CAR_ACCEL, -CAR_MAX_SPEED / 2);
+        } else {
+          carSpeed *= 0.94; // friction/drag
+        }
+
+        if (Math.abs(carSpeed) > 0.01) {
+          const steerSign = carSpeed >= 0 ? 1 : -1;
+          if (firstPersonKeys.left) {
+            carRotationY += CAR_STEER_SPEED * steerSign;
+          }
+          if (firstPersonKeys.right) {
+            carRotationY -= CAR_STEER_SPEED * steerSign;
+          }
+        }
+
+        const driveDir = new THREE.Vector3(0, 0, 1).applyAxisAngle(new THREE.Vector3(0, 1, 0), carRotationY);
+        carPosition.addScaledVector(driveDir, carSpeed);
+        
+        gameCarMesh.position.copy(carPosition);
+        gameCarMesh.rotation.y = carRotationY;
+
+        // Position camera relative to car
+        const attachPoint = racingAttachmentSelect.value;
+        const camPos = new THREE.Vector3();
+        const lookTarget = new THREE.Vector3();
+
+        if (attachPoint === "Bumper") {
+          // Camera on bumper looking directly forward
+          camPos.set(0, 0.75, 1.65).applyAxisAngle(new THREE.Vector3(0, 1, 0), carRotationY).add(carPosition);
+          lookTarget.set(0, 0.75, 5).applyAxisAngle(new THREE.Vector3(0, 1, 0), carRotationY).add(carPosition);
+        } else {
+          // Camera behind and above hood, looking over
+          camPos.set(0, 1.7, -2.4).applyAxisAngle(new THREE.Vector3(0, 1, 0), carRotationY).add(carPosition);
+          lookTarget.set(0, 1.1, 3.5).applyAxisAngle(new THREE.Vector3(0, 1, 0), carRotationY).add(carPosition);
+        }
+
+        controls.setLookAt(camPos.x, camPos.y, camPos.z, lookTarget.x, lookTarget.y, lookTarget.z, false);
+      }
+    }
+    
+    // --- Third-Person Update ---
+    else if (activePreset === "ThirdPerson") {
+      if (gameCharacterMesh) {
+        const distance = Number(tpDistanceSlider.value);
+        const autoFollow = tpAutoFollowToggle.checked;
+
+        // Calculate move vector based on camera direction
+        const camDirection = new THREE.Vector3();
+        world.camera.three.getWorldDirection(camDirection);
+        camDirection.y = 0;
+        camDirection.normalize();
+
+        const camRight = new THREE.Vector3();
+        camRight.crossVectors(camDirection, new THREE.Vector3(0, 1, 0)).normalize();
+
+        const moveDir = new THREE.Vector3();
+        if (firstPersonKeys.forward) moveDir.add(camDirection);
+        if (firstPersonKeys.backward) moveDir.addScaledVector(camDirection, -1);
+        if (firstPersonKeys.left) moveDir.addScaledVector(camRight, 1);
+        if (firstPersonKeys.right) moveDir.addScaledVector(camRight, -1);
+
+        const isMoving = moveDir.lengthSq() > 0.001;
+        if (isMoving) {
+          moveDir.normalize();
+          charPosition.addScaledVector(moveDir, 0.12);
+          gameCharacterMesh.position.copy(charPosition);
+
+          // Rotate character to face movement direction
+          charRotationY = Math.atan2(moveDir.x, moveDir.z);
+          gameCharacterMesh.rotation.y = charRotationY;
+        }
+
+        if (autoFollow && isMoving) {
+          // Position camera directly behind character
+          const backOffset = new THREE.Vector3(0, 1.9, -distance).applyAxisAngle(new THREE.Vector3(0, 1, 0), charRotationY);
+          const camPos = charPosition.clone().add(backOffset);
+          
+          controls.setLookAt(
+            camPos.x, camPos.y, camPos.z,
+            charPosition.x, charPosition.y + 0.9, charPosition.z,
+            true // Enable interpolation transition for smoothness
+          );
+        } else {
+          // Lock target and let standard camera-controls mouse drag orbit
+          controls.moveTo(charPosition.x, charPosition.y + 0.9, charPosition.z, false);
+          
+          // Smoothly clamp/dolly to slider distance
+          if (Math.abs(controls.distance - distance) > 0.01) {
+            controls.distance = distance;
+          }
+        }
+      }
+    }
+    return;
+  }
+
+  // Original FirstPerson WASD Navigation when no preset is selected
+  if (settingsCameraMode.value !== "FirstPerson") return;
+  if (!toggleWASD.checked) return;
 
   if (firstPersonKeys.forward) controls.forward(movementSpeed, false);
   if (firstPersonKeys.backward) controls.forward(-movementSpeed, false);

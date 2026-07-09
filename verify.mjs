@@ -3,6 +3,7 @@ import { chromium } from 'playwright';
 (async () => {
   const browser = await chromium.launch();
   const page = await browser.newPage();
+  await page.setViewportSize({ width: 1920, height: 1080 });
   
   const logs = [];
   page.on('console', msg => {
@@ -49,12 +50,31 @@ import { chromium } from 'playwright';
            document.querySelector('#loading-overlay').classList.contains('hidden');
   }, { timeout: 30000 });
   
+  // Wait for camera fitToBox animation to finish and scene to settle
+  await page.waitForTimeout(2000);
+  
   // Double click canvas to select element
   const canvas = await page.$('#container canvas');
   if (canvas) {
     const box = await canvas.boundingBox();
     if (box) {
+      // Try exact center
       await page.mouse.dblclick(box.x + box.width / 2, box.y + box.height / 2);
+      await page.waitForTimeout(500);
+      
+      let name = await page.$eval('#prop-name', el => el.textContent).catch(() => '-');
+      if (name === '-' || name === '') {
+        // Try offset 1
+        await page.mouse.dblclick(box.x + box.width / 2 + 100, box.y + box.height / 2 + 50);
+        await page.waitForTimeout(500);
+        name = await page.$eval('#prop-name', el => el.textContent).catch(() => '-');
+      }
+      
+      if (name === '-' || name === '') {
+        // Try offset 2
+        await page.mouse.dblclick(box.x + box.width / 2 - 100, box.y + box.height / 2 - 50);
+        await page.waitForTimeout(500);
+      }
     }
   }
   
@@ -66,9 +86,6 @@ import { chromium } from 'playwright';
     return `Properties count: ${keys.length}, sample keys: ${keys.slice(0, 10).join(', ')}, type of first val: ${typeof window.viewer_model.properties[keys[0]]}, keys of first val: ${window.viewer_model.properties[keys[0]] ? Object.keys(window.viewer_model.properties[keys[0]]).join(', ') : 'null'}`;
   });
   console.log("Model properties dump:", propsDump);
-  
-  // Wait for properties panel
-  await page.waitForTimeout(1000);
   
   const ifcEntity = await page.$eval('#prop-ifc-type', el => el.textContent).catch(() => 'Not found');
   const name = await page.$eval('#prop-name', el => el.textContent).catch(() => 'Not found');
