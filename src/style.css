@@ -3003,6 +3003,10 @@ input[type="range"].custom-slider {
     animation: fadeIn 0.15s ease;
   }
 
+  .shortcuts-modal-overlay.hidden {
+    display: none !important;
+  }
+
   @keyframes fadeIn {
     from { opacity: 0; }
     to { opacity: 1; }

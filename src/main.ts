@@ -1399,6 +1399,11 @@ async function loadModelData(name: string, buffer: Uint8Array) {
       // Sync/generate local database twin properties using classifications
       await initializeModelTwinData(model);
 
+      // Update 5D cumulative project budget now that twin data is populated
+      if (typeof (window as any).updateCumulative5DCost === 'function') {
+        (window as any).updateCumulative5DCost();
+      }
+
       console.log("CLASSIFIER: starting updateClassificationUI");
       await updateClassificationUI();
       console.log("CLASSIFIER: updateClassificationUI done");
@@ -3510,13 +3515,15 @@ const tickerCamMode = document.getElementById("ticker-camera-mode");
 if (btnViewFit) {
   btnViewFit.addEventListener("click", async () => {
     try {
-      const bboxer = components.get(OBC.BoundingBoxer);
-      bboxer.list.clear();
+      const box = new THREE.Box3();
+      let hasModel = false;
       for (const [, model] of fragments.list) {
-        bboxer.add(model.object);
+        box.expandByObject(model.object);
+        hasModel = true;
       }
-      const box = bboxer.get();
-      await world.camera.controls.fitToBox(box, true);
+      if (hasModel) {
+        await world.camera.controls.fitToBox(box, true);
+      }
     } catch (err) {
       console.warn("Fit view failed:", err);
     }
@@ -3746,9 +3753,13 @@ const btnShortcutsClose = document.getElementById("btn-shortcuts-close");
 
 function toggleShortcutsModal(forceState?: boolean) {
   if (!shortcutsModal) return;
-  const isVisible = shortcutsModal.style.display !== "none";
-  const targetState = forceState !== undefined ? forceState : !isVisible;
-  shortcutsModal.style.display = targetState ? "flex" : "none";
+  const isHidden = shortcutsModal.classList.contains('hidden');
+  const targetState = forceState !== undefined ? forceState : isHidden;
+  if (targetState) {
+    shortcutsModal.classList.remove('hidden');
+  } else {
+    shortcutsModal.classList.add('hidden');
+  }
 }
 
 if (btnShortcutsToggle) {
@@ -3805,8 +3816,8 @@ function updateCumulative5DCost() {
       const ifcType = String(elementProps.type ?? "").toUpperCase();
       const twinData = getOrGenerateTwinData(modelId, expressId, ifcType);
 
-      if (twinData.cost) {
-        grandTotal += twinData.cost;
+      if (twinData.calculatedCost) {
+        grandTotal += twinData.calculatedCost;
         elementCount++;
       }
     }
