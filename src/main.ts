@@ -3745,34 +3745,123 @@ function setupSidebarTabSystem() {
 setupSidebarTabSystem();
 
 // ============================================================
-// KEYBOARD SHORTCUTS MODAL HANDLERS
+// WELCOME TUTORIAL / HELP MODAL CONTROLLER
 // ============================================================
-const shortcutsModal = document.getElementById("shortcuts-modal");
-const btnShortcutsToggle = document.getElementById("btn-shortcuts-toggle");
-const btnShortcutsClose = document.getElementById("btn-shortcuts-close");
 
-function toggleShortcutsModal(forceState?: boolean) {
-  if (!shortcutsModal) return;
-  const isHidden = shortcutsModal.classList.contains('hidden');
-  const targetState = forceState !== undefined ? forceState : isHidden;
-  if (targetState) {
-    shortcutsModal.classList.remove('hidden');
-  } else {
-    shortcutsModal.classList.add('hidden');
+const helpModal = document.getElementById("shortcuts-modal");
+const btnShortcutsToggle = document.getElementById("btn-shortcuts-toggle");
+const btnShortcutsClose  = document.getElementById("btn-shortcuts-close");
+const btnHelpNext        = document.getElementById("btn-help-next") as HTMLButtonElement | null;
+const btnHelpPrev        = document.getElementById("btn-help-prev") as HTMLButtonElement | null;
+const btnHelpDone        = document.getElementById("btn-help-done") as HTMLButtonElement | null;
+const helpDontShow       = document.getElementById("help-dont-show-again") as HTMLInputElement | null;
+
+// Tab order
+const HELP_TABS = ["welcome", "tools", "shortcuts", "navigate"] as const;
+type HelpTab = typeof HELP_TABS[number];
+let helpCurrentTab: HelpTab = "welcome";
+
+function switchHelpTab(tab: HelpTab) {
+  helpCurrentTab = tab;
+
+  // Update tab buttons
+  document.querySelectorAll(".help-tab-btn").forEach((btn) => {
+    const isActive = (btn as HTMLElement).getAttribute("data-help-tab") === tab;
+    btn.classList.toggle("active", isActive);
+  });
+
+  // Update panels
+  document.querySelectorAll(".help-tab-panel").forEach((panel) => {
+    panel.classList.toggle("active", panel.id === `help-tab-${tab}`);
+  });
+
+  // Update footer prev/next/done visibility
+  const idx = HELP_TABS.indexOf(tab);
+  if (btnHelpPrev) btnHelpPrev.classList.toggle("hidden", idx === 0);
+  if (btnHelpNext) btnHelpNext.classList.toggle("hidden", idx === HELP_TABS.length - 1);
+  if (btnHelpDone) btnHelpDone.classList.toggle("hidden", idx !== HELP_TABS.length - 1);
+}
+
+function openHelpModal(startTab: HelpTab = "welcome") {
+  if (!helpModal) return;
+  helpModal.classList.remove("hidden");
+  switchHelpTab(startTab);
+}
+
+function closeHelpModal() {
+  if (!helpModal) return;
+  helpModal.classList.add("hidden");
+  // Persist "don't show again" preference
+  if (helpDontShow?.checked) {
+    localStorage.setItem("bim-help-dont-show", "1");
   }
 }
 
-if (btnShortcutsToggle) {
-  btnShortcutsToggle.addEventListener("click", () => toggleShortcutsModal(true));
-}
-if (btnShortcutsClose) {
-  btnShortcutsClose.addEventListener("click", () => toggleShortcutsModal(false));
-}
-if (shortcutsModal) {
-  shortcutsModal.addEventListener("click", (e) => {
-    if (e.target === shortcutsModal) toggleShortcutsModal(false);
+// Wire tab buttons
+document.querySelectorAll(".help-tab-btn").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    const tab = (btn as HTMLElement).getAttribute("data-help-tab") as HelpTab;
+    if (tab) switchHelpTab(tab);
+  });
+});
+
+// Wire prev/next/done navigation
+if (btnHelpNext) {
+  btnHelpNext.addEventListener("click", () => {
+    const idx = HELP_TABS.indexOf(helpCurrentTab);
+    if (idx < HELP_TABS.length - 1) switchHelpTab(HELP_TABS[idx + 1]);
   });
 }
+if (btnHelpPrev) {
+  btnHelpPrev.addEventListener("click", () => {
+    const idx = HELP_TABS.indexOf(helpCurrentTab);
+    if (idx > 0) switchHelpTab(HELP_TABS[idx - 1]);
+  });
+}
+if (btnHelpDone) {
+  btnHelpDone.addEventListener("click", closeHelpModal);
+}
+
+// Wire header close button and overlay backdrop click
+if (btnShortcutsClose) {
+  btnShortcutsClose.addEventListener("click", closeHelpModal);
+}
+if (helpModal) {
+  helpModal.addEventListener("click", (e) => {
+    if (e.target === helpModal) closeHelpModal();
+  });
+}
+
+// Wire keybinds button in header
+if (btnShortcutsToggle) {
+  btnShortcutsToggle.addEventListener("click", () => {
+    if (helpModal?.classList.contains("hidden")) {
+      openHelpModal("welcome");
+    } else {
+      closeHelpModal();
+    }
+  });
+}
+
+// Auto-show on first visit (unless user dismissed it before)
+const FIRST_VISIT_KEY = "bim-help-dont-show";
+if (!localStorage.getItem(FIRST_VISIT_KEY)) {
+  // Defer to after model check / page settle
+  setTimeout(() => openHelpModal("welcome"), 800);
+}
+
+// Expose toggle globally for the ? hotkey (replaces old toggleShortcutsModal)
+function toggleShortcutsModal(forceOpen?: boolean) {
+  if (!helpModal) return;
+  const isHidden = helpModal.classList.contains("hidden");
+  if (forceOpen === true || (forceOpen === undefined && isHidden)) {
+    openHelpModal("welcome");
+  } else {
+    closeHelpModal();
+  }
+}
+(window as any).toggleShortcutsModal = toggleShortcutsModal;
+
 
 // ============================================================
 // TIMELINE SPEED PILLS CONTROLLER

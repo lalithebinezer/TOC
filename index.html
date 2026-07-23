@@ -1015,42 +1015,125 @@
     <!-- Credit Watermark -->
     <a id="credit-watermark" href="https://www.linkedin.com/in/lalith-ebinezer/" target="_blank" rel="noopener noreferrer">by Lalith Ebinezer</a>
 
-    <!-- Keyboard Shortcuts Modal -->
-    <div class="shortcuts-modal-overlay hidden" id="shortcuts-modal" aria-modal="true" aria-label="Keyboard Shortcuts">
-      <div class="shortcuts-modal-card">
-        <div class="shortcuts-header">
-          <div class="shortcuts-title-group">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <rect x="2" y="4" width="20" height="16" rx="2"/>
-              <path d="M6 8h.01M10 8h.01M14 8h.01M18 8h.01M6 12h.01M10 12h.01M14 12h.01M18 12h.01M8 16h8"/>
-            </svg>
-            <span>TACTICAL KEYBOARD SHORTCUTS</span>
+    <!-- Welcome Tutorial / Help Modal -->
+    <div class="help-modal-overlay hidden" id="shortcuts-modal" aria-modal="true" role="dialog" aria-label="BIM Viewer Help and Tutorial">
+      <div class="help-modal-card">
+        <div class="help-modal-header">
+          <div class="help-modal-title-group">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
+            <span>BIM VIEWER PRO -- HELP &amp; GUIDE</span>
           </div>
-          <button class="btn-modal-close" id="btn-shortcuts-close" title="Close Shortcuts">×</button>
+          <button class="btn-modal-close" id="btn-shortcuts-close" title="Close (Esc)">x</button>
         </div>
-        <div class="shortcuts-body thin-scrollbar">
-          <div class="shortcut-group">
-            <div class="shortcut-group-title">SIDEBAR MODULE TABS</div>
-            <div class="shortcut-row"><kbd>1</kbd> <span>Project Files</span></div>
-            <div class="shortcut-row"><kbd>2</kbd> <span>Items Finder</span></div>
-            <div class="shortcut-row"><kbd>3</kbd> <span>4D Construction Schedule</span></div>
-            <div class="shortcut-row"><kbd>4</kbd> <span>Scene Tree & Display Settings</span></div>
-            <div class="shortcut-row"><kbd>5</kbd> <span>Properties & 4D/5D Inspector</span></div>
-            <div class="shortcut-row"><kbd>6</kbd> <span>Gaming Camera Controls</span></div>
-            <div class="shortcut-row"><kbd>7</kbd> <span>Tape Measurements & Tools</span></div>
+        <div class="help-tab-bar">
+          <button class="help-tab-btn active" data-help-tab="welcome">WELCOME</button>
+          <button class="help-tab-btn" data-help-tab="tools">TOOLS</button>
+          <button class="help-tab-btn" data-help-tab="shortcuts">SHORTCUTS</button>
+          <button class="help-tab-btn" data-help-tab="navigate">NAVIGATE</button>
+        </div>
+        <div class="help-modal-body thin-scrollbar">
+          <div class="help-tab-panel active" id="help-tab-welcome">
+            <div class="welcome-hero">
+              <div class="welcome-badge">BIM VIEWER PRO 4D / 5D</div>
+              <p class="welcome-tagline">Real-time 3D/4D/5D construction twin viewer. Load IFC models, inspect elements, simulate construction timelines, and estimate project costs all in the browser.</p>
+            </div>
+            <div class="help-section-title">QUICK START -- 5 CORE STEPS</div>
+            <div class="step-list">
+              <div class="step-item"><div class="step-num">01</div><div class="step-body"><div class="step-name">Load a Model</div><div class="step-desc">Click <strong>Load Sample</strong> in the Files panel (Key <kbd>1</kbd>) or upload your own <code>.ifc</code> or <code>.frag</code> file. The model loads with full element classification and twin data.</div></div></div>
+              <div class="step-item"><div class="step-num">02</div><div class="step-body"><div class="step-name">Inspect Elements</div><div class="step-desc"><strong>Double-click</strong> any 3D element to open the Properties panel (Key <kbd>5</kbd>). See IFC type, name, storey, category, 4D task dates, and live 5D cost fields.</div></div></div>
+              <div class="step-item"><div class="step-num">03</div><div class="step-body"><div class="step-name">Navigate the Model</div><div class="step-desc"><strong>Orbit</strong> by dragging, <strong>Zoom</strong> with scroll, <strong>Pan</strong> with right-click drag. Switch to <strong>First Person</strong> mode (Key <kbd>6</kbd>) to walk through the building with stair-climbing physics.</div></div></div>
+              <div class="step-item"><div class="step-num">04</div><div class="step-body"><div class="step-name">Simulate 4D Construction</div><div class="step-desc">Press <strong>ACTIVATE 4D</strong> in the header. Drag the timeline scrubber to simulate the build sequence. Use speed pills 1x 2x 5x 10x to control playback rate.</div></div></div>
+              <div class="step-item"><div class="step-num">05</div><div class="step-body"><div class="step-name">Estimate 5D Project Cost</div><div class="step-desc">Select an element, open <kbd>5</kbd> INSPECT panel, enter <strong>Unit Cost</strong> and <strong>Quantity</strong>. The calculated cost and project grand total update live across all elements.</div></div></div>
+            </div>
           </div>
-          <div class="shortcut-group">
-            <div class="shortcut-group-title">3D CAMERA & FIRST-PERSON NAVIGATION</div>
-            <div class="shortcut-row"><kbd>W A S D</kbd> <span>Walk Forward / Left / Back / Right</span></div>
-            <div class="shortcut-row"><kbd>Space</kbd> / <kbd>Q</kbd> <span>Jump / Fly Elevate Up</span></div>
-            <div class="shortcut-row"><kbd>Shift</kbd> / <kbd>E</kbd> <span>Crouch / Fly Descend Down</span></div>
-            <div class="shortcut-row"><kbd>Esc</kbd> <span>Cancel Measurement / Deselect</span></div>
-            <div class="shortcut-row"><kbd>?</kbd> <span>Toggle Keyboard Shortcuts Overlay</span></div>
+          <div class="help-tab-panel" id="help-tab-tools">
+            <div class="help-section-title">SPECIALIZED TOOLS</div>
+            <div class="tool-grid">
+              <div class="tool-card"><div class="tool-icon">&#x1F4D0;</div><div class="tool-info"><div class="tool-name">Tape Measure</div><div class="tool-desc">Enable in the <strong>7 TOOLS</strong> tab. Click two points in the 3D viewport to measure real-world distance. Results appear as 3D annotations on the model.</div></div></div>
+              <div class="tool-card"><div class="tool-icon">&#x2702;&#xFE0F;</div><div class="tool-info"><div class="tool-name">Section Cut</div><div class="tool-desc">Click <strong>Section Cut</strong> in the bottom toolbar, then double-click the viewport to place a cutting plane. Reveal interior structure at any angle.</div></div></div>
+              <div class="tool-card"><div class="tool-icon">&#x1F50D;</div><div class="tool-info"><div class="tool-name">Items Finder</div><div class="tool-desc">Key <kbd>2</kbd>. Search and filter by <strong>Category</strong> or <strong>Storey</strong>. Click any filter chip to isolate elements.</div></div></div>
+              <div class="tool-card"><div class="tool-icon">&#x1F3D7;&#xFE0F;</div><div class="tool-info"><div class="tool-name">4D Timeline</div><div class="tool-desc">Activate 4D mode from the header. Elements appear, progress, and complete according to their scheduled dates. Use speed pills 1x to 10x.</div></div></div>
+              <div class="tool-card"><div class="tool-icon">&#x1F4B0;</div><div class="tool-info"><div class="tool-name">5D Cost Estimator</div><div class="tool-desc">Select any element in the INSPECT panel. Set Unit Cost and Quantity. The calculated cost and running project grand total update live.</div></div></div>
+              <div class="tool-card"><div class="tool-icon">&#x1F441;&#xFE0F;</div><div class="tool-info"><div class="tool-name">Visibility Controls</div><div class="tool-desc">Use <strong>Show All / Hide All</strong> in the toolbar. Select an element then use <strong>Isolate</strong> to view it alone or <strong>Hide</strong> to remove it from scene.</div></div></div>
+              <div class="tool-card"><div class="tool-icon">&#x1F4F7;</div><div class="tool-info"><div class="tool-name">Quick View Toolbar</div><div class="tool-desc"><strong>FIT</strong> fits all geometry in frame. <strong>TOP</strong> switches to 2D orthographic floor plan. <strong>ISO</strong> restores 3D perspective orbit view.</div></div></div>
+              <div class="tool-card"><div class="tool-icon">&#x1F9ED;</div><div class="tool-info"><div class="tool-name">ViewCube &amp; Compass</div><div class="tool-desc">The NavCube in the top-right corner snaps camera to any face. The compass ring shows cardinal directions N E S W around the cube.</div></div></div>
+            </div>
+          </div>
+          <div class="help-tab-panel" id="help-tab-shortcuts">
+            <div class="shortcuts-two-col">
+              <div>
+                <div class="help-section-title">SIDEBAR MODULE TABS</div>
+                <div class="shortcut-group">
+                  <div class="shortcut-row"><kbd>1</kbd> <span>Project Files &amp; Upload</span></div>
+                  <div class="shortcut-row"><kbd>2</kbd> <span>Items Finder &amp; Filter</span></div>
+                  <div class="shortcut-row"><kbd>3</kbd> <span>4D Construction Schedule</span></div>
+                  <div class="shortcut-row"><kbd>4</kbd> <span>Scene Tree &amp; Display Settings</span></div>
+                  <div class="shortcut-row"><kbd>5</kbd> <span>Properties &amp; 4D/5D Inspector</span></div>
+                  <div class="shortcut-row"><kbd>6</kbd> <span>Gaming Camera Controls</span></div>
+                  <div class="shortcut-row"><kbd>7</kbd> <span>Tape Measurements &amp; Tools</span></div>
+                  <div class="shortcut-row"><kbd>?</kbd> <span>Toggle this Help Modal</span></div>
+                  <div class="shortcut-row"><kbd>Esc</kbd> <span>Cancel / Deselect / Close</span></div>
+                </div>
+                <div class="help-section-title" style="margin-top:1.2rem;">VIEWPORT ACTIONS</div>
+                <div class="shortcut-group">
+                  <div class="shortcut-row"><kbd>Dbl Click</kbd> <span>Inspect Element Properties</span></div>
+                  <div class="shortcut-row"><kbd>Scroll</kbd> <span>Zoom In / Out</span></div>
+                  <div class="shortcut-row"><kbd>Left Drag</kbd> <span>Orbit Camera</span></div>
+                  <div class="shortcut-row"><kbd>Right Drag</kbd> <span>Pan Camera</span></div>
+                  <div class="shortcut-row"><kbd>Home</kbd> <span>Fit Model in Frame</span></div>
+                </div>
+              </div>
+              <div>
+                <div class="help-section-title">FIRST PERSON NAVIGATION</div>
+                <div class="shortcut-group">
+                  <div class="shortcut-row"><kbd>W</kbd> <span>Walk Forward</span></div>
+                  <div class="shortcut-row"><kbd>S</kbd> <span>Walk Backward</span></div>
+                  <div class="shortcut-row"><kbd>A</kbd> <span>Strafe Left</span></div>
+                  <div class="shortcut-row"><kbd>D</kbd> <span>Strafe Right</span></div>
+                  <div class="shortcut-row"><kbd>Space</kbd> <span>Jump / Fly Up</span></div>
+                  <div class="shortcut-row"><kbd>Shift</kbd> <span>Crouch / Fly Down</span></div>
+                  <div class="shortcut-row"><kbd>Q</kbd> <span>Elevate Up</span></div>
+                  <div class="shortcut-row"><kbd>E</kbd> <span>Descend Down</span></div>
+                </div>
+                <div class="help-section-title" style="margin-top:1.2rem;">QUICK VIEW TOOLBAR</div>
+                <div class="shortcut-group">
+                  <div class="shortcut-row"><span class="kbd-label">FIT</span> <span>Zoom fit all geometry</span></div>
+                  <div class="shortcut-row"><span class="kbd-label">TOP</span> <span>2D Orthographic plan</span></div>
+                  <div class="shortcut-row"><span class="kbd-label">ISO</span> <span>3D Perspective orbit</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="help-tab-panel" id="help-tab-navigate">
+            <div class="help-section-title">CAMERA MODES</div>
+            <div class="nav-mode-grid">
+              <div class="nav-mode-card"><div class="nav-mode-name">&#x1F310; Orbit Mode</div><div class="nav-mode-desc">Default mode. Left-click drag to orbit around a pivot point. Scroll to zoom. Right-click drag to pan. Best for inspecting models from all angles.</div><div class="nav-mode-tip">Activate: Key <kbd>4</kbd> Navigation Mode Orbit</div></div>
+              <div class="nav-mode-card"><div class="nav-mode-name">&#x1F6B6; First Person Mode</div><div class="nav-mode-desc">Walk through the building as if you were inside it. Use <kbd>W A S D</kbd> to move, mouse to look around. Stair-climbing is simulated on elevation changes.</div><div class="nav-mode-tip">Activate: Key <kbd>6</kbd> Camera First Person</div></div>
+              <div class="nav-mode-card"><div class="nav-mode-name">&#x1F4D0; Top Plan Mode</div><div class="nav-mode-desc">2D orthographic view locked top-down. Ideal for reviewing floor plans, measuring distances, and checking room layouts without perspective distortion.</div><div class="nav-mode-tip">Activate: Quick View TOP button</div></div>
+            </div>
+            <div class="help-section-title" style="margin-top:1.4rem;">TIPS &amp; BEST PRACTICES</div>
+            <div class="tip-list">
+              <div class="tip-item"><span class="tip-icon">&#x1F4A1;</span><span>Use <strong>Isolate</strong> to focus on a single element type, then use the Tape Measure for clean dimensions without clutter.</span></div>
+              <div class="tip-item"><span class="tip-icon">&#x1F4A1;</span><span>Switch to <strong>TOP Plan</strong> view before placing Section Cuts -- easier to align cutting planes on a 2D grid.</span></div>
+              <div class="tip-item"><span class="tip-icon">&#x1F4A1;</span><span>In <strong>4D mode</strong>, set playback to <strong>10x</strong> for a fast overview, then slow to <strong>1x</strong> to inspect specific construction phases.</span></div>
+              <div class="tip-item"><span class="tip-icon">&#x1F4A1;</span><span>Export your model to <code>.frag</code> format for fast reloads -- FRAG files load significantly faster than raw IFC files.</span></div>
+              <div class="tip-item"><span class="tip-icon">&#x1F4A1;</span><span>Press <kbd>?</kbd> at any time to reopen this guide. Your 4D/5D data is saved locally in the browser cache.</span></div>
+            </div>
+          </div>
+        </div>
+        <div class="help-modal-footer">
+          <label class="help-dont-show" for="help-dont-show-again">
+            <input type="checkbox" id="help-dont-show-again" aria-label="Don't show on startup" />
+            <span>Don't show on startup</span>
+          </label>
+          <div class="help-footer-actions">
+            <button class="btn-help-nav hidden" id="btn-help-prev">Back</button>
+            <button class="btn-help-nav" id="btn-help-next">Next</button>
+            <button class="btn-help-done hidden" id="btn-help-done">Got it, let's go!</button>
           </div>
         </div>
       </div>
     </div>
-
     <script type="module" src="/src/main.ts"></script>
 </body>
 
