@@ -24,9 +24,11 @@ BUI.Manager.init();
 
 // --- THEME TOGGLE ---
 function initTheme() {
-  const saved = localStorage.getItem('bim-theme');
-  if (saved === 'light') {
-    document.documentElement.setAttribute('data-theme', 'light');
+  const saved = localStorage.getItem('bim-theme-preset') || localStorage.getItem('bim-theme') || 'dark';
+  if (saved && saved !== 'dark') {
+    document.documentElement.setAttribute('data-theme', saved);
+  } else {
+    document.documentElement.removeAttribute('data-theme');
   }
 }
 initTheme();
@@ -1380,7 +1382,8 @@ async function loadModelData(name: string, buffer: Uint8Array) {
     if (model) {
       (window as any).viewer_model = model;
       // Enable shadows if checked
-      const shadowsOn = shadowsToggle.checked;
+      const shadowsToggleEl = document.getElementById("settings-toggle-shadows") as HTMLInputElement | null;
+      const shadowsOn = shadowsToggleEl?.checked ?? false;
       model.object.traverse((child: any) => {
         if (child.isMesh) {
           child.castShadow = shadowsOn;
@@ -1495,6 +1498,20 @@ loadSampleBtn.addEventListener("click", async () => {
     `;
   }
 });
+
+// Theme Preset Switcher (6 Themes)
+const themeToggleSelect = document.getElementById("btn-theme-toggle") as HTMLSelectElement | null;
+if (themeToggleSelect) {
+  const savedTheme = localStorage.getItem("bim-theme-preset") || "dark";
+  document.documentElement.setAttribute("data-theme", savedTheme);
+  themeToggleSelect.value = savedTheme;
+
+  themeToggleSelect.addEventListener("change", () => {
+    const selectedTheme = themeToggleSelect.value;
+    document.documentElement.setAttribute("data-theme", selectedTheme);
+    localStorage.setItem("bim-theme-preset", selectedTheme);
+  });
+}
 
 // Bottom Toolbar Actions: Visibility
 const showAllBtn = document.getElementById("btn-show-all")!;
@@ -3358,27 +3375,6 @@ timelineSpeedSelect.addEventListener("change", () => {
 updateClassificationUI();
 calculateTimelineBounds();
 
-// --- THEME TOGGLE BUTTON ---
-const themeToggleBtn = document.getElementById('btn-theme-toggle');
-if (themeToggleBtn) {
-  // Set initial icon based on current theme
-  const isLight = document.documentElement.getAttribute('data-theme') === 'light';
-  themeToggleBtn.textContent = isLight ? '☀️' : '🌙';
-
-  themeToggleBtn.addEventListener('click', () => {
-    const currentTheme = document.documentElement.getAttribute('data-theme');
-    if (currentTheme === 'light') {
-      document.documentElement.removeAttribute('data-theme');
-      localStorage.setItem('bim-theme', 'dark');
-      themeToggleBtn.textContent = '🌙';
-    } else {
-      document.documentElement.setAttribute('data-theme', 'light');
-      localStorage.setItem('bim-theme', 'light');
-      themeToggleBtn.textContent = '☀️';
-    }
-  });
-}
-
 // --- 4D MODE TOGGLE ---
 let is4dMode = localStorage.getItem('bim-4d-mode') === 'true';
 const btn4dMode = document.getElementById('btn-4d-mode')!;
@@ -3640,7 +3636,6 @@ document.querySelectorAll(".panel").forEach((panel) => {
   // Create minimize button on the right side of header
   const minimizeBtn = document.createElement("button");
   minimizeBtn.className = "btn-panel-minimize";
-  minimizeBtn.title = "Collapse Panel";
   minimizeBtn.innerHTML = `
     <svg class="minimize-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
       <polyline points="18 15 12 9 6 15"></polyline>
@@ -3720,7 +3715,9 @@ function setupSidebarTabSystem() {
     if (e.key === '?' || (e.shiftKey && e.key === '/')) {
       if (!isTyping) {
         e.preventDefault();
-        toggleShortcutsModal();
+        if (typeof (window as any).toggleShortcutsModal === "function") {
+          (window as any).toggleShortcutsModal();
+        }
       }
       return;
     }
@@ -3781,6 +3778,18 @@ function switchHelpTab(tab: HelpTab) {
   if (btnHelpNext) btnHelpNext.classList.toggle("hidden", idx === HELP_TABS.length - 1);
   if (btnHelpDone) btnHelpDone.classList.toggle("hidden", idx !== HELP_TABS.length - 1);
 }
+
+// Expose toggle globally for the ? hotkey (replaces old toggleShortcutsModal)
+function toggleShortcutsModal(forceOpen?: boolean) {
+  if (!helpModal) return;
+  const isHidden = helpModal.classList.contains("hidden");
+  if (forceOpen === true || (forceOpen === undefined && isHidden)) {
+    openHelpModal("welcome");
+  } else {
+    closeHelpModal();
+  }
+}
+(window as any).toggleShortcutsModal = toggleShortcutsModal;
 
 function openHelpModal(startTab: HelpTab = "welcome") {
   if (!helpModal) return;
@@ -3850,17 +3859,8 @@ if (!localStorage.getItem(FIRST_VISIT_KEY)) {
   setTimeout(() => openHelpModal("welcome"), 800);
 }
 
-// Expose toggle globally for the ? hotkey (replaces old toggleShortcutsModal)
-function toggleShortcutsModal(forceOpen?: boolean) {
-  if (!helpModal) return;
-  const isHidden = helpModal.classList.contains("hidden");
-  if (forceOpen === true || (forceOpen === undefined && isHidden)) {
-    openHelpModal("welcome");
-  } else {
-    closeHelpModal();
-  }
-}
-(window as any).toggleShortcutsModal = toggleShortcutsModal;
+
+
 
 
 // ============================================================
@@ -3919,6 +3919,3 @@ function updateCumulative5DCost() {
 // Trigger initial cost calculation & expose globally
 updateCumulative5DCost();
 (window as any).updateCumulative5DCost = updateCumulative5DCost;
-
-
-

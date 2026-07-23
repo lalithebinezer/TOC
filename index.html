@@ -57,8 +57,13 @@
 
         <!-- Header Controls -->
         <div class="header-controls">
-          <button class="btn-shortcuts-toggle" id="btn-shortcuts-toggle" title="Keyboard Shortcuts Cheat Sheet (Press ?)">
-            [ ? KEYBINDS ]
+          <button class="btn-shortcuts-toggle" id="btn-shortcuts-toggle" title="Help & Tutorial Guide (Press ?)">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="flex-shrink:0">
+              <circle cx="12" cy="12" r="10"/>
+              <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/>
+              <line x1="12" y1="17" x2="12.01" y2="17"/>
+            </svg>
+            HELP
           </button>
           <button class="btn-4d-mode" id="btn-4d-mode" title="Toggle 4D Construction Simulation Mode">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
@@ -67,7 +72,14 @@
             </svg>
             <span id="btn-4d-label">Activate 4D</span>
           </button>
-          <button class="btn-theme-toggle" id="btn-theme-toggle" title="Toggle Day/Night Mode">🌙</button>
+          <select class="select-theme-toggle" id="btn-theme-toggle" title="Select Theme Palette">
+            <option value="dark">🔴 Dark Red</option>
+            <option value="cyberpunk">🩵 Cyberpunk</option>
+            <option value="amber">🟠 Safety Amber</option>
+            <option value="emerald">🟢 Emerald Green</option>
+            <option value="indigo">🟣 Steel Indigo</option>
+            <option value="light">☀️ Light Mode</option>
+          </select>
           <button class="btn-sidebar-toggle" id="btn-toggle-right" title="Toggle Scene & Properties">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <rect x="3" y="3" width="18" height="18" rx="2" />
