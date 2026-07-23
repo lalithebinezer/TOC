@@ -27,7 +27,7 @@ export class BimViewCube extends HTMLElement {
           pointer-events: auto;
           /* Inherit position from parent or set defaults */
           right: 1.5rem;
-          bottom: 1.5rem;
+          bottom: calc(34px + 1rem);
         }
 
         .view-cube-container {
@@ -53,23 +53,25 @@ export class BimViewCube extends HTMLElement {
           position: absolute;
           width: 60px;
           height: 60px;
-          background: rgba(45, 55, 72, 0.85);
-          border: 1.5px solid rgba(160, 174, 192, 0.8);
-          color: white;
+          background: #1c202e;
+          border: 2.5px solid #000000;
+          color: #ffffff;
           display: flex;
           align-items: center;
           justify-content: center;
-          font-family: var(--font-sans, sans-serif);
-          font-size: 0.6rem;
+          font-family: 'Space Mono', monospace;
+          font-size: 0.62rem;
           font-weight: 700;
           letter-spacing: 0.5px;
           user-select: none;
-          transition: background 0.2s, border-color 0.2s;
+          box-shadow: 2px 2px 0px #000000;
+          transition: background 0.15s, border-color 0.15s, transform 0.15s;
         }
 
         .cube-face:hover {
-          background: rgba(66, 153, 225, 0.9);
-          border-color: #fff;
+          background: #dc2626;
+          border-color: #000000;
+          color: #ffffff;
           cursor: pointer;
         }
 
@@ -79,8 +81,40 @@ export class BimViewCube extends HTMLElement {
         .cube-right  { transform: rotateY( 90deg) translateZ(30px); }
         .cube-top    { transform: rotateX( 90deg) translateZ(30px); }
         .cube-bottom { transform: rotateX(-90deg) translateZ(30px); }
+
+        /* Tactical Compass Ring */
+        .compass-ring {
+          position: absolute;
+          inset: -14px;
+          border: 2px dashed #000000;
+          border-radius: 50%;
+          pointer-events: none;
+        }
+
+        .compass-dir {
+          position: absolute;
+          font-family: 'Space Mono', monospace;
+          font-size: 0.58rem;
+          font-weight: 900;
+          color: #dc2626;
+          background: #000000;
+          padding: 0 3px;
+          border-radius: 2px;
+          line-height: 1;
+        }
+
+        .compass-n { top: -7px; left: 50%; transform: translateX(-50%); }
+        .compass-s { bottom: -7px; left: 50%; transform: translateX(-50%); }
+        .compass-e { right: -7px; top: 50%; transform: translateY(-50%); }
+        .compass-w { left: -7px; top: 50%; transform: translateY(-50%); }
       </style>
       <div class="view-cube-container">
+        <div class="compass-ring">
+          <span class="compass-dir compass-n">N</span>
+          <span class="compass-dir compass-e">E</span>
+          <span class="compass-dir compass-s">S</span>
+          <span class="compass-dir compass-w">W</span>
+        </div>
         <div class="view-cube" id="view-cube">
           <div class="cube-face cube-front" data-face="front">FRONT</div>
           <div class="cube-face cube-back" data-face="back">BACK</div>

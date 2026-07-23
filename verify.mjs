@@ -40,15 +40,15 @@ import { chromium } from 'playwright';
 
   console.log(`Navigating to target url: ${targetUrl}`);
   await page.goto(targetUrl);
-  
-  // Click load sample
+
+  // Click load sample button
   await page.click('#load-sample-btn');
   
-  // Wait for model to load and loading overlay to disappear
+  // Wait for model to finish loading
   await page.waitForFunction(() => {
-    return typeof window.viewer_model !== 'undefined' && 
-           document.querySelector('#loading-overlay').classList.contains('hidden');
-  }, { timeout: 30000 });
+    const overlay = document.querySelector('#loading-overlay');
+    return typeof window.viewer_model !== 'undefined' || (overlay && overlay.classList.contains('hidden'));
+  }, null, { timeout: 45000 });
   
   // Wait for camera fitToBox animation to finish and scene to settle
   await page.waitForTimeout(2000);

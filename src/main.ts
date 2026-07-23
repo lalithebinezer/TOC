@@ -987,7 +987,34 @@ function resetPropertiesPanel() {
 const updateCalculatedCost = () => {
   const unit = Number(costUnit.value) || 0;
   const qty = Number(costQty.value) || 0;
-  costCalc.innerText = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(unit * qty);
+  const calculatedCost = unit * qty;
+
+  costCalc.innerText = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(calculatedCost);
+
+  if (activeModelId && activeExpressId !== null) {
+    const dbKey = `${activeModelId}-${activeExpressId}`;
+    const existing = twinDatabase[dbKey];
+    if (existing) {
+      existing.unitCost = unit;
+      existing.quantity = qty;
+      existing.calculatedCost = calculatedCost;
+      existing.isCustomized = true;
+    } else {
+      twinDatabase[dbKey] = {
+        modelId: activeModelId,
+        expressId: activeExpressId,
+        unitCost: unit,
+        quantity: qty,
+        calculatedCost,
+        task: schedTask.value || "General Construction Works",
+        status: (schedStatus.value as any) || "Planned",
+        startDate: schedStart.value || "2026-07-01",
+        endDate: schedEnd.value || "2026-07-05",
+        isCustomized: true,
+      };
+    }
+    updateCumulative5DCost();
+  }
 };
 
 costUnit.addEventListener("input", updateCalculatedCost);
@@ -1145,14 +1172,40 @@ function refreshFileList() {
   const fileListEl = document.getElementById("file-list")!;
   fileListEl.innerHTML = '';
 
+  const headerStatusEl = document.getElementById("header-status-text");
+
   if (fragments.list.size === 0) {
     const empty = document.createElement('div');
     empty.className = 'file-list-empty';
     empty.id = 'file-list-empty';
     empty.textContent = 'No models loaded. Upload an IFC file or load a sample.';
     fileListEl.appendChild(empty);
+    if (headerStatusEl) headerStatusEl.textContent = 'Ready • No Model Loaded';
     return;
   }
+
+  let firstModelName = 'Active Model';
+  let totalPropertiesCount = 0;
+
+  for (const [modelId, model] of fragments.list) {
+    const anyModel = model as any;
+    const name = anyModel.modelId || anyModel.name || modelId;
+    if (firstModelName === 'Active Model') firstModelName = name;
+    if (anyModel.properties) {
+      totalPropertiesCount += Object.keys(anyModel.properties).length;
+    }
+  }
+
+  if (headerStatusEl) {
+    const countStr = totalPropertiesCount > 0 ? ` • ${totalPropertiesCount.toLocaleString()} Elements` : '';
+    headerStatusEl.textContent = `${firstModelName}${countStr}`;
+  }
+
+  const tickerModelName = document.getElementById("ticker-model-name");
+  if (tickerModelName) tickerModelName.textContent = firstModelName.toUpperCase();
+
+  const tickerCount = document.getElementById("ticker-elements-count");
+  if (tickerCount) tickerCount.textContent = totalPropertiesCount > 0 ? totalPropertiesCount.toLocaleString() : "0";
 
   for (const [modelId, model] of fragments.list) {
     const item = document.createElement('div');
@@ -1565,12 +1618,53 @@ const clipperBtn = document.getElementById("btn-section-cut")!;
 clipperBtn.addEventListener("click", () => {
   clipper.enabled = !clipper.enabled;
   clipperBtn.classList.toggle("active", clipper.enabled);
+  updateViewportHint(clipper.enabled ? "✂️ Section Cut Active — Double-click any surface to slice model" : "Double-click any 3D element to inspect properties • Drag to Orbit view");
 });
 
 const clearClipsBtn = document.getElementById("btn-clear-sections")!;
 clearClipsBtn.addEventListener("click", () => {
   clipper.deleteAll();
+  updateViewportHint("Section planes cleared • Double-click any 3D element to inspect properties");
 });
+
+// --- INTUITIVE VIEWPORT HINT BAR MANAGER ---
+function updateViewportHint(msg: string) {
+  const hintText = document.getElementById("viewport-hint-text");
+  const hintBar = document.getElementById("viewport-hint-bar");
+  if (hintText) hintText.textContent = msg;
+  if (hintBar) hintBar.classList.remove("hidden");
+}
+
+const hintDismissBtn = document.getElementById("btn-hint-dismiss");
+if (hintDismissBtn) {
+  hintDismissBtn.addEventListener("click", () => {
+    document.getElementById("viewport-hint-bar")?.classList.add("hidden");
+  });
+}
+
+
+// --- STRUCTURED AI PROMPT EXPORTER ---
+const btnExportPrompt = document.getElementById("btn-export-prompt");
+if (btnExportPrompt) {
+  btnExportPrompt.addEventListener("click", () => {
+    const expressId = document.getElementById("prop-express-id")?.textContent || "-";
+    const ifcType = document.getElementById("prop-ifc-type")?.textContent || "-";
+    const name = document.getElementById("prop-name")?.textContent || "-";
+
+    const promptText = `Convert the following BIM metadata into an element component specification:\nElement ExpressID: "${expressId}"\nIFC Entity Type: "${ifcType}"\nElement Name: "${name}"\nApplication Context: "Enterprise 3D BIM Twin Dashboard"`;
+
+    navigator.clipboard.writeText(promptText).then(() => {
+      const origText = btnExportPrompt.innerHTML;
+      btnExportPrompt.innerHTML = `✓ Copied Structured Prompt!`;
+      setTimeout(() => {
+        btnExportPrompt.innerHTML = origText;
+      }, 2000);
+      updateViewportHint("Structured AI Prompt copied to clipboard! Ready to paste into LLMs.");
+    }).catch(err => {
+      console.warn("Failed to copy prompt to clipboard:", err);
+    });
+  });
+}
 
 // Wire and render Items Finder queries dynamically based on model classification categories
 function updateItemFinderQueries() {
@@ -2316,8 +2410,8 @@ window.addEventListener("keydown", (e) => {
   if (pressedKey === keyBindings.left.toLowerCase()) firstPersonKeys.left = true;
   if (pressedKey === keyBindings.backward.toLowerCase()) firstPersonKeys.backward = true;
   if (pressedKey === keyBindings.right.toLowerCase()) firstPersonKeys.right = true;
-  if (pressedKey === "q") firstPersonKeys.up = true;
-  if (pressedKey === "e") firstPersonKeys.down = true;
+  if (pressedKey === "q" || e.code === "Space") firstPersonKeys.up = true;
+  if (pressedKey === "e" || e.key === "Shift") firstPersonKeys.down = true;
 });
 
 window.addEventListener("keyup", (e) => {
@@ -2328,8 +2422,8 @@ window.addEventListener("keyup", (e) => {
   if (pressedKey === keyBindings.left.toLowerCase()) firstPersonKeys.left = false;
   if (pressedKey === keyBindings.backward.toLowerCase()) firstPersonKeys.backward = false;
   if (pressedKey === keyBindings.right.toLowerCase()) firstPersonKeys.right = false;
-  if (pressedKey === "q") firstPersonKeys.up = false;
-  if (pressedKey === "e") firstPersonKeys.down = false;
+  if (pressedKey === "q" || e.code === "Space") firstPersonKeys.up = false;
+  if (pressedKey === "e" || e.key === "Shift") firstPersonKeys.down = false;
 });
 
 // Update rotateSpeed on camera controls initialization/change
@@ -2382,11 +2476,12 @@ function animateFirstPerson() {
       const nonGlassMeshes = collisionMeshes.filter((mesh) => !isGlass(mesh));
       const caster = components.get(OBC.Raycasters).get(world);
 
-      // 2. Wall Collisions & Sliding
+      // 2. Wall Collisions & Sliding (Filter out stair risers & low steps < 0.55m)
       if (moveDelta.lengthSq() > 0.0001) {
-        const playerRadius = 0.45;
+        const playerRadius = 0.40;
         const rayDir = moveDelta.clone().normalize();
-        const rayOrigin = new THREE.Vector3(previousPos.x, previousPos.y - 0.5, previousPos.z);
+        // Cast wall collision ray at chest height (~1.5m above current ground)
+        const rayOrigin = new THREE.Vector3(previousPos.x, previousPos.y - 0.1, previousPos.z);
         
         const hit = caster.castRayFromVector(rayOrigin, rayDir, nonGlassMeshes);
 
@@ -2394,14 +2489,20 @@ function animateFirstPerson() {
         let normalFound = false;
 
         if (hit && hit.distance <= playerRadius + moveDelta.length() && hit.face) {
-          hitNormal.copy(hit.face.normal).applyQuaternion(hit.object.getWorldQuaternion(new THREE.Quaternion()));
-          normalFound = true;
+          // If the obstacle hit point is low (< 0.55m above ground), it's a stair riser/step — ignore wall collision to allow climbing!
+          const currentGroundY = previousPos.y - (1.727 - 0.1) - fpsHeightOffset;
+          const hitHeightDelta = hit.point ? hit.point.y - currentGroundY : 1.0;
+
+          if (hitHeightDelta > 0.55) {
+            hitNormal.copy(hit.face.normal).applyQuaternion(hit.object.getWorldQuaternion(new THREE.Quaternion()));
+            normalFound = true;
+          }
         }
 
         if (normalFound) {
           const dot = moveDelta.dot(hitNormal);
           if (dot < 0) {
-            // Project movement along wall normal to slide
+            // Project movement along wall normal to slide cleanly
             moveDelta.addScaledVector(hitNormal, -dot);
           } else {
             moveDelta.set(0, 0, 0);
@@ -2410,22 +2511,38 @@ function animateFirstPerson() {
         }
       }
 
-      // 3. Ground, Stairs & Gravity with Manual Q/E Height Adjustment
+      // 3. Ground, Stairs & Gravity with Auto-Climb & Manual Q/E/Space/Shift Height Adjustment
       if (firstPersonKeys.up) {
-        fpsHeightOffset = Math.min(fpsHeightOffset + movementSpeed * 0.15, 12.0);
+        fpsHeightOffset = Math.min(fpsHeightOffset + movementSpeed * 0.18, 15.0);
       }
       if (firstPersonKeys.down) {
-        fpsHeightOffset = Math.max(fpsHeightOffset - movementSpeed * 0.15, -1.2);
+        fpsHeightOffset = Math.max(fpsHeightOffset - movementSpeed * 0.18, -3.0);
       }
 
-      const stepLimit = 0.5;
-      const downOrigin = new THREE.Vector3(newPos.x, previousPos.y + stepLimit, newPos.z);
+      // Cast ray downwards from 3.0m above position to catch stair treads & landings
+      const rayCastHeight = 3.0;
+      const stepLimit = 2.5; // Allow stepping up staircases up to 2.5m height delta
+      const downOrigin = new THREE.Vector3(newPos.x, previousPos.y + rayCastHeight, newPos.z);
       const downDir = new THREE.Vector3(0, -1, 0);
       const downHit = caster.castRayFromVector(downOrigin, downDir, nonGlassMeshes);
       let groundY = baseSurfaceY;
 
-      if (downHit && downHit.distance <= 15.0) {
+      if (downHit && downHit.distance <= 20.0) {
         groundY = downHit.point.y;
+      }
+
+      // Forward step probe: predict upcoming stair steps ahead of player position
+      if (moveDelta.lengthSq() > 0.0001) {
+        const probeOffset = moveDelta.clone().normalize().multiplyScalar(0.45);
+        const probeOrigin = new THREE.Vector3(newPos.x + probeOffset.x, previousPos.y + rayCastHeight, newPos.z + probeOffset.z);
+        const probeHit = caster.castRayFromVector(probeOrigin, downDir, nonGlassMeshes);
+        if (probeHit && probeHit.distance <= 20.0) {
+          const probeY = probeHit.point.y;
+          const stepDelta = probeY - groundY;
+          if (stepDelta > 0.02 && stepDelta <= 0.65) {
+            groundY = probeY;
+          }
+        }
       }
 
       const personHeight = 1.727; // 5'8"
@@ -2436,14 +2553,14 @@ function animateFirstPerson() {
       let nextHeight = currentHeight;
 
       if (targetCameraY > currentHeight) {
-        if (targetCameraY - currentHeight <= stepLimit + 0.1) {
-          nextHeight = THREE.MathUtils.lerp(currentHeight, targetCameraY, 0.25);
+        if (targetCameraY - currentHeight <= stepLimit) {
+          nextHeight = THREE.MathUtils.lerp(currentHeight, targetCameraY, 0.45);
         } else {
-          // Too steep to climb, keep Y height same (don't rise), but allow horizontal movement
-          nextHeight = currentHeight;
+          // Smoothly elevate camera towards higher floors/ledges
+          nextHeight = THREE.MathUtils.lerp(currentHeight, targetCameraY, 0.30);
         }
       } else {
-        nextHeight = THREE.MathUtils.lerp(currentHeight, targetCameraY, 0.15);
+        nextHeight = THREE.MathUtils.lerp(currentHeight, targetCameraY, 0.35);
       }
 
       newPos.y = nextHeight;
@@ -3370,6 +3487,82 @@ if (viewCube) {
   viewCube.addEventListener("bottomclick", () => orientCameraToFace("bottom"));
 }
 
+// --- QUICK VIEW TOOLBAR & CAMERA PROJECTION CONTROLLER ---
+async function setCameraProjection(projectionMode: "Orthographic" | "Perspective") {
+  try {
+    if (typeof (world.camera as any).set === "function") {
+      await (world.camera as any).set(projectionMode);
+    } else if (world.camera.projection && typeof world.camera.projection.set === "function") {
+      await world.camera.projection.set(projectionMode);
+    } else if (typeof (world.camera as any).setProjection === "function") {
+      await (world.camera as any).setProjection(projectionMode);
+    }
+  } catch (err) {
+    console.warn("Failed to set camera projection mode:", err);
+  }
+}
+
+const btnViewFit = document.getElementById("btn-view-fit");
+const btnViewTop = document.getElementById("btn-view-top");
+const btnViewIso = document.getElementById("btn-view-iso");
+const tickerCamMode = document.getElementById("ticker-camera-mode");
+
+if (btnViewFit) {
+  btnViewFit.addEventListener("click", async () => {
+    try {
+      const bboxer = components.get(OBC.BoundingBoxer);
+      bboxer.list.clear();
+      for (const [, model] of fragments.list) {
+        bboxer.add(model.object);
+      }
+      const box = bboxer.get();
+      await world.camera.controls.fitToBox(box, true);
+    } catch (err) {
+      console.warn("Fit view failed:", err);
+    }
+  });
+}
+
+if (btnViewTop) {
+  btnViewTop.addEventListener("click", async () => {
+    // 1. Switch camera to Orthographic mode for clean 2D floor plan view
+    await setCameraProjection("Orthographic");
+    // 2. Orient camera top-down over model center
+    await orientCameraToFace("top");
+    // 3. Update status indicator
+    if (tickerCamMode) tickerCamMode.textContent = "2D ORTHOGRAPHIC TOP PLAN";
+  });
+}
+
+if (btnViewIso) {
+  btnViewIso.addEventListener("click", async () => {
+    // 1. Switch camera back to Perspective projection
+    await setCameraProjection("Perspective");
+    // 2. Orient camera to Isometric 3D view
+    const target = new THREE.Vector3();
+    world.camera.controls.getTarget(target);
+    const box = new THREE.Box3();
+    let hasModel = false;
+    for (const [, model] of fragments.list) {
+      box.expandByObject(model.object);
+      hasModel = true;
+    }
+    let center = new THREE.Vector3();
+    let d = 20;
+    if (hasModel) {
+      box.getCenter(center);
+      const size = new THREE.Vector3();
+      box.getSize(size);
+      d = Math.max(size.x, size.y, size.z) * 1.35;
+    } else {
+      center.copy(target);
+      d = world.camera.controls.distance || 20;
+    }
+    await world.camera.controls.setLookAt(center.x + d, center.y + d, center.z + d, center.x, center.y, center.z, true);
+    if (tickerCamMode) tickerCamMode.textContent = "3D PERSPECTIVE ORBIT";
+  });
+}
+
 // --- RESPONSIVE SIDEBAR DRAWER INTERACTION ---
 const btnToggleLeft = document.getElementById("btn-toggle-left");
 const btnToggleRight = document.getElementById("btn-toggle-right");
@@ -3460,4 +3653,172 @@ document.querySelectorAll(".panel").forEach((panel) => {
 
 // Initial update
 setTimeout(() => { if (viewCube) viewCube.updateOrientation(); }, 500);
+
+// ============================================================
+// TACTICAL SEGMENTED TAB SYSTEM CONTROLLER
+// ============================================================
+function setupSidebarTabSystem() {
+  const leftTabButtons = document.querySelectorAll('#left-tab-bar .sidebar-tab-btn');
+  const rightTabButtons = document.querySelectorAll('#right-tab-bar .sidebar-tab-btn');
+
+  function switchSidebarTab(barId: string, tabName: string) {
+    const isLeft = barId === 'left-tab-bar';
+    const buttons = isLeft ? leftTabButtons : rightTabButtons;
+    const prefix = isLeft ? 'tab-left-' : 'tab-right-';
+
+    buttons.forEach((btn) => {
+      if (btn.getAttribute('data-tab') === tabName) {
+        btn.classList.add('active');
+      } else {
+        btn.classList.remove('active');
+      }
+    });
+
+    const panels = document.querySelectorAll(isLeft ? '.left-sidebar .tab-content-panel' : '.right-sidebar .tab-content-panel');
+    panels.forEach((panel) => {
+      if (panel.id === `${prefix}${tabName}`) {
+        panel.classList.add('active');
+      } else {
+        panel.classList.remove('active');
+      }
+    });
+  }
+
+  leftTabButtons.forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const tab = btn.getAttribute('data-tab');
+      if (tab) switchSidebarTab('left-tab-bar', tab);
+    });
+  });
+
+  rightTabButtons.forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const tab = btn.getAttribute('data-tab');
+      if (tab) switchSidebarTab('right-tab-bar', tab);
+    });
+  });
+
+  // Keyboard Shortcuts (Key 1..3 for Left, 4..7 for Right, ? for shortcuts modal)
+  window.addEventListener('keydown', (e) => {
+    const activeEl = document.activeElement;
+    const isTyping = activeEl && (
+      activeEl.tagName === 'INPUT' ||
+      activeEl.tagName === 'TEXTAREA' ||
+      activeEl.tagName === 'SELECT' ||
+      (activeEl as HTMLElement).isContentEditable
+    );
+
+    if (e.key === '?' || (e.shiftKey && e.key === '/')) {
+      if (!isTyping) {
+        e.preventDefault();
+        toggleShortcutsModal();
+      }
+      return;
+    }
+
+    if (isTyping) return;
+
+    switch (e.key) {
+      case '1': switchSidebarTab('left-tab-bar', 'files'); break;
+      case '2': switchSidebarTab('left-tab-bar', 'finder'); break;
+      case '3': switchSidebarTab('left-tab-bar', 'schedule'); break;
+      case '4': switchSidebarTab('right-tab-bar', 'scene'); break;
+      case '5': switchSidebarTab('right-tab-bar', 'inspector'); break;
+      case '6': switchSidebarTab('right-tab-bar', 'controls'); break;
+      case '7': switchSidebarTab('right-tab-bar', 'tools'); break;
+    }
+  });
+
+  // Expose switchSidebarTab globally so other components can switch tabs automatically
+  (window as any).switchSidebarTab = switchSidebarTab;
+}
+
+setupSidebarTabSystem();
+
+// ============================================================
+// KEYBOARD SHORTCUTS MODAL HANDLERS
+// ============================================================
+const shortcutsModal = document.getElementById("shortcuts-modal");
+const btnShortcutsToggle = document.getElementById("btn-shortcuts-toggle");
+const btnShortcutsClose = document.getElementById("btn-shortcuts-close");
+
+function toggleShortcutsModal(forceState?: boolean) {
+  if (!shortcutsModal) return;
+  const isVisible = shortcutsModal.style.display !== "none";
+  const targetState = forceState !== undefined ? forceState : !isVisible;
+  shortcutsModal.style.display = targetState ? "flex" : "none";
+}
+
+if (btnShortcutsToggle) {
+  btnShortcutsToggle.addEventListener("click", () => toggleShortcutsModal(true));
+}
+if (btnShortcutsClose) {
+  btnShortcutsClose.addEventListener("click", () => toggleShortcutsModal(false));
+}
+if (shortcutsModal) {
+  shortcutsModal.addEventListener("click", (e) => {
+    if (e.target === shortcutsModal) toggleShortcutsModal(false);
+  });
+}
+
+// ============================================================
+// TIMELINE SPEED PILLS CONTROLLER
+// ============================================================
+const speedPills = document.querySelectorAll("#timeline-speed-pills .btn-speed-pill");
+speedPills.forEach((pill) => {
+  pill.addEventListener("click", () => {
+    speedPills.forEach(p => p.classList.remove("active"));
+    pill.classList.add("active");
+    const speedVal = pill.getAttribute("data-speed");
+    if (speedVal && timelineSpeedSelect) {
+      timelineSpeedSelect.value = speedVal;
+      timelineSpeedSelect.dispatchEvent(new Event("change"));
+    }
+  });
+});
+
+// ============================================================
+// 5D CUMULATIVE PROJECT COST CALCULATOR
+// ============================================================
+function updateCumulative5DCost() {
+  const grandTotalEl = document.getElementById("cost-project-grand-total");
+  const countEl = document.getElementById("cost-project-elements-count");
+  if (!grandTotalEl || !countEl) return;
+
+  let grandTotal = 0;
+  let elementCount = 0;
+
+  for (const [, model] of fragments.list) {
+    const anyModel = model as any;
+    const modelId = anyModel.modelId || anyModel.uuid || anyModel.id || anyModel.object?.uuid || "default-model";
+    const properties = anyModel.properties || anyModel.getLocalProperties?.() || {};
+
+    for (const expressIdStr in properties) {
+      const expressId = Number(expressIdStr);
+      if (isNaN(expressId)) continue;
+
+      const elementProps = properties[expressId];
+      if (!elementProps) continue;
+
+      const ifcType = String(elementProps.type ?? "").toUpperCase();
+      const twinData = getOrGenerateTwinData(modelId, expressId, ifcType);
+
+      if (twinData.cost) {
+        grandTotal += twinData.cost;
+        elementCount++;
+      }
+    }
+  }
+
+  grandTotalEl.textContent = `$${grandTotal.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  countEl.textContent = `${elementCount.toLocaleString()} items`;
+}
+
+// Trigger initial cost calculation & expose globally
+updateCumulative5DCost();
+(window as any).updateCumulative5DCost = updateCumulative5DCost;
+
+
 
