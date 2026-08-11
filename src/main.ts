@@ -4546,3 +4546,46 @@ function updateCumulative5DCost() {
 // Trigger initial cost calculation & expose globally
 updateCumulative5DCost();
 (window as any).updateCumulative5DCost = updateCumulative5DCost;
+
+// ============================================================
+// SENIOR UI MOBILE BOTTOM NAVIGATION HANDLER
+// ============================================================
+const mobileNavBtns = document.querySelectorAll<HTMLButtonElement>(".mobile-nav-btn");
+mobileNavBtns.forEach((btn) => {
+  btn.addEventListener("click", () => {
+    const targetTab = btn.getAttribute("data-mobile-tab");
+    if (!targetTab) return;
+
+    const leftSidebar = document.querySelector(".left-sidebar");
+    const rightSidebar = document.querySelector(".right-sidebar");
+    const isLeftOpen = leftSidebar?.classList.contains("open");
+    const isRightOpen = rightSidebar?.classList.contains("open");
+    const isBtnActive = btn.classList.contains("active");
+
+    // Toggle drawer closed if tapping active tab while open
+    if (isBtnActive && (isLeftOpen || isRightOpen)) {
+      closeAllSidebars();
+      return;
+    }
+
+    mobileNavBtns.forEach((b) => b.classList.remove("active"));
+    btn.classList.add("active");
+
+    if (targetTab === "files" || targetTab === "finder" || targetTab === "sched") {
+      rightSidebar?.classList.remove("open");
+      leftSidebar?.classList.add("open");
+
+      const tabBtn = document.querySelector<HTMLButtonElement>(`#left-tab-bar [data-tab="${targetTab}"]`);
+      if (tabBtn) tabBtn.click();
+    } else if (targetTab === "scene" || targetTab === "tools") {
+      leftSidebar?.classList.remove("open");
+      rightSidebar?.classList.add("open");
+
+      const tabBtn = document.querySelector<HTMLButtonElement>(`#right-tab-bar [data-tab="${targetTab}"]`);
+      if (tabBtn) tabBtn.click();
+    }
+
+    const backdrop = document.getElementById("sidebar-backdrop");
+    if (backdrop) backdrop.classList.add("active");
+  });
+});
