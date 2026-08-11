@@ -1,11 +1,12 @@
-# BIM Viewer & Digital Twin Dashboard
+# 4D/5D IFC BIM Viewer & Digital Twin Dashboard
 
-An enterprise-grade, fully responsive Web BIM Viewer and 4D/5D Digital Twin Dashboard built using `@thatopen/components` (Fragments API), Three.js, and Vanilla TypeScript. This application features a premium frosted glassmorphic UI, responsive layout styling, and offline IndexedDB caching.
+An enterprise-grade, fully responsive Web BIM Viewer, 4D Construction Simulation engine, and 5D Cost Estimating Dashboard built using `@thatopen/components` (Fragments API), Three.js, and Vanilla TypeScript. This application features a premium frosted glassmorphic UI, responsive mobile/tablet layout styling, BCF 2.1/3.0 issue tracking, IDS data compliance audits, and offline IndexedDB caching.
 
 ---
 
-## 🏢 Introduction to BIM Development
-Building Information Modeling (BIM) replaces traditional 2D blueprint drawing with interactive 3D models populated with rich database metadata (e.g. dimensions, entities, property sets). Using these libraries, developers can easily build high-performance 3D BIM tools.
+## 🏢 Overview & Architectural Capabilities
+
+Building Information Modeling (BIM) connects 3D spatial models with rich parameter databases (e.g. dimensions, materials, IFC entity types, property sets). This viewer provides a high-performance web suite for loaded IFC models without server processing delays.
 
 For a complete walkthrough of concepts, prerequisites, features, and debugging guides, check out our **[Developer Onboarding Guide](ONBOARDING.md)**.
 
@@ -14,28 +15,37 @@ For a complete walkthrough of concepts, prerequisites, features, and debugging g
 ## 🌟 Key Features
 
 ### 1. High-Performance 3D Viewport
-- **IFC & Fragment Loading**: Fast local IFC parsing using WebAssembly-backed loaders. Includes instant caching using IndexedDB to bypass parsing delays on subsequent loads.
-- **Sample Files**: Direct download and loading of standard sample models (e.g., `school_arq.frag`) for testing.
-- **3D Navigation Modes**: Quick switching between **Orbit**, **First Person** (WASD/Mouse), and **Plan** navigation.
-- **Section Planes (Clipper)**: Add dynamic section cuts in real-time by double-clicking inside the viewport.
+- **IFC & Fragment Loading**: Fast local IFC parsing using WebAssembly-backed loaders with IndexedDB caching.
+- **Sample Model Loading**: Instant download and loading of sample models (e.g., `school_arq.frag`) for testing.
+- **3D Navigation Modes**: Orbit, First-Person Walkthrough (WASD / Mouse look), and 2D Plan view.
+- **Section Planes (Clipper)**: Add dynamic section cuts in real-time by double-clicking in the viewport.
 
-### 2. Interactive 3D ViewCube
-- **Orientation Synchronization**: Stays in sync with camera rotations in real-time.
-- **Quick Alignment**: Click on any cube face (`FRONT`, `BACK`, `LEFT`, `RIGHT`, `TOP`, `BOTTOM`) to instantly orient the camera.
-- **Touch & Mouse Orbiting**: Drag directly on the ViewCube to rotate the scene.
+### 2. 4D Construction Scheduling Engine
+- **Trade Sequencing**: Automatically sequences construction tasks (`IFCSITE` → `IFCFOOTING` → `IFCSLAB` → `IFCWALL` → `IFCROOF` → MEP).
+- **Timeline Playback**: Interactive timeline slider with speed controls (`1x`, `2x`, `5x`, `10x`) and visual state highlighting (Planned = Hidden, In Progress = Pulsing Highlight, Completed = Solid).
+- **4D Schedule Task List**: Dedicated dock panel displaying task progress percentages, date ranges, and 1-click element isolation.
 
-### 3. Dynamic Items Finder & Classifier
-- **Model Categories**: Dynamically scans the loaded model and populates query cards for every present IFC category.
-- **Toggled Isolation**: Click "Isolate" on a category card to hide all other objects. Click "Show All" to restore full model visibility.
+### 3. 5D Cost Estimating & BOQ Generation
+- **Quantity Extraction**: Automatically parses standard `Qto_*` property sets (`NetArea`, `NetVolume`, `Length`, `Count`) and custom properties (`Material Number`, `Qty`).
+- **BOQ Export**: 1-click export of Bills of Quantities as structured `.csv` files.
+- **Cumulative Project Budget**: Aggregates total cost and element metrics in real-time.
 
-### 4. 4D Simulation & 5D Estimating
-- **Timeline Scrubber**: Plays a construction sequence simulation. Visual states highlight objects (Planned = Hidden, In Progress = Pulsing Highlight, Completed = Solid).
-- **Cost Calculations**: View and customize Unit Cost and Quantity on selected elements to calculate total costs.
+### 4. BCF Issue Management (BCF 2.1 / 3.0)
+- **Issue Tracking**: Create BCF topics with type (`Clash`, `Coordination`, `Schedule Risk`, `Cost OVR`), priority, and description.
+- **Viewpoint Anchoring**: Automatically links 3D camera viewpoints and selection states to created topics.
+- **BCF Export**: Export tracked issues as standardized `.bcfzip` archives for external BIM tools (Solibri, Revit, Navisworks).
 
-### 5. Premium Responsive Layout
-- **Minimizable Panels**: Collapse panel sections in the sidebar via headers or minimize buttons to expand the 3D workspace.
-- **Sliding Drawers**: Sidebars slide smoothly off-screen on tablets and mobiles, toggled via header hamburger/controls buttons.
-- **High Contrast Accessibility**: WCAG-compliant slate typography in both Dark and Light themes.
+### 5. IDS Data Compliance Audit (`OBC.IDSSpecifications`)
+- **Automated Validation**: Audits loaded IFC models against Information Delivery Specifications to ensure required 4D/5D parameters exist.
+- **Pass/Fail Breakdown**: Reports passing vs failing element counts and missing property sets.
+
+### 6. Dynamic Category Theming
+- **5 Palette Presets**: Default Dark, Cozy Studio, Blue Pen Drafting, Cyberpunk, and Light Mode.
+- **22 IFC Category Colors**: Material color mapping per category (`IFCWALL`, `IFCSLAB`, `IFCCOLUMN`, `IFCDOOR`, `IFCWINDOW`, etc.).
+
+### 7. Cross-Device Responsive UI
+- **Mobile, Tablet & Desktop**: Adaptive grid switching to slide-out drawers on touch devices with `touch-action: none` viewport locking.
+- **Auto-Dismiss Drawers**: Drawers collapse on mobile screens upon task selection for full-screen 3D inspection.
 
 ---
 
@@ -48,7 +58,7 @@ For a complete walkthrough of concepts, prerequisites, features, and debugging g
 ### Installation
 1. Clone the repository:
    ```bash
-   git clone <repository-url>
+   git clone https://github.com/lalithebinezer/TOC.git
    cd TOC
    ```
 2. Install dependencies:
@@ -57,14 +67,14 @@ For a complete walkthrough of concepts, prerequisites, features, and debugging g
    ```
 
 ### Running Locally
-To launch the local development server:
+Launch the development server:
 ```bash
 npm run dev
 ```
-Open [http://localhost:3000/TOC/](http://localhost:3000/TOC/) (or the port specified in your console) in your web browser.
+Open [http://localhost:3000/TOC/](http://localhost:3000/TOC/) in your browser.
 
 ### Building for Production
-To generate the optimized client bundle under `/dist`:
+Generate the production bundle in `/dist`:
 ```bash
 npm run build
 ```
@@ -73,9 +83,9 @@ npm run build
 
 ## 🖱️ How to Use
 
-1. **Load a Model**: Click **Load IFC** in the bottom toolbar to upload a local `.ifc` / `.frag` file, or click **Load Sample** to download the architectural school model.
-2. **Select Elements**: Double-click on any element in the viewport to open its property sheet in the right sidebar.
-3. **Measure**: Toggle **Tape Measure** in the Measurements panel and click points inside the viewport to measure lengths. Press `ESC` to cancel or `Backspace` to delete measurement nodes.
-4. **Isolate**: Go to **Items Finder** in the left sidebar and click "Isolate" next to any category to focus on specific structural parts.
-5. **Run 4D Simulation**: Click **Activate 4D** in the top header. Press **Play Simulation** on the bottom timeline bar to view the animated construction progress.
-6. **Minimize Panels**: Click any panel header (e.g. *Scene* or *Properties*) to collapse it out of the way.
+1. **Load Model**: Click **Load IFC** in the toolbar or click **Load Sample** to load the school model.
+2. **Inspect Properties**: Double-click any 3D element to view properties, quantities, unit costs, and schedule status.
+3. **4D Timeline**: Click **Activate 4D** in the top header and press **Play Simulation** to watch the timeline sequence.
+4. **Export BOQ**: Click **Export Bills of Quantities (BOQ CSV)** in the 5D inspector section to download project cost data.
+5. **Log BCF Issue**: Open the **Tools** tab in the right dock, fill in issue details, and click **Log BCF Issue** or **Export .bcfzip**.
+6. **Run IDS Audit**: Click **Validate IDS 4D/5D Data Readiness** in the inspector panel to check BIM model compliance.
