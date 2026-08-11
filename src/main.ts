@@ -3881,6 +3881,11 @@ function updateScheduleWidgetUI() {
         updateTimelineDateUI();
         await updateTimelineVisualState();
       }
+
+      // Auto-collapse sidebar drawer on mobile for direct viewport visibility
+      if (window.innerWidth <= 1024) {
+        closeAllSidebars();
+      }
     });
 
     container.appendChild(item);

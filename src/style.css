@@ -391,6 +391,7 @@ body {
 
 #container canvas {
   pointer-events: auto;
+  touch-action: none;
 }
 
 /* ── Ambient light effect ── */
@@ -4022,12 +4023,24 @@ input[type="number"] {
     justify-content: flex-start;
   }
 
-  .tactical-ticker-bar {
-    font-size: 0.58rem;
-    padding: 0 0.5rem;
+  .btn-shortcuts-toggle span,
+  .btn-4d-mode #btn-4d-label {
+    display: none; /* Icon-only buttons on small mobile */
   }
 
-  .tactical-ticker-bar span:nth-child(even) {
-    display: none; /* Hide secondary ticker metadata on extra small screens */
+  .btn-shortcuts-toggle,
+  .btn-4d-mode {
+    padding: 0.35rem 0.5rem !important;
+  }
+
+  .select-theme-toggle {
+    max-width: 110px;
+    padding: 0.2rem 0.35rem !important;
+    font-size: 0.65rem !important;
+  }
+
+  .quick-view-toolbar {
+    top: calc(52px + 1.4rem);
+    left: 0.6rem;
   }
 }
