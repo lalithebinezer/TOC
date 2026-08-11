@@ -59,69 +59,72 @@ export const BluePenShader = {
         return;
       }
 
-      // Calculate low-frequency micro-jitter displacement
-      vec2 noiseCoord = vUv * 80.0;
-      vec2 jitter = vec2(
+      // Base smooth UV for surface cell shading
+      vec2 baseUv = vUv;
+
+      // Low-frequency organic jitter ONLY for hand-drawn edge outline sampling
+      vec2 noiseCoord = vUv * 60.0;
+      vec2 edgeJitter = vec2(
         noise(noiseCoord) - 0.5,
         noise(noiseCoord + vec2(17.3, 31.7)) - 0.5
-      ) * jitterAmount;
+      ) * (jitterAmount * 1.5);
 
-      vec2 uv = vUv + jitter;
+      // Jittered UV specifically for edge detection lines
+      vec2 edgeUv = vUv + edgeJitter;
 
-      // Sobel sampling offsets
-      vec2 texel = vec2(lineThickness) / resolution;
+      // Sobel sampling offsets (clean line thickness)
+      vec2 texel = vec2(lineThickness * 1.2) / resolution;
 
-      // Sample depth texture if bound
-      float depthCenter = texture2D(tDepth, uv).r;
+      // Sample depth texture for sharp geometric outlines
       float depthEdge = 0.0;
-      float d0 = texture2D(tDepth, uv + vec2(-texel.x, -texel.y)).r;
-      float d1 = texture2D(tDepth, uv + vec2( 0.0,     -texel.y)).r;
-      float d2 = texture2D(tDepth, uv + vec2( texel.x, -texel.y)).r;
-      float d3 = texture2D(tDepth, uv + vec2(-texel.x,  0.0)).r;
-      float d4 = texture2D(tDepth, uv + vec2( texel.x,  0.0)).r;
-      float d5 = texture2D(tDepth, uv + vec2(-texel.x,  texel.y)).r;
-      float d6 = texture2D(tDepth, uv + vec2( 0.0,      texel.y)).r;
-      float d7 = texture2D(tDepth, uv + vec2( texel.x,  texel.y)).r;
+      if (resolution.x > 1.0) {
+        float d0 = texture2D(tDepth, edgeUv + vec2(-texel.x, -texel.y)).r;
+        float d1 = texture2D(tDepth, edgeUv + vec2( 0.0,     -texel.y)).r;
+        float d2 = texture2D(tDepth, edgeUv + vec2( texel.x, -texel.y)).r;
+        float d3 = texture2D(tDepth, edgeUv + vec2(-texel.x,  0.0)).r;
+        float d4 = texture2D(tDepth, edgeUv + vec2( texel.x,  0.0)).r;
+        float d5 = texture2D(tDepth, edgeUv + vec2(-texel.x,  texel.y)).r;
+        float d6 = texture2D(tDepth, edgeUv + vec2( 0.0,      texel.y)).r;
+        float d7 = texture2D(tDepth, edgeUv + vec2( texel.x,  texel.y)).r;
 
-      float depthSobelX = (d2 + 2.0 * d4 + d7) - (d0 + 2.0 * d3 + d5);
-      float depthSobelY = (d0 + 2.0 * d1 + d2) - (d5 + 2.0 * d6 + d7);
-      depthEdge = sqrt(depthSobelX * depthSobelX + depthSobelY * depthSobelY);
-
-      // Diffuse luminance edge fallback (detects geometry edges even without depth texture)
-      vec3 c0 = texture2D(tDiffuse, uv + vec2(-texel.x, 0.0)).rgb;
-      vec3 c1 = texture2D(tDiffuse, uv + vec2( texel.x, 0.0)).rgb;
-      vec3 c2 = texture2D(tDiffuse, uv + vec2(0.0, -texel.y)).rgb;
-      vec3 c3 = texture2D(tDiffuse, uv + vec2(0.0,  texel.y)).rgb;
-      float colorEdge = length(c1 - c0) + length(c3 - c2);
-
-      // Combine depth and luminance edge intensities
-      float edgeIntensity = smoothstep(0.002, 0.03, depthEdge) + smoothstep(0.08, 0.35, colorEdge);
-      edgeIntensity = clamp(edgeIntensity, 0.0, 1.0);
-      // Paper grain noise background
-      float grain = (rand(vUv * resolution) - 0.5) * 0.035;
-
-      // Calculate shading multiplier from original render (subtle tonal depth)
-      float luminance = dot(originalColor.rgb, vec3(0.299, 0.587, 0.114));
-      float toneShading = smoothstep(0.0, 0.85, luminance);
-
-      // Subtle hatching effect on shaded faces
-      float hatch = sin((vUv.x + vUv.y) * 400.0) * 0.04 * (1.0 - toneShading);
-
-      // Base face color blended between paper background and light ink tone for structural depth
-      vec3 faceShaded = mix(paperColor * 0.92 + hatch, paperColor, toneShading);
-
-      // Mix paper/shaded faces with crisp jittered ink lines
-      vec3 finalColor = mix(faceShaded + vec3(grain), inkColor, edgeIntensity);
-
-      // Highlight override: if an element is selected (cyan/green/purple highlight)
-      float highlightDist = length(originalColor.rgb - paperColor);
-      if (originalColor.g > 0.4 || originalColor.b > 0.4 || originalColor.r > 0.4) {
-        if (originalColor.g > 0.7 && originalColor.r < 0.2) { // Cyan/Green highlight
-          finalColor = mix(finalColor, originalColor.rgb, 0.75);
-        }
+        float depthSobelX = (d2 + 2.0 * d4 + d7) - (d0 + 2.0 * d3 + d5);
+        float depthSobelY = (d0 + 2.0 * d1 + d2) - (d5 + 2.0 * d6 + d7);
+        depthEdge = sqrt(depthSobelX * depthSobelX + depthSobelY * depthSobelY);
       }
 
-      gl_FragColor = vec4(finalColor, 1.0);
+      // Diffuse luminance edge fallback (jittered for hand-drawn pen lines)
+      vec3 c0 = texture2D(tDiffuse, edgeUv + vec2(-texel.x, 0.0)).rgb;
+      vec3 c1 = texture2D(tDiffuse, edgeUv + vec2( texel.x, 0.0)).rgb;
+      vec3 c2 = texture2D(tDiffuse, edgeUv + vec2(0.0, -texel.y)).rgb;
+      vec3 c3 = texture2D(tDiffuse, edgeUv + vec2(0.0,  texel.y)).rgb;
+      float colorEdge = length(c1 - c0) + length(c3 - c2);
+
+      // Edge intensity threshold for crisp hand-drawn ink outlines
+      float edgeIntensity = smoothstep(0.003, 0.035, depthEdge) + smoothstep(0.12, 0.4, colorEdge);
+      edgeIntensity = clamp(edgeIntensity, 0.0, 1.0);
+
+      // Subtle warm paper background grain
+      float grain = (rand(vUv * resolution) - 0.5) * 0.015;
+
+      // Smooth surface luminance shading (un-jittered baseUv for clean faces)
+      float luminance = dot(originalColor.rgb, vec3(0.299, 0.587, 0.114));
+      float toneShading = smoothstep(0.05, 0.9, luminance);
+
+      // Clean 3-step toon shading for warm paper/ink surfaces
+      float cellTone = floor(toneShading * 3.0 + 0.5) / 3.0;
+
+      // Shaded faces blend cleanly between paper color and ink tone
+      vec3 themeElementShade = mix(inkColor * 0.25 + paperColor * 0.45, paperColor, cellTone);
+
+      // Mix clean smooth surface shading with hand-drawn jittered ink lines
+      vec3 finalColor = mix(themeElementShade + vec3(grain), inkColor, edgeIntensity * 0.95);
+
+      // Keep selection/highlighting intact
+      if (originalColor.g > 0.6 && originalColor.r < 0.35) {
+        finalColor = mix(finalColor, originalColor.rgb, 0.85);
+      }
+
+      gl_FragColor = vec4(finalColor, originalColor.a);
     }
   `
 };

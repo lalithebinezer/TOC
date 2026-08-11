@@ -7,31 +7,17 @@ import { PropertyEditor, initPropertyEditorUI } from "./PropertyEditor";
 import "./BimViewCube";
 import { ShaderPass } from "three/examples/jsm/postprocessing/ShaderPass.js";
 import { BluePenShader } from "./shaders/BluePenShader";
+import { getCategoryColor } from "./theme-palette";
+import { ScheduleManager } from "./schedule-manager";
+import { exportBOQAsCSV, generateBOQSummary, extractQuantityData, type BOQLineItem } from "./boq-generator";
 
-// Unregister any old service workers (like coi-serviceworker) to prevent unexpected crossOriginIsolated 
-// states that crash the web-ifc WebWorker loader in ES module environments.
-if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.getRegistrations().then((registrations) => {
-    if (registrations.length > 0) {
-      for (const registration of registrations) {
-        registration.unregister();
-      }
-      // Force reload to clear crossOriginIsolated state
-      window.location.reload();
-    }
-  });
-}
-
-BUI.Manager.init();
+import { BCFManager } from "./bcf-manager";
+import { IDSChecker } from "./ids-checker";
 
 // --- THEME TOGGLE ---
 function initTheme() {
-  const saved = localStorage.getItem('bim-theme-preset') || localStorage.getItem('bim-theme') || 'dark';
-  if (saved && saved !== 'dark') {
-    document.documentElement.setAttribute('data-theme', saved);
-  } else {
-    document.documentElement.removeAttribute('data-theme');
-  }
+  const saved = localStorage.getItem('bim-theme-preset') || localStorage.getItem('bim-theme') || 'cozy';
+  document.documentElement.setAttribute('data-theme', saved);
 }
 initTheme();
 
@@ -45,6 +31,16 @@ const world = worlds.create<
   OBC.OrthoPerspectiveCamera,
   OBF.PostproductionRenderer
 >();
+
+const scheduleManager = new ScheduleManager();
+(window as any).scheduleManager = scheduleManager;
+
+const bcfManager = new BCFManager(components, world);
+bcfManager.init();
+(window as any).bcfManager = bcfManager;
+
+const idsChecker = new IDSChecker(components);
+(window as any).idsChecker = idsChecker;
 
 const scene = new OBC.ShadowedScene(components);
 world.scene = scene;
@@ -93,7 +89,11 @@ if (world.renderer) {
 // Initialize components system
 components.init();
 
-// Add a standard Grid Helper
+// Add Grid via OBC.Grids component
+const grids = components.get(OBC.Grids);
+const simpleGrid = grids.create(world);
+(window as any).viewer_grid = simpleGrid;
+
 const grid = new THREE.GridHelper(100, 100, 0x1d283a, 0x111926);
 grid.position.y = -0.01;
 world.scene.three.add(grid);
@@ -121,12 +121,16 @@ world.scene.shadowsEnabled = false;
 // Attach BluePenShader postprocessing pass for sketched/themed model elements
 let bluePenPass: ShaderPass | null = null;
 const postproduction = (world.renderer as any).postproduction;
-if (postproduction && postproduction.composer) {
-  bluePenPass = new ShaderPass(BluePenShader as any);
-  if (postproduction.depthTexture) {
-    bluePenPass.uniforms.tDepth.value = postproduction.depthTexture;
+if (postproduction) {
+  postproduction.enabled = true;
+  if (postproduction.composer) {
+    bluePenPass = new ShaderPass(BluePenShader as any);
+    if (postproduction.depthTexture) {
+      bluePenPass.uniforms.tDepth.value = postproduction.depthTexture;
+    }
+    bluePenPass.uniforms.resolution.value.set(window.innerWidth, window.innerHeight);
+    postproduction.composer.addPass(bluePenPass);
   }
-  postproduction.composer.addPass(bluePenPass);
 }
 
 // --- BIM & GEOMETRY INGESTION SETUP ---
@@ -138,9 +142,19 @@ const ifcLoader = components.get(OBC.IfcLoader);
 const clipper = components.get(OBC.Clipper);
 clipper.enabled = false;
 
-// Initialize Raycasters for Clipper section plane picking
+// Initialize Raycasters & Mouse helper for Clipper section plane picking & raycasting
 const raycasters = components.get(OBC.Raycasters);
 raycasters.get(world);
+
+let mouse: any = null;
+try {
+  if (container) {
+    mouse = new (OBC as any).Mouse(container);
+  }
+} catch (e) {
+  console.warn("Mouse component fallback setup:", e);
+}
+(window as any).viewer_mouse = mouse;
 
 // Add double-click listener to create section cuts when Clipper is active, or pick elements when it is disabled
 container.addEventListener("dblclick", async () => {
@@ -268,6 +282,15 @@ interface TwinData {
 
 const twinDatabase: Record<string, TwinData> = {};
 const globalElementStoreysMap: Record<string, string> = {};
+
+// --- 4D CONSTRUCTION TIMELINE SIMULATION ENGINE STATE ---
+let is4dMode = localStorage.getItem('bim-4d-mode') === 'true';
+let timelineMinDate: Date | null = null;
+let timelineMaxDate: Date | null = null;
+let currentTimelineDate: Date | null = null;
+let timelineTimer: number | null = null;
+let timelineIsPlaying = false;
+let timelineSpeed = 2; // Days per second
 
 // Define sequencing helpers globally
 function getStoreyIndex(storeyName: string): number {
@@ -885,17 +908,195 @@ function displayElementProperties(model: any, expressId: number) {
   document.getElementById("properties-empty-state")!.style.display = "none";
   document.getElementById("properties-selected-state")!.style.display = "flex";
 
+  // Resolve type relation (IFCRELDEFINESBYTYPE) early for name & entity lookup
+  let typeElementId: number | null = null;
+  for (const id in properties) {
+    const rel = properties[id];
+    if (rel && rel.type === "IFCRELDEFINESBYTYPE") {
+      const relatedObjects = rel.RelatedObjects;
+      if (relatedObjects) {
+        let isRelated = false;
+        if (Array.isArray(relatedObjects)) {
+          isRelated = relatedObjects.some((obj: any) => Number(obj.value ?? obj) === expressId);
+        } else {
+          isRelated = Number(relatedObjects.value ?? relatedObjects) === expressId;
+        }
+        if (isRelated && rel.RelatingType) {
+          typeElementId = Number(rel.RelatingType.value ?? rel.RelatingType);
+          break;
+        }
+      }
+    }
+  }
+
+  const typeProps = typeElementId !== null ? properties[typeElementId] : null;
+
+  // Resolve specific element Name (checking Name, ObjectType, Tag, Type Object, or Psets)
+  let rawName = elementProps.Name ? getPropValue(elementProps.Name) : "";
+  if (!rawName || rawName === "Unnamed Element" || rawName.includes("IFCBUILDINGELEMENT")) {
+    if (elementProps.ObjectType) rawName = getPropValue(elementProps.ObjectType);
+    else if (typeProps && typeProps.Name) rawName = getPropValue(typeProps.Name);
+    else if (elementProps.Tag) rawName = `Tag ${getPropValue(elementProps.Tag)}`;
+  }
+
+  // Deep search Property Sets and RelDefinesByProperties for descriptive element name if elementProps.Name is missing/generic
+  const psets = resolveElementPropertySets(properties, expressId);
+  if (!rawName || rawName === "Unnamed Element" || rawName.includes("IFCBUILDINGELEMENT") || rawName === `Element #${expressId}`) {
+    for (const psetName in psets) {
+      const pset = psets[psetName];
+      if (pset["Name"] && pset["Name"] !== rawName) { rawName = pset["Name"]; break; }
+      if (pset["Reference"]) { rawName = pset["Reference"]; break; }
+      if (pset["Type"]) { rawName = pset["Type"]; break; }
+    }
+  }
+
+  // Check RelDefinesByProperties relationships for attached Psets or Type Names
+  if (!rawName || rawName === `Element #${expressId}`) {
+    for (const id in properties) {
+      const rel = properties[id];
+      if (rel && (rel.type === "IFCRELDEFINESBYPROPERTIES" || rel.type === "IFCRELDEFINESBYTYPE")) {
+        const related = rel.RelatedObjects;
+        if (related) {
+          const matches = Array.isArray(related) ? related.some((r: any) => Number(r.value ?? r) === expressId) : Number(related.value ?? related) === expressId;
+          if (matches && rel.RelatingPropertyDefinition) {
+            const defId = Number(rel.RelatingPropertyDefinition.value ?? rel.RelatingPropertyDefinition);
+            const defProps = properties[defId];
+            if (defProps) {
+              const defName = getPropValue(defProps.Name);
+              if (defName && !defName.includes("IFCBUILDINGELEMENT")) {
+                rawName = defName;
+                break;
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  const nameVal = rawName || `Element #${expressId}`;
+
+  // Resolve specific IFC Entity (resolving generic IFCBUILDINGELEMENT via Classifier Categories, ObjectType, PredefinedType, Type Object, or Pset names)
+  let entityName = elementProps.type ? getIfcEntityName(elementProps.type) : "IFC Element";
+  if (entityName === "IFCBUILDINGELEMENT" || entityName === "IFCBUILDINGELEMENTPROXY" || !entityName) {
+    // 1. Check Classifier Categories group for exact expressId category assignment
+    const categoriesGroup = classifier.list.get("Categories");
+    if (categoriesGroup) {
+      for (const [catName, fragmentMap] of categoriesGroup) {
+        let foundCat = false;
+        for (const fragId in fragmentMap) {
+          const ids = fragmentMap[fragId];
+          if (ids) {
+            const hasId = typeof ids.has === 'function' ? ids.has(expressId) : (Array.isArray(ids) ? ids.includes(expressId) : false);
+            if (hasId) {
+              entityName = catName.toUpperCase();
+              foundCat = true;
+              break;
+            }
+          }
+        }
+        if (foundCat) break;
+      }
+    }
+  }
+
+  if (entityName === "IFCBUILDINGELEMENT" || entityName === "IFCBUILDINGELEMENTPROXY" || !entityName) {
+    if (typeProps && typeProps.type) {
+      entityName = getIfcEntityName(typeProps.type).replace("TYPE", "");
+    } else if (elementProps.PredefinedType && getPropValue(elementProps.PredefinedType) !== "NOTDEFINED") {
+      entityName = `IFC${getPropValue(elementProps.PredefinedType)}`;
+    } else if (elementProps.ObjectType) {
+      const objTypeStr = getPropValue(elementProps.ObjectType).toUpperCase().replace(/\s+/g, "_");
+      entityName = objTypeStr.startsWith("IFC") ? objTypeStr : `IFC_${objTypeStr}`;
+    }
+
+    // Check Psets or fallback to Category / Spatial hints
+    if (entityName === "IFCBUILDINGELEMENT" || entityName === "IFCBUILDINGELEMENTPROXY" || !entityName) {
+      for (const psetName in psets) {
+        if (psetName.toLowerCase().includes("wall")) { entityName = "IFCWALL"; break; }
+        if (psetName.toLowerCase().includes("slab") || psetName.toLowerCase().includes("floor")) { entityName = "IFCSLAB"; break; }
+        if (psetName.toLowerCase().includes("door")) { entityName = "IFCDOOR"; break; }
+        if (psetName.toLowerCase().includes("window")) { entityName = "IFCWINDOW"; break; }
+        if (psetName.toLowerCase().includes("column")) { entityName = "IFCCOLUMN"; break; }
+        if (psetName.toLowerCase().includes("beam")) { entityName = "IFCBEAM"; break; }
+        if (psetName.toLowerCase().includes("roof")) { entityName = "IFCROOF"; break; }
+      }
+    }
+
+    // If still generic, check IFCRELCONTAINEDINSPATIALSTRUCTURE or type relationships
+    if (entityName === "IFCBUILDINGELEMENT" || entityName === "IFCBUILDINGELEMENTPROXY" || !entityName) {
+      for (const id in properties) {
+        const rel = properties[id];
+        if (rel && (rel.type === "IFCRELCONTAINEDINSPATIALSTRUCTURE" || rel.type === "IFCRELASSIGNSTOGROUP")) {
+          const related = rel.RelatedElements || rel.RelatedObjects;
+          if (related) {
+            const matches = Array.isArray(related) ? related.some((r: any) => Number(r.value ?? r) === expressId) : Number(related.value ?? related) === expressId;
+            if (matches && rel.RelatingStructure) {
+              const structId = Number(rel.RelatingStructure.value ?? rel.RelatingStructure);
+              const structProps = properties[structId];
+              if (structProps && structProps.type) {
+                const structType = getIfcEntityName(structProps.type);
+                if (structType) {
+                  entityName = `${structType}_ELEMENT`;
+                  break;
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+    // If still generic, check fragment models for expressID item category or type mapping
+    if (entityName === "IFCBUILDINGELEMENT" || entityName === "IFCBUILDINGELEMENTPROXY" || !entityName) {
+      for (const [, model] of fragments.list) {
+        const anyModel = model as any;
+        if (anyModel.items && anyModel.items[expressId]) {
+          const item = anyModel.items[expressId];
+          if (item.category) {
+            entityName = String(item.category).toUpperCase();
+            break;
+          }
+        }
+      }
+    }
+
+    // Final fallback for raw un-categorized building elements
+    if (entityName === "IFCBUILDINGELEMENT" || entityName === "IFCBUILDINGELEMENTPROXY") {
+      // Deduce entity category from model properties index structure
+      if (elementProps.Tag) {
+        entityName = `IFC_ELEMENT_TAG_${elementProps.Tag}`;
+      } else {
+        entityName = "IFC_BUILDING_COMPONENT";
+      }
+    }
+  }
+
+  // Update top header status badge with IFC name & type and static card fields
+  const headerStatusText = document.getElementById("header-status-text");
+  if (headerStatusText) {
+    headerStatusText.innerText = `${entityName}: ${nameVal} (#${expressId})`;
+  }
+
+  const propExpressIdEl = document.getElementById("prop-express-id");
+  if (propExpressIdEl) propExpressIdEl.innerText = String(expressId);
+
+  const propIfcTypeEl = document.getElementById("prop-ifc-type");
+  if (propIfcTypeEl) propIfcTypeEl.innerText = entityName;
+
+  const propNameEl = document.getElementById("prop-name");
+  if (propNameEl) propNameEl.innerText = nameVal;
+
+  const badgePropsIdEl = document.getElementById("badge-props-id");
+  if (badgePropsIdEl) badgePropsIdEl.innerText = `#${expressId}`;
+
   // Render all properties dynamically
   const tableEl = document.querySelector(".properties-widget .property-table")!;
   tableEl.innerHTML = "";
 
   addPropertyRow(tableEl, "Express ID", String(expressId));
   if (elementProps.type) {
-    const entityName = getIfcEntityName(elementProps.type);
     addPropertyRow(tableEl, "IFC Entity", entityName, "color-green");
   }
-  
-  const nameVal = elementProps.Name ? getPropValue(elementProps.Name) : "Unnamed Element";
   addPropertyRow(tableEl, "Name", nameVal);
 
   for (const key in elementProps) {
@@ -909,37 +1110,7 @@ function displayElementProperties(model: any, expressId: number) {
     }
   }
 
-  // Resolve type relation (IFCRELDEFINESBYTYPE)
-  let typeElementId: number | null = null;
-  for (const id in properties) {
-    const rel = properties[id];
-    if (rel && rel.type === "IFCRELDEFINESBYTYPE") {
-      const relatedObjects = rel.RelatedObjects;
-      if (relatedObjects) {
-        let isRelated = false;
-        if (Array.isArray(relatedObjects)) {
-          isRelated = relatedObjects.some((obj: any) => {
-            const val = obj.value ?? obj;
-            return Number(val) === expressId;
-          });
-        } else {
-          const val = relatedObjects.value ?? relatedObjects;
-          isRelated = Number(val) === expressId;
-        }
-
-        if (isRelated) {
-          const relatingType = rel.RelatingType;
-          if (relatingType) {
-            typeElementId = Number(relatingType.value ?? relatingType);
-          }
-          break;
-        }
-      }
-    }
-  }
-
-  // Resolve and render property sets!
-  const psets = resolveElementPropertySets(properties, expressId);
+  // Render Property Sets
   for (const psetName in psets) {
     const divider = document.createElement("div");
     divider.className = "prop-set-header";
@@ -995,9 +1166,24 @@ function displayElementProperties(model: any, expressId: number) {
     }
   }
 
+  // Extract real quantities and material numbers from standard Qto_* or custom property sets
+  const qtoData = extractQuantityData(elementProps, psets);
+  if (qtoData.materialNumber) {
+    addPropertyRow(tableEl, "Material Number", qtoData.materialNumber, "color-purple font-bold");
+  }
+  if (qtoData.quantity > 0) {
+    addPropertyRow(tableEl, `IFC Quantity (${qtoData.quantityType})`, `${qtoData.quantity} ${qtoData.unit}`, "color-green");
+  }
+
   // Retrieve 4D/5D data from local twin database or generate mock
   const ifcType = String(elementProps.type ?? "").toUpperCase();
   const twinData = getOrGenerateTwinData(activeModelId || "default-model", expressId, ifcType);
+
+  // If twinData quantity is default/mock, override with extracted real IFC quantity
+  if (qtoData.quantity > 0 && !twinData.isCustomized) {
+    twinData.quantity = qtoData.quantity;
+    twinData.calculatedCost = twinData.unitCost * twinData.quantity;
+  }
 
   // Populate UI inputs
   costUnit.value = String(twinData.unitCost);
@@ -1011,15 +1197,72 @@ function displayElementProperties(model: any, expressId: number) {
   schedStart.value = twinData.startDate;
   schedEnd.value = twinData.endDate;
 }
+(window as any).displayElementProperties = displayElementProperties;
 
 function resetPropertiesPanel() {
   activeModelId = null;
   activeExpressId = null;
-  document.getElementById("properties-empty-state")!.style.display = "flex";
-  document.getElementById("properties-selected-state")!.style.display = "none";
+  const headerStatusText = document.getElementById("header-status-text");
+  if (headerStatusText) {
+    headerStatusText.innerText = "Ready • 3D Workspace";
+  }
+  const badgePropsIdEl = document.getElementById("badge-props-id");
+  if (badgePropsIdEl) {
+    badgePropsIdEl.innerText = "#--";
+  }
+  const emptyState = document.getElementById("properties-empty-state");
+  if (emptyState) emptyState.style.display = "flex";
+
+  const selectedState = document.getElementById("properties-selected-state");
+  if (selectedState) selectedState.style.display = "none";
+
   if (propertyEditor) {
     propertyEditor.deselect();
   }
+}
+
+// Wire BOQ CSV export button
+const btnExportBoqCsv = document.getElementById("btn-export-boq-csv");
+if (btnExportBoqCsv) {
+  btnExportBoqCsv.addEventListener("click", () => {
+    const items: BOQLineItem[] = [];
+    for (const key in twinDatabase) {
+      const data = twinDatabase[key];
+      const [modelId, expressIdStr] = key.split("-");
+      const expressId = Number(expressIdStr);
+      items.push({
+        expressId,
+        modelId,
+        category: data.task ? data.task.split(" ")[0] : "IFCELEMENT",
+        elementName: `Element #${expressId}`,
+        materialNumber: "",
+        unit: "ea",
+        quantity: data.quantity,
+        unitCost: data.unitCost,
+        totalCost: data.calculatedCost,
+        propertySetName: "Pset_TwinData",
+        quantityType: "Count",
+      });
+    }
+    const summary = generateBOQSummary(items);
+    exportBOQAsCSV(summary);
+  });
+}
+
+// Wire IDS Compliance Audit button
+const btnRunIdsAudit = document.getElementById("btn-run-ids-audit");
+if (btnRunIdsAudit) {
+  btnRunIdsAudit.addEventListener("click", async () => {
+    const originalHtml = btnRunIdsAudit.innerHTML;
+    btnRunIdsAudit.innerHTML = `<span>⏳ Auditing Model...</span>`;
+    const res = await idsChecker.validateBimDataReadiness();
+    if (res.passed) {
+      alert(`✅ IDS Validation Passed!\nChecked: ${res.totalChecked} elements\nAll elements contain required 4D/5D properties.`);
+    } else {
+      alert(`⚠️ IDS Validation Results:\nChecked: ${res.totalChecked} elements\nPassed: ${res.passCount}\nFailed: ${res.failCount}\n\nFailing Categories:\n${res.failingCategories.join("\n") || "Some elements missing Qto_WallBaseQuantities"}`);
+    }
+    btnRunIdsAudit.innerHTML = originalHtml;
+  });
 }
 
 // Wire real-time cost calculator logic
@@ -1143,6 +1386,18 @@ const initBim = async () => {
         (world.scene as any).updateShadows();
       }
 
+      // Apply current active theme to newly loaded Three.js model materials
+      const currentTheme = document.documentElement.getAttribute("data-theme") || "cozy";
+      applyThemeToThreeMaterials(currentTheme);
+      updateThemeShaderUniforms(currentTheme);
+
+      if (postproduction) {
+        postproduction.enabled = true;
+        if (postproduction.customEffects) {
+          postproduction.customEffects.setNeedsUpdate();
+        }
+      }
+
       fragments.core.update(true);
     });
 
@@ -1239,6 +1494,9 @@ function refreshFileList() {
     const countStr = totalPropertiesCount > 0 ? ` • ${totalPropertiesCount.toLocaleString()} Elements` : '';
     headerStatusEl.textContent = `${firstModelName}${countStr}`;
   }
+
+  const badgeFilesCount = document.getElementById("badge-files-count");
+  if (badgeFilesCount) badgeFilesCount.textContent = String(fragments.list.size);
 
   const tickerModelName = document.getElementById("ticker-model-name");
   if (tickerModelName) tickerModelName.textContent = firstModelName.toUpperCase();
@@ -1390,9 +1648,18 @@ async function loadModelData(name: string, buffer: Uint8Array) {
         
         model = await fragments.core.load(cachedBuffer, { modelId: name } as any);
       } else {
-        console.log(`Cache miss for ${name}. Converting IFC via WASM loader...`);
-        text.innerText = "Converting IFC to Fragments...";
-        model = await ifcLoader.load(buffer, true, name);
+        console.log(`Cache miss for ${name}. Converting IFC via WASM loader with complete attributes & relations...`);
+        text.innerText = "Converting IFC to Fragments (All Attributes & Relations)...";
+        model = await ifcLoader.load(buffer, true, name, {
+          instanceCallback: (importer: any) => {
+            if (typeof importer.addAllAttributes === "function") {
+              importer.addAllAttributes();
+            }
+            if (typeof importer.addAllRelations === "function") {
+              importer.addAllRelations();
+            }
+          }
+        });
         
         // Cache the parsed model in background once loaded successfully
         if (model) {
@@ -1435,6 +1702,16 @@ async function loadModelData(name: string, buffer: Uint8Array) {
       console.log("CLASSIFIER: starting byIfcBuildingStorey");
       await classifier.byIfcBuildingStorey({ classificationName: "Storeys" });
       console.log("CLASSIFIER: byIfcBuildingStorey done");
+      console.log("CLASSIFIER: starting byModel");
+      try {
+        await classifier.byModel({ classificationName: "Models" });
+      } catch (e) {
+        console.warn("Classifier byModel info:", e);
+      }
+      console.log("CLASSIFIER: byModel done");
+
+      // Apply category-based theme colors to three.js mesh materials
+      await applyCategoryColors();
 
       // Sync/generate local database twin properties using classifications
       await initializeModelTwinData(model);
@@ -1455,18 +1732,23 @@ async function loadModelData(name: string, buffer: Uint8Array) {
       }
       window.dispatchEvent(new Event('resize'));
 
-      // Set to viewer mode (exit 4D) initially when a project is loaded
-      apply4dMode(false);
+      // Sync 4D simulation state for newly loaded model
+      calculateTimelineBounds();
+      if (is4dMode) {
+        updateTimelineVisualState();
+      }
 
       // Fit camera controls box around loaded model
       setTimeout(async () => {
         try {
-          console.log("LOADED MODEL:", model);
-          console.log("MODEL.OBJECT:", model ? model.object : undefined);
-          const box = new THREE.Box3().setFromObject(model.object);
-          await world.camera.controls.fitToBox(box, true);
+          if (model && model.object) {
+            const box = new THREE.Box3().setFromObject(model.object);
+            if (!box.isEmpty()) {
+              await world.camera.controls.fitToBox(box, true);
+            }
+          }
         } catch (err) {
-          console.warn("Camera fitToBox failed:", err);
+          console.warn("Camera fitToBox skipped:", err);
         }
       }, 300);
     }
@@ -1509,12 +1791,14 @@ fileInput.addEventListener("change", async () => {
 });
 
 // Load Sample Model Button
-const loadSampleBtn = document.getElementById("load-sample-btn")!;
-loadSampleBtn.addEventListener("click", async () => {
+async function loadSampleModel() {
   const url = "https://thatopen.github.io/engine_components/resources/frags/school_arq.frag";
+  const loadSampleBtn = document.getElementById("load-sample-btn");
   try {
-    loadSampleBtn.setAttribute("disabled", "true");
-    loadSampleBtn.innerText = "Downloading...";
+    if (loadSampleBtn) {
+      loadSampleBtn.setAttribute("disabled", "true");
+      loadSampleBtn.innerText = "Downloading...";
+    }
 
     const response = await fetch(url);
     if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
@@ -1524,36 +1808,88 @@ loadSampleBtn.addEventListener("click", async () => {
     await loadModelData("school_arq.frag", uint8Array);
   } catch (err) {
     console.error("Failed to fetch sample file:", err);
-    alert("Could not load sample model. Check internet connectivity.");
   } finally {
-    loadSampleBtn.removeAttribute("disabled");
-    loadSampleBtn.innerHTML = `
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>
-      </svg>
-      Load Sample
-    `;
+    if (loadSampleBtn) {
+      loadSampleBtn.removeAttribute("disabled");
+      loadSampleBtn.innerHTML = `
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>
+        </svg>
+        Load Sample
+      `;
+    }
   }
-});
+}
+(window as any).loadSampleModel = loadSampleModel;
+
+const loadSampleBtn = document.getElementById("load-sample-btn");
+if (loadSampleBtn) {
+  loadSampleBtn.addEventListener("click", loadSampleModel);
+}
+
+// Theme-to-3D mapping: paper (model fill), ink (edges), grid colors
+const themeVisualMap: Record<string, { paper: string; ink: string; jitter: number; gridMajor: string; gridMinor: string }> = {
+  // Sketch / artistic themes — strong jitter for hand-drawn feel
+  bluepen:   { paper: "#F9F9F6", ink: "#002395", jitter: 0.0018, gridMajor: "#b0b8d0", gridMinor: "#d8dce8" },
+  blueprint: { paper: "#051e44", ink: "#ffffff", jitter: 0.0012, gridMajor: "#1e4785", gridMinor: "#0c3066" },
+  cozy:      { paper: "#DDA380", ink: "#2C2621", jitter: 0.0010, gridMajor: "#A8785A", gridMinor: "#C4956F" },
+
+  // Standard themes — very subtle jitter for clean stylized rendering
+  dark:      { paper: "#0d0f14", ink: "#dc2626", jitter: 0.0005, gridMajor: "#1d283a", gridMinor: "#111926" },
+  cyberpunk: { paper: "#0b0f19", ink: "#06b6d4", jitter: 0.0005, gridMajor: "#162040", gridMinor: "#0e1730" },
+  amber:     { paper: "#121214", ink: "#f59e0b", jitter: 0.0005, gridMajor: "#2a2420", gridMinor: "#1a1816" },
+  emerald:   { paper: "#0a100d", ink: "#10b981", jitter: 0.0005, gridMajor: "#152018", gridMinor: "#0e1610" },
+  indigo:    { paper: "#0f172a", ink: "#6366f1", jitter: 0.0005, gridMajor: "#1e2850", gridMinor: "#141e3a" },
+  light:     { paper: "#e5e7eb", ink: "#dc2626", jitter: 0.0005, gridMajor: "#c0c4cc", gridMinor: "#d4d6dc" },
+};
+
+function applyThemeToThreeMaterials(theme: string) {
+  const vis = themeVisualMap[theme];
+  if (!vis) return;
+
+  const paperCol = new THREE.Color(vis.paper);
+  const inkCol = new THREE.Color(vis.ink);
+
+  // Traverse all loaded BIM model fragment meshes in Three.js scene
+  for (const [, model] of fragments.list) {
+    if (!model || !model.object) continue;
+    model.object.traverse((child: any) => {
+      if (child.isMesh && child.material) {
+        const mats = Array.isArray(child.material) ? child.material : [child.material];
+        for (const mat of mats) {
+          if (mat.color) {
+            // Blend original mesh color with theme paper/ink colors for native Three.js theme shading
+            mat.color.copy(paperCol).lerp(inkCol, 0.25);
+          }
+          mat.needsUpdate = true;
+        }
+      }
+    });
+  }
+}
 
 function updateThemeShaderUniforms(theme: string) {
   if (!bluePenPass) return;
-  if (theme === "bluepen") {
+
+  const vis = themeVisualMap[theme];
+  if (vis) {
+    // Enable the shader for ALL themes — model syncs to theme colors
     bluePenPass.uniforms.enabled.value = 1.0;
-    bluePenPass.uniforms.paperColor.value.set("#F9F9F6");
-    bluePenPass.uniforms.inkColor.value.set("#002395");
-    bluePenPass.uniforms.jitterAmount.value = 0.0018;
-  } else if (theme === "blueprint") {
-    bluePenPass.uniforms.enabled.value = 1.0;
-    bluePenPass.uniforms.paperColor.value.set("#051e44");
-    bluePenPass.uniforms.inkColor.value.set("#ffffff");
-    bluePenPass.uniforms.jitterAmount.value = 0.0012;
-  } else if (theme === "cozy") {
-    bluePenPass.uniforms.enabled.value = 1.0;
-    bluePenPass.uniforms.paperColor.value.set("#DDA380");
-    bluePenPass.uniforms.inkColor.value.set("#2C2621");
-    bluePenPass.uniforms.jitterAmount.value = 0.0010;
+    bluePenPass.uniforms.paperColor.value.set(vis.paper);
+    bluePenPass.uniforms.inkColor.value.set(vis.ink);
+    bluePenPass.uniforms.jitterAmount.value = vis.jitter;
+
+    // Sync the grid helper colors to match the theme
+    const gridMat = grid.material as THREE.Material;
+    if (Array.isArray(gridMat)) {
+      (gridMat[0] as THREE.LineBasicMaterial).color.set(vis.gridMajor);
+      (gridMat[1] as THREE.LineBasicMaterial).color.set(vis.gridMinor);
+    }
+
+    // Apply native Three.js material color overrides
+    applyThemeToThreeMaterials(theme);
   } else {
+    // Unknown theme fallback — disable shader, keep original render
     bluePenPass.uniforms.enabled.value = 0.0;
   }
 }
@@ -1561,7 +1897,7 @@ function updateThemeShaderUniforms(theme: string) {
 // Theme Preset Switcher (Multi-Theme)
 const themeToggleSelect = document.getElementById("btn-theme-toggle") as HTMLSelectElement | null;
 if (themeToggleSelect) {
-  const savedTheme = localStorage.getItem("bim-theme-preset") || "dark";
+  const savedTheme = localStorage.getItem("bim-theme-preset") || "cozy";
   document.documentElement.setAttribute("data-theme", savedTheme);
   themeToggleSelect.value = savedTheme;
   updateThemeShaderUniforms(savedTheme);
@@ -1575,140 +1911,166 @@ if (themeToggleSelect) {
 }
 
 // Bottom Toolbar Actions: Visibility
-const showAllBtn = document.getElementById("btn-show-all")!;
-showAllBtn.addEventListener("click", async () => {
-  const hider = components.get(OBC.Hider);
-  await hider.set(true);
-});
+const showAllBtn = document.getElementById("btn-show-all");
+if (showAllBtn) {
+  showAllBtn.addEventListener("click", async () => {
+    const hider = components.get(OBC.Hider);
+    await hider.set(true);
+  });
+}
 
-const hideAllBtn = document.getElementById("btn-hide-all")!;
-hideAllBtn.addEventListener("click", async () => {
-  const hider = components.get(OBC.Hider);
-  await hider.set(false);
-});
+const hideAllBtn = document.getElementById("btn-hide-all");
+if (hideAllBtn) {
+  hideAllBtn.addEventListener("click", async () => {
+    const hider = components.get(OBC.Hider);
+    await hider.set(false);
+  });
+}
 
 import { exportFrag } from "./components/FragExporter";
 
-const loadIfcBtn = document.getElementById("btn-load-ifc")!;
-loadIfcBtn.addEventListener("click", () => {
-  fileInput.accept = ".ifc";
-  fileInput.click();
-});
+const loadIfcBtn = document.getElementById("btn-load-ifc");
+if (loadIfcBtn) {
+  loadIfcBtn.addEventListener("click", () => {
+    if (fileInput) {
+      fileInput.accept = ".ifc";
+      fileInput.click();
+    }
+  });
+}
 
-const exportFragBtn = document.getElementById("btn-export-frag")!;
-exportFragBtn.addEventListener("click", async () => {
-  // We assume the first model in fragments is the current one
-  const models = Array.from(fragments.list.values());
-  if (models.length === 0) {
-    alert("No model loaded to export.");
-    return;
-  }
-  // Export the primary model
-  const model = models[0];
-  const firstId = Array.from(fragments.list.keys())[0];
-  await exportFrag(model, firstId || "exported-model");
-});
+const exportFragBtn = document.getElementById("btn-export-frag");
+if (exportFragBtn) {
+  exportFragBtn.addEventListener("click", async () => {
+    // We assume the first model in fragments is the current one
+    const models = Array.from(fragments.list.values());
+    if (models.length === 0) {
+      alert("No model loaded to export.");
+      return;
+    }
+    // Export the primary model
+    const model = models[0];
+    const firstId = Array.from(fragments.list.keys())[0];
+    await exportFrag(model, firstId || "exported-model");
+  });
+}
 
-const loadFragBtn = document.getElementById("btn-load-frag")!;
-loadFragBtn.addEventListener("click", () => {
-  fileInput.accept = ".frag";
-  fileInput.click();
-});
+const loadFragBtn = document.getElementById("btn-load-frag");
+if (loadFragBtn) {
+  loadFragBtn.addEventListener("click", () => {
+    if (fileInput) {
+      fileInput.accept = ".frag";
+      fileInput.click();
+    }
+  });
+}
 
 // Bottom Toolbar Actions: Selection
-const focusBtn = document.getElementById("btn-focus")!;
-focusBtn.addEventListener("click", async () => {
-  const selectionMap = highlighter.selection["select"];
-  let hasSelection = false;
-  if (selectionMap) {
-    for (const fragId in selectionMap) {
-      if (selectionMap[fragId].size > 0) {
-        hasSelection = true;
-        break;
+const focusBtn = document.getElementById("btn-focus");
+if (focusBtn) {
+  focusBtn.addEventListener("click", async () => {
+    const selectionMap = highlighter.selection["select"];
+    let hasSelection = false;
+    if (selectionMap) {
+      for (const fragId in selectionMap) {
+        if (selectionMap[fragId].size > 0) {
+          hasSelection = true;
+          break;
+        }
       }
     }
-  }
 
-  if (hasSelection) {
-    try {
-      const boundingBoxer = components.get(OBC.BoundingBoxer);
-      boundingBoxer.list.clear();
-      await boundingBoxer.addFromModelIdMap(selectionMap);
-      const box = boundingBoxer.get();
-      await world.camera.controls.fitToBox(box, true);
-      boundingBoxer.list.clear();
-    } catch (e) {
-      console.warn("Zoom to selection failed:", e);
+    if (hasSelection) {
+      try {
+        const boundingBoxer = components.get(OBC.BoundingBoxer);
+        boundingBoxer.list.clear();
+        await boundingBoxer.addFromModelIdMap(selectionMap);
+        const box = boundingBoxer.get();
+        await world.camera.controls.fitToBox(box, true);
+        boundingBoxer.list.clear();
+      } catch (e) {
+        console.warn("Zoom to selection failed:", e);
+      }
+    } else {
+      // Zoom fit all models in scene
+      if (fragments.list.size === 0) return;
+      const box = new THREE.Box3();
+      let hasModel = false;
+      for (const [, model] of fragments.list) {
+        box.expandByObject(model.object);
+        hasModel = true;
+      }
+      if (!hasModel) return;
+      try {
+        await world.camera.controls.fitToBox(box, true);
+      } catch (e) {
+        console.error("Zoom fit all failed:", e);
+      }
     }
-  } else {
-    // Zoom fit all models in scene
-    if (fragments.list.size === 0) return;
-    const box = new THREE.Box3();
-    let hasModel = false;
-    for (const [, model] of fragments.list) {
-      box.expandByObject(model.object);
-      hasModel = true;
-    }
-    if (!hasModel) return;
-    try {
-      await world.camera.controls.fitToBox(box, true);
-    } catch (e) {
-      console.error("Zoom fit all failed:", e);
-    }
-  }
-});
+  });
+}
 
-const hideSelectedBtn = document.getElementById("btn-hide-selected")!;
-hideSelectedBtn.addEventListener("click", async () => {
-  const hider = components.get(OBC.Hider);
-  const selection = highlighter.selection["select"];
-  if (selection && Object.keys(selection).length > 0) {
-    let hasItems = false;
-    for (const id in selection) {
-      if (selection[id].size > 0) hasItems = true;
+const hideSelectedBtn = document.getElementById("btn-hide-selected");
+if (hideSelectedBtn) {
+  hideSelectedBtn.addEventListener("click", async () => {
+    const hider = components.get(OBC.Hider);
+    const selection = highlighter.selection["select"];
+    if (selection && Object.keys(selection).length > 0) {
+      let hasItems = false;
+      for (const id in selection) {
+        if (selection[id].size > 0) hasItems = true;
+      }
+      if (hasItems) {
+        await hider.set(false, selection);
+        await highlighter.clear("select");
+        resetPropertiesPanel();
+      }
     }
-    if (hasItems) {
-      await hider.set(false, selection);
-      await highlighter.clear("select");
-      resetPropertiesPanel();
-    }
-  }
-});
+  });
+}
 
-const isolateBtn = document.getElementById("btn-isolate")!;
-isolateBtn.addEventListener("click", async () => {
-  const hider = components.get(OBC.Hider);
-  const selection = highlighter.selection["select"];
-  if (selection && Object.keys(selection).length > 0) {
-    let hasItems = false;
-    for (const id in selection) {
-      if (selection[id].size > 0) hasItems = true;
+const isolateBtn = document.getElementById("btn-isolate");
+if (isolateBtn) {
+  isolateBtn.addEventListener("click", async () => {
+    const hider = components.get(OBC.Hider);
+    const selection = highlighter.selection["select"];
+    if (selection && Object.keys(selection).length > 0) {
+      let hasItems = false;
+      for (const id in selection) {
+        if (selection[id].size > 0) hasItems = true;
+      }
+      if (hasItems) {
+        await hider.isolate(selection);
+      }
     }
-    if (hasItems) {
-      await hider.isolate(selection);
-    }
-  }
-});
+  });
+}
 
-const clearSelectionBtn = document.getElementById("btn-clear-selection")!;
-clearSelectionBtn.addEventListener("click", async () => {
-  await highlighter.clear("select");
-  resetPropertiesPanel();
-});
+const clearSelectionBtn = document.getElementById("btn-clear-selection");
+if (clearSelectionBtn) {
+  clearSelectionBtn.addEventListener("click", async () => {
+    await highlighter.clear("select");
+    resetPropertiesPanel();
+  });
+}
 
 // Bottom Toolbar Actions: Sectioning
-const clipperBtn = document.getElementById("btn-section-cut")!;
-clipperBtn.addEventListener("click", () => {
-  clipper.enabled = !clipper.enabled;
-  clipperBtn.classList.toggle("active", clipper.enabled);
-  updateViewportHint(clipper.enabled ? "✂️ Section Cut Active — Double-click any surface to slice model" : "Double-click any 3D element to inspect properties • Drag to Orbit view");
-});
+const clipperBtn = document.getElementById("btn-section-cut");
+if (clipperBtn) {
+  clipperBtn.addEventListener("click", () => {
+    clipper.enabled = !clipper.enabled;
+    clipperBtn.classList.toggle("active", clipper.enabled);
+    updateViewportHint(clipper.enabled ? "✂️ Section Cut Active — Double-click any surface to slice model" : "Double-click any 3D element to inspect properties • Drag to Orbit view");
+  });
+}
 
-const clearClipsBtn = document.getElementById("btn-clear-sections")!;
-clearClipsBtn.addEventListener("click", () => {
-  clipper.deleteAll();
-  updateViewportHint("Section planes cleared • Double-click any 3D element to inspect properties");
-});
+const clearClipsBtn = document.getElementById("btn-clear-sections");
+if (clearClipsBtn) {
+  clearClipsBtn.addEventListener("click", () => {
+    clipper.deleteAll();
+    updateViewportHint("Section planes cleared • Double-click any 3D element to inspect properties");
+  });
+}
 
 // --- INTUITIVE VIEWPORT HINT BAR MANAGER ---
 function updateViewportHint(msg: string) {
@@ -1750,7 +2112,7 @@ if (btnExportPrompt) {
 }
 
 // Wire and render Items Finder queries dynamically based on model classification categories
-function updateItemFinderQueries() {
+async function updateItemFinderQueries() {
   const container = document.getElementById("finder-queries-list");
   if (!container) return;
 
@@ -1778,13 +2140,39 @@ function updateItemFinderQueries() {
     container.appendChild(item);
   });
 
-  // 2. Add dynamic categories found in model classification tree
+  // 2. Automatically generate queries from categories using ItemsFinder API
+  try {
+    if (fragments.list.size > 0) {
+      await finder.addFromCategories();
+    }
+  } catch (e) {
+    console.warn("ItemsFinder addFromCategories info:", e);
+  }
+
+  // Render queries registered in ItemsFinder list
+  for (const [queryKey] of finder.list) {
+    if (defaultQueries.some(dq => dq.name === queryKey)) continue;
+    const cleanName = queryKey.replace(/^IFC/i, "");
+    const item = document.createElement("div");
+    item.className = "query-item";
+    item.innerHTML = `
+      <div class="query-info">
+        <div class="query-name">${cleanName}</div>
+        <div class="query-desc">Isolate all elements matching ${queryKey} using ItemsFinder.</div>
+      </div>
+      <div class="query-actions">
+        <button class="btn-secondary btn-query-execute" data-query="${queryKey}">Isolate</button>
+      </div>
+    `;
+    container.appendChild(item);
+  }
+
+  // 3. Fallback: Add dynamic categories from Classifier if not present
   const categoriesGroup = classifier.list.get("Categories");
   if (categoriesGroup && fragments.list.size > 0) {
     for (const [groupName] of categoriesGroup) {
-      // Clean up IFC prefix if present for visual elegance
+      if (finder.list.has(groupName)) continue;
       const cleanName = groupName.replace(/^IFC/i, "");
-      
       const item = document.createElement("div");
       item.className = "query-item";
       item.innerHTML = `
@@ -1798,6 +2186,12 @@ function updateItemFinderQueries() {
       `;
       container.appendChild(item);
     }
+  }
+
+  const badgeFinderCount = document.getElementById("badge-finder-count");
+  if (badgeFinderCount) {
+    const totalQueries = container.querySelectorAll(".query-item").length;
+    badgeFinderCount.textContent = String(totalQueries);
   }
 
   // 3. Wire event listeners for all buttons
@@ -2260,9 +2654,15 @@ function exitActivePreset() {
   firstPersonKeys.right = false;
   firstPersonKeys.up = false;
   firstPersonKeys.down = false;
-  settingsCameraMode.value = "Orbit";
-  settingsCameraProjection.value = "Perspective";
-  settingsCameraMode.disabled = false;
+  const settingsCameraMode = document.getElementById("settings-camera-mode") as HTMLSelectElement | null;
+  if (settingsCameraMode) {
+    settingsCameraMode.value = "Orbit";
+    settingsCameraMode.disabled = false;
+  }
+  const settingsCameraProjection = document.getElementById("settings-camera-projection") as HTMLSelectElement | null;
+  if (settingsCameraProjection) {
+    settingsCameraProjection.value = "Perspective";
+  }
 }
 
 gamePresetSelect.addEventListener("change", () => {
@@ -2274,11 +2674,12 @@ gamePresetSelect.addEventListener("change", () => {
     return;
   }
 
-  settingsCameraMode.disabled = true;
+  const settingsCameraMode = document.getElementById("settings-camera-mode") as HTMLSelectElement | null;
+  if (settingsCameraMode) settingsCameraMode.disabled = true;
 
   if (activePreset === "FPS") {
     world.camera.set("FirstPerson");
-    settingsCameraMode.value = "FirstPerson";
+    if (settingsCameraMode) settingsCameraMode.value = "FirstPerson";
     
     // Ensure camera is added to the scene so attached children (the weapon mesh) render
     if (!world.camera.three.parent) {
@@ -2355,7 +2756,8 @@ gamePresetSelect.addEventListener("change", () => {
     }
   } else if (activePreset === "ThirdPerson") {
     world.camera.set("Orbit");
-    settingsCameraMode.value = "Orbit";
+    const cameraModeEl = document.getElementById("settings-camera-mode") as HTMLSelectElement | null;
+    if (cameraModeEl) cameraModeEl.value = "Orbit";
     if (!gameCharacterMesh) gameCharacterMesh = createCharacterMesh();
     world.scene.three.add(gameCharacterMesh);
     charPosition.set(0, 0.01, 0);
@@ -2394,11 +2796,23 @@ tpDistanceSlider.addEventListener("input", () => {
   tpDistanceVal.innerText = Number(tpDistanceSlider.value).toFixed(1);
 });
 
-// --- CAMERA NAVIGATION & PROJECTIONS BINDINGS ---
-const settingsCameraMode = document.getElementById("settings-camera-mode")! as HTMLSelectElement;
-settingsCameraMode.addEventListener("change", () => {
-  world.camera.set(settingsCameraMode.value);
-});
+const settingsCameraModeSelect = document.getElementById("settings-camera-mode") as HTMLSelectElement | null;
+if (settingsCameraModeSelect) {
+  settingsCameraModeSelect.addEventListener("change", () => {
+    const mode = settingsCameraModeSelect.value;
+    world.camera.set(mode as any);
+    if (mode === "Plan") {
+      world.camera.projection.set("Orthographic");
+      const projectionSelect = document.getElementById("settings-camera-projection") as HTMLSelectElement | null;
+      if (projectionSelect) projectionSelect.value = "Orthographic";
+      updateViewportHint("📐 2D Floorplan Mode Active — Mouse drag to Pan, wheel to Zoom");
+    } else if (mode === "Orbit") {
+      updateViewportHint("3D Orbit Mode Active — Left-drag to Orbit, Right-drag to Pan, Wheel to Zoom");
+    } else if (mode === "FirstPerson") {
+      updateViewportHint("🎮 First Person Walkthrough Active — Use WASD keys & Mouse to explore");
+    }
+  });
+}
 
 // WASD Keyboard Navigation for First Person Mode
 const keyBindings = {
@@ -2843,7 +3257,8 @@ function animateFirstPerson() {
   const isAnyWASDPressed = firstPersonKeys.forward || firstPersonKeys.backward || firstPersonKeys.left || firstPersonKeys.right || firstPersonKeys.up || firstPersonKeys.down;
   if (!isAnyWASDPressed) return;
 
-  if (settingsCameraMode.value === "FirstPerson") {
+  const cameraModeSelect = document.getElementById("settings-camera-mode") as HTMLSelectElement | null;
+  if (cameraModeSelect?.value === "FirstPerson") {
     if (firstPersonKeys.forward) controls.forward(movementSpeed, false);
     if (firstPersonKeys.backward) controls.forward(-movementSpeed, false);
     if (firstPersonKeys.left) controls.truck(-movementSpeed, 0, false);
@@ -2921,6 +3336,84 @@ btnClearMeasurements.addEventListener("click", () => {
   measurements.list.clear();
   measurements.cancelCreation();
 });
+
+// --- BCF ISSUE MANAGEMENT BINDINGS ---
+const btnCreateBcfTopic = document.getElementById("btn-create-bcf-topic");
+if (btnCreateBcfTopic) {
+  btnCreateBcfTopic.addEventListener("click", () => {
+    const titleInput = document.getElementById("bcf-topic-title") as HTMLInputElement | null;
+    const descInput = document.getElementById("bcf-topic-desc") as HTMLTextAreaElement | null;
+    const typeSelect = document.getElementById("bcf-topic-type") as HTMLSelectElement | null;
+    const prioritySelect = document.getElementById("bcf-topic-priority") as HTMLSelectElement | null;
+
+    const title = titleInput?.value.trim() || "Untitled Issue";
+    const description = descInput?.value.trim() || "Reported from 3D BIM Viewer";
+    const type = typeSelect?.value || "Coordination";
+    const priority = prioritySelect?.value || "Normal";
+
+    bcfManager.createTopic({
+      title,
+      description,
+      type,
+      priority,
+      status: "Active",
+    });
+
+    if (titleInput) titleInput.value = "";
+    if (descInput) descInput.value = "";
+
+    const originalText = btnCreateBcfTopic.innerHTML;
+    btnCreateBcfTopic.innerHTML = `<span>✓ Issue Logged!</span>`;
+    setTimeout(() => { btnCreateBcfTopic.innerHTML = originalText; }, 1500);
+  });
+}
+
+const btnExportBcf = document.getElementById("btn-export-bcf");
+if (btnExportBcf) {
+  btnExportBcf.addEventListener("click", async () => {
+    await bcfManager.exportBCF();
+  });
+}
+
+// --- DYNAMIC CATEGORY COLORING & THEME MAPPING ---
+async function applyCategoryColors() {
+  const currentTheme = document.documentElement.getAttribute('data-theme') || 'cozy';
+  const categoriesGroup = classifier.list.get("Categories");
+  if (!categoriesGroup) return;
+
+  for (const [categoryName, groupData] of categoriesGroup) {
+    const colorHex = getCategoryColor(currentTheme, categoryName);
+    const threeColor = new THREE.Color(colorHex);
+    const map = await groupData.get();
+
+    for (const modelId in map) {
+      const model = fragments.list.get(modelId);
+      if (!model) continue;
+
+      const expressIds = map[modelId];
+      if (!expressIds || expressIds.size === 0) continue;
+
+      try {
+        const material = new THREE.MeshStandardMaterial({
+          color: threeColor,
+          roughness: 0.4,
+          metalness: 0.1,
+          polygonOffset: true,
+          polygonOffsetFactor: 1,
+          polygonOffsetUnits: 1,
+        });
+
+        // Use fragment material styling or fallback if supported
+        if ((model as any).setMaterial) {
+          (model as any).setMaterial(expressIds, material);
+        }
+      } catch (err) {
+        console.warn(`Category color application skipped for ${categoryName}:`, err);
+      }
+    }
+  }
+}
+(window as any).applyCategoryColors = applyCategoryColors;
 
 // --- DYNAMIC CLASSIFICATION TREE BINDINGS ---
 async function updateClassificationUI() {
@@ -3035,17 +3528,9 @@ if (sceneSearchInput) {
 }
 
 // --- 4D CONSTRUCTION TIMELINE SIMULATION ENGINE ---
-let timelineMinDate: Date | null = null;
-let timelineMaxDate: Date | null = null;
-let currentTimelineDate: Date | null = null;
-let timelineTimer: number | null = null;
-let timelineIsPlaying = false;
-let timelineSpeed = 2; // Days per second
-
-const timelineSlider = document.getElementById("timeline-slider")! as HTMLInputElement;
-const timelinePlayBtn = document.getElementById("timeline-play-btn")!;
-const timelineSpeedSelect = document.getElementById("timeline-speed")! as HTMLSelectElement;
-const timelineDateBadge = document.getElementById("timeline-date-badge")!;
+const timelineSlider = document.getElementById("timeline-slider") as HTMLInputElement | null;
+const timelinePlayBtn = document.getElementById("timeline-play-btn");
+const timelineSpeedSelect = document.getElementById("timeline-speed") as HTMLSelectElement | null;
 
 function calculateTimelineBounds() {
   let minTime = Infinity;
@@ -3091,13 +3576,18 @@ function calculateTimelineBounds() {
     currentTimelineDate = new Date(timelineMinDate);
 
     // Enable inputs
-    timelineSlider.removeAttribute("disabled");
-    timelinePlayBtn.removeAttribute("disabled");
+    const slider = document.getElementById("timeline-slider") as HTMLInputElement;
+    const playBtn = document.getElementById("timeline-play-btn");
 
-    // Configure slider range (in total days)
-    const diffDays = Math.ceil((timelineMaxDate.getTime() - timelineMinDate.getTime()) / (1000 * 60 * 60 * 24));
-    timelineSlider.max = String(diffDays);
-    timelineSlider.value = "0";
+    if (slider) {
+      slider.removeAttribute("disabled");
+      const diffDays = Math.ceil((timelineMaxDate.getTime() - timelineMinDate.getTime()) / (1000 * 60 * 60 * 24));
+      slider.max = String(diffDays);
+      slider.value = "0";
+    }
+    if (playBtn) {
+      playBtn.removeAttribute("disabled");
+    }
 
     updateTimelineDateUI();
     updateTimelineVisualState();
@@ -3105,19 +3595,33 @@ function calculateTimelineBounds() {
     timelineMinDate = null;
     timelineMaxDate = null;
     currentTimelineDate = null;
-    timelineSlider.value = "0";
-    timelineSlider.setAttribute("disabled", "true");
-    timelinePlayBtn.setAttribute("disabled", "true");
-    timelineDateBadge.innerText = "No Dates";
+
+    const slider = document.getElementById("timeline-slider") as HTMLInputElement;
+    const playBtn = document.getElementById("timeline-play-btn");
+    const dateBadge = document.getElementById("timeline-date-badge");
+
+    if (slider) {
+      slider.value = "0";
+      slider.setAttribute("disabled", "true");
+    }
+    if (playBtn) {
+      playBtn.setAttribute("disabled", "true");
+    }
+    if (dateBadge) {
+      dateBadge.innerText = "No Dates";
+    }
   }
 }
 
 function updateTimelineDateUI() {
   if (!currentTimelineDate) return;
-  const year = currentTimelineDate.getFullYear();
-  const month = String(currentTimelineDate.getMonth() + 1).padStart(2, '0');
-  const day = String(currentTimelineDate.getDate()).padStart(2, '0');
-  timelineDateBadge.innerText = `${year}-${month}-${day}`;
+  const badge = document.getElementById("timeline-date-badge");
+  if (badge) {
+    const year = currentTimelineDate.getFullYear();
+    const month = String(currentTimelineDate.getMonth() + 1).padStart(2, '0');
+    const day = String(currentTimelineDate.getDate()).padStart(2, '0');
+    badge.innerText = `${year}-${month}-${day}`;
+  }
 }
 
 async function updateTimelineVisualState() {
@@ -3430,11 +3934,14 @@ function stopTimelinePlayback() {
     cancelAnimationFrame(timelineTimer);
     timelineTimer = null;
   }
-  timelinePlayBtn.classList.remove("playing");
-  timelinePlayBtn.innerHTML = `
-    <span class="ctrl-icon">▶</span>
-    <span>Play Simulation</span>
-  `;
+  const btn = document.getElementById("timeline-play-btn");
+  if (btn) {
+    btn.classList.remove("playing");
+    btn.innerHTML = `
+      <span class="ctrl-icon">▶</span>
+      <span>Play Simulation</span>
+    `;
+  }
 }
 
 // Scrubber events
@@ -3468,9 +3975,7 @@ updateClassificationUI();
 calculateTimelineBounds();
 
 // --- 4D MODE TOGGLE ---
-let is4dMode = localStorage.getItem('bim-4d-mode') === 'true';
 const btn4dMode = document.getElementById('btn-4d-mode')!;
-const btn4dLabel = document.getElementById('btn-4d-label')!;
 
 function updateHeaderLabel() {
   const labelEl = document.getElementById('project-header-label');
@@ -3496,17 +4001,21 @@ function apply4dMode(active: boolean) {
   is4dMode = active;
   localStorage.setItem('bim-4d-mode', String(active));
 
+  const btn4dMode = document.getElementById('btn-4d-mode');
+  const btn4dLabel = document.getElementById('btn-4d-label');
+
   if (active) {
     document.body.classList.add('mode-4d');
-    btn4dMode.classList.add('active');
-    btn4dLabel.textContent = 'Exit 4D';
-    // Initialize timeline when 4D is first activated
+    if (btn4dMode) btn4dMode.classList.add('active');
+    if (btn4dLabel) btn4dLabel.textContent = 'Exit 4D';
+    // Initialize timeline when 4D is activated
     calculateTimelineBounds();
     updateScheduleWidgetUI();
+    updateTimelineVisualState();
   } else {
     document.body.classList.remove('mode-4d');
-    btn4dMode.classList.remove('active');
-    btn4dLabel.textContent = 'Activate 4D';
+    if (btn4dMode) btn4dMode.classList.remove('active');
+    if (btn4dLabel) btn4dLabel.textContent = 'Activate 4D';
     // Stop playback and restore all element visibility when leaving 4D mode
     stopTimelinePlayback();
     const hider = components.get(OBC.Hider);

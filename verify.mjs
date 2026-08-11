@@ -41,23 +41,26 @@ import { chromium } from 'playwright';
   console.log(`Navigating to target url: ${targetUrl}`);
   await page.goto(targetUrl);
 
-  // Close welcome modal if present
-  const closeBtn = await page.$('#btn-shortcuts-close');
-  if (closeBtn) {
-    await closeBtn.click().catch(() => {});
-  }
-
-  // Click load sample button
-  await page.click('#load-sample-btn', { force: true });
-  
-  // Wait for model to finish loading
+  // Wait for application init
   await page.waitForFunction(() => {
     const overlay = document.querySelector('#loading-overlay');
-    return typeof window.viewer_model !== 'undefined' || (overlay && overlay.classList.contains('hidden'));
+    return overlay && overlay.classList.contains('hidden');
+  }, null, { timeout: 30000 }).catch(() => {});
+
+  // Trigger sample model loading
+  await page.evaluate(() => {
+    if (typeof window.loadSampleModel === 'function') {
+      window.loadSampleModel();
+    }
+  });
+  
+  // Wait for viewer_model to be defined
+  await page.waitForFunction(() => {
+    return typeof window.viewer_model !== 'undefined';
   }, null, { timeout: 45000 });
   
-  // Wait for camera fitToBox animation to finish and scene to settle
-  await page.waitForTimeout(2000);
+  // Wait for scene to settle
+  await page.waitForTimeout(1000);
   
   // Double click canvas to select element
   const canvas = await page.$('#container canvas');
@@ -154,6 +157,57 @@ import { chromium } from 'playwright';
   const ifcEntity = await page.$eval('#prop-ifc-type', el => el.textContent).catch(() => 'Not found');
   const name = await page.$eval('#prop-name', el => el.textContent).catch(() => 'Not found');
   
+  // Comprehensive IFC property conversion audit
+  const conversionAudit = await page.evaluate(() => {
+    if (!window.viewer_model || !window.viewer_model.properties) return { error: "No model properties loaded" };
+    
+    const allIds = Object.keys(window.viewer_model.properties).map(Number);
+    const nonRelIds = allIds.filter(id => {
+      const p = window.viewer_model.properties[id];
+      return p && p.type && !String(p.type).startsWith("IFCREL");
+    });
+
+    // Collect distinct IFC types present in model.properties
+    const typeCounts = {};
+    allIds.forEach(id => {
+      const p = window.viewer_model.properties[id];
+      if (p && p.type) {
+        const t = String(p.type);
+        typeCounts[t] = (typeCounts[t] || 0) + 1;
+      }
+    });
+
+    const testId = 74481;
+    const rawProps = window.viewer_model.properties[testId];
+
+    if (typeof window.displayElementProperties === 'function') {
+      window.displayElementProperties(window.viewer_model, testId);
+    }
+
+    // Extract rendered UI property rows from the Element Properties panel table
+    const uiRows = Array.from(document.querySelectorAll('.properties-widget .property-table .prop-row')).map(row => {
+      const label = row.querySelector('.prop-label')?.textContent?.trim() || '';
+      const val = row.querySelector('.prop-val')?.textContent?.trim() || '';
+      return { label, val };
+    });
+
+    const uiPsetHeaders = Array.from(document.querySelectorAll('.properties-widget .property-table .prop-set-header')).map(header => header.textContent?.trim() || '');
+
+    return {
+      totalPropertiesInFrag: allIds.length,
+      nonRelationElementsCount: nonRelIds.length,
+      auditedElementId: testId,
+      rawFragProperties: rawProps,
+      renderedUiRowsCount: uiRows.length,
+      renderedUiPsetsCount: uiPsetHeaders.length,
+      renderedUiRowsSample: uiRows.slice(0, 15),
+      renderedUiPsetHeaders: uiPsetHeaders
+    };
+  });
+
+  console.log("=== COMPREHENSIVE IFC -> FRAG -> UI PROPERTY CONVERSION AUDIT ===");
+  console.log(JSON.stringify(conversionAudit, null, 2));
+
   console.log('--- Verification Results ---');
   console.log(`IFC Entity Name: ${ifcEntity}`);
   console.log(`Element Name: ${name}`);

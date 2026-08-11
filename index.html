@@ -546,6 +546,23 @@
                   <div style="font-family: var(--font-mono); font-size: 1.15rem; font-weight: 900; color: #10b981;" id="cost-project-grand-total">$0.00</div>
                 </div>
 
+                <button class="btn-secondary" id="btn-export-boq-csv" style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 0.4rem; padding: 0.35rem; font-size: 0.72rem; color: #10b981; border-color: #10b981; margin-bottom: 0.35rem; cursor: pointer;">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                    <polyline points="7 10 12 15 17 10"/>
+                    <line x1="12" y1="15" x2="12" y2="3"/>
+                  </svg>
+                  Export Bills of Quantities (BOQ CSV)
+                </button>
+
+                <button class="btn-secondary" id="btn-run-ids-audit" style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 0.4rem; padding: 0.35rem; font-size: 0.72rem; color: var(--accent-300); border-color: var(--border-accent); margin-bottom: 0.5rem; cursor: pointer;">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M9 11l3 3L22 4"/>
+                    <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+                  </svg>
+                  Validate IDS 4D/5D Data Readiness
+                </button>
+
                 <div class="form-inputs-group">
                   <div class="form-input-box">
                     <label for="cost-unit-cost">Unit Cost ($)</label>
@@ -824,6 +841,52 @@
                 </svg>
                 Delete All Measurements
               </button>
+
+              <div class="section-subtitle" style="font-size: 0.68rem; margin-top: 0.4rem; text-transform: uppercase; color: var(--text-dim); font-weight: 700;">
+                BCF Issue Management (BCF 2.1 / 3.0)
+              </div>
+
+              <div style="display: flex; flex-direction: column; gap: 0.4rem; background: var(--bg-card); border: 1px solid var(--border-subtle); padding: 0.5rem; border-radius: 6px;">
+                <input type="text" id="bcf-topic-title" placeholder="Topic Title (e.g., MEP Clash L2)" style="font-size: 0.72rem; padding: 0.3rem 0.4rem; background: var(--bg-input); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 4px;" />
+                <textarea id="bcf-topic-desc" placeholder="Issue description..." rows="2" style="font-size: 0.7rem; padding: 0.3rem 0.4rem; background: var(--bg-input); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 4px; resize: vertical;"></textarea>
+                
+                <div style="display: flex; gap: 0.3rem;">
+                  <select id="bcf-topic-type" style="flex: 1; font-size: 0.68rem; padding: 0.2rem; background: var(--bg-input); color: var(--text-primary); border-radius: 4px; border: 1px solid var(--border-color);">
+                    <option value="Clash">Clash</option>
+                    <option value="Coordination">Coordination</option>
+                    <option value="Schedule Risk">Schedule Risk</option>
+                    <option value="Cost OVR">Cost OVR</option>
+                    <option value="Information">Information</option>
+                    <option value="Fault">Fault</option>
+                  </select>
+                  <select id="bcf-topic-priority" style="flex: 1; font-size: 0.68rem; padding: 0.2rem; background: var(--bg-input); color: var(--text-primary); border-radius: 4px; border: 1px solid var(--border-color);">
+                    <option value="Minor">Minor</option>
+                    <option value="Normal" selected>Normal</option>
+                    <option value="Major">Major</option>
+                    <option value="Critical">Critical</option>
+                  </select>
+                </div>
+
+                <button class="btn-action-primary" id="btn-create-bcf-topic" style="width: 100%; font-size: 0.72rem; padding: 0.35rem; display: flex; align-items: center; justify-content: center; gap: 0.3rem; margin-top: 0.2rem;">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10" />
+                    <line x1="12" y1="8" x2="12" y2="16" />
+                    <line x1="8" y1="12" x2="16" y2="12" />
+                  </svg>
+                  Log BCF Issue
+                </button>
+              </div>
+
+              <div style="display: flex; gap: 0.4rem; margin-top: 0.2rem;">
+                <button class="btn-secondary" id="btn-export-bcf" style="flex: 1; font-size: 0.7rem; padding: 0.35rem; display: flex; align-items: center; justify-content: center; gap: 0.3rem; color: var(--accent-300); border-color: var(--border-accent);">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                    <polyline points="7 10 12 15 17 10"/>
+                    <line x1="12" y1="15" x2="12" y2="3"/>
+                  </svg>
+                  Export .bcfzip
+                </button>
+              </div>
             </div>
           </div>
         </div>

@@ -786,9 +786,19 @@ header {
   }
 }
 
-/* ── 4D Elements — hidden by default, visible in 4D mode ── */
+/* ── 4D Elements — 4D specific overlays & panels ── */
 [data-4d] {
   display: none !important;
+}
+
+/* 4D tab button in sidebar is always accessible */
+button.sidebar-tab-btn[data-4d] {
+  display: inline-flex !important;
+}
+
+/* 4D tab panel when active tab */
+.tab-content-panel.active[data-4d] {
+  display: flex !important;
 }
 
 body.mode-4d [data-4d] {
@@ -2170,6 +2180,7 @@ input[type="range"].custom-slider {
   left: 50%;
   transform: translateX(-50%);
   z-index: 30;
+  pointer-events: auto;
   display: flex;
   align-items: center;
   background: var(--bg-panel);
@@ -3981,4 +3992,42 @@ input[type="number"] {
   .shortcuts-two-col { grid-template-columns: 1fr; }
   .nav-mode-grid { grid-template-columns: 1fr; }
   .help-modal-card { max-height: 95vh; }
+
+  /* Mobile 4D timeline adjustment */
+  body.mode-4d #timeline-panel[data-4d] {
+    width: calc(100% - 1.2rem) !important;
+    left: 0.6rem !important;
+    transform: translateX(0) !important;
+    bottom: 40px !important;
+    padding: 0.5rem 0.6rem !important;
+  }
+
+  .timeline-header-row {
+    flex-wrap: wrap;
+    gap: 0.3rem;
+  }
+
+  .timeline-controls-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.4rem;
+  }
+
+  .timeline-left-controls {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .timeline-legend {
+    justify-content: flex-start;
+  }
+
+  .tactical-ticker-bar {
+    font-size: 0.58rem;
+    padding: 0 0.5rem;
+  }
+
+  .tactical-ticker-bar span:nth-child(even) {
+    display: none; /* Hide secondary ticker metadata on extra small screens */
+  }
 }
