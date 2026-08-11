@@ -984,8 +984,9 @@ function displayElementProperties(model: any, expressId: number) {
     // 1. Check Classifier Categories group for exact expressId category assignment
     const categoriesGroup = classifier.list.get("Categories");
     if (categoriesGroup) {
-      for (const [catName, fragmentMap] of categoriesGroup) {
+      for (const [catName, groupData] of categoriesGroup) {
         let foundCat = false;
+        const fragmentMap = (groupData as any).map || (groupData as any);
         for (const fragId in fragmentMap) {
           const ids = fragmentMap[fragId];
           if (ids) {
