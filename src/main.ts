@@ -5,6 +5,8 @@ import * as OBF from "@thatopen/components-front";
 import * as BUI from "@thatopen/ui";
 import { PropertyEditor, initPropertyEditorUI } from "./PropertyEditor";
 import "./BimViewCube";
+import { ShaderPass } from "three/examples/jsm/postprocessing/ShaderPass.js";
+import { BluePenShader } from "./shaders/BluePenShader";
 
 // Unregister any old service workers (like coi-serviceworker) to prevent unexpected crossOriginIsolated 
 // states that crash the web-ifc WebWorker loader in ES module environments.
@@ -115,6 +117,17 @@ if (dirLight) {
   dirLight.castShadow = false;
 }
 world.scene.shadowsEnabled = false;
+
+// Attach BluePenShader postprocessing pass for sketched/themed model elements
+let bluePenPass: ShaderPass | null = null;
+const postproduction = (world.renderer as any).postproduction;
+if (postproduction && postproduction.composer) {
+  bluePenPass = new ShaderPass(BluePenShader as any);
+  if (postproduction.depthTexture) {
+    bluePenPass.uniforms.tDepth.value = postproduction.depthTexture;
+  }
+  postproduction.composer.addPass(bluePenPass);
+}
 
 // --- BIM & GEOMETRY INGESTION SETUP ---
 const fragments = components.get(OBC.FragmentsManager);
@@ -1523,17 +1536,41 @@ loadSampleBtn.addEventListener("click", async () => {
   }
 });
 
-// Theme Preset Switcher (6 Themes)
+function updateThemeShaderUniforms(theme: string) {
+  if (!bluePenPass) return;
+  if (theme === "bluepen") {
+    bluePenPass.uniforms.enabled.value = 1.0;
+    bluePenPass.uniforms.paperColor.value.set("#F9F9F6");
+    bluePenPass.uniforms.inkColor.value.set("#002395");
+    bluePenPass.uniforms.jitterAmount.value = 0.0018;
+  } else if (theme === "blueprint") {
+    bluePenPass.uniforms.enabled.value = 1.0;
+    bluePenPass.uniforms.paperColor.value.set("#051e44");
+    bluePenPass.uniforms.inkColor.value.set("#ffffff");
+    bluePenPass.uniforms.jitterAmount.value = 0.0012;
+  } else if (theme === "cozy") {
+    bluePenPass.uniforms.enabled.value = 1.0;
+    bluePenPass.uniforms.paperColor.value.set("#DDA380");
+    bluePenPass.uniforms.inkColor.value.set("#2C2621");
+    bluePenPass.uniforms.jitterAmount.value = 0.0010;
+  } else {
+    bluePenPass.uniforms.enabled.value = 0.0;
+  }
+}
+
+// Theme Preset Switcher (Multi-Theme)
 const themeToggleSelect = document.getElementById("btn-theme-toggle") as HTMLSelectElement | null;
 if (themeToggleSelect) {
   const savedTheme = localStorage.getItem("bim-theme-preset") || "dark";
   document.documentElement.setAttribute("data-theme", savedTheme);
   themeToggleSelect.value = savedTheme;
+  updateThemeShaderUniforms(savedTheme);
 
   themeToggleSelect.addEventListener("change", () => {
     const selectedTheme = themeToggleSelect.value;
     document.documentElement.setAttribute("data-theme", selectedTheme);
     localStorage.setItem("bim-theme-preset", selectedTheme);
+    updateThemeShaderUniforms(selectedTheme);
   });
 }
 
