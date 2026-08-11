@@ -2738,11 +2738,13 @@ gamePresetSelect.addEventListener("change", () => {
     }
   } else if (activePreset === "Sports") {
     world.camera.set("Orbit");
-    settingsCameraMode.value = "Orbit";
+    const cameraModeEl = document.getElementById("settings-camera-mode") as HTMLSelectElement | null;
+    if (cameraModeEl) cameraModeEl.value = "Orbit";
     world.camera.projection.set("Perspective");
   } else if (activePreset === "Racing") {
     world.camera.set("Orbit");
-    settingsCameraMode.value = "Orbit";
+    const cameraModeEl = document.getElementById("settings-camera-mode") as HTMLSelectElement | null;
+    if (cameraModeEl) cameraModeEl.value = "Orbit";
     world.camera.projection.set("Perspective");
     if (!gameCarMesh) gameCarMesh = createCarMesh();
     world.scene.three.add(gameCarMesh);
@@ -3879,7 +3881,9 @@ function updateScheduleWidgetUI() {
         currentTimelineDate = new Date(taskStart);
         const diffMs = currentTimelineDate.getTime() - timelineMinDate.getTime();
         const diffDays = Math.max(0, Math.floor(diffMs / (1000 * 60 * 60 * 24)));
-        timelineSlider.value = String(diffDays);
+        if (timelineSlider) {
+          timelineSlider.value = String(diffDays);
+        }
         
         updateTimelineDateUI();
         await updateTimelineVisualState();
@@ -3898,11 +3902,13 @@ function updateScheduleWidgetUI() {
 function startTimelinePlayback() {
   if (timelineIsPlaying || !timelineMinDate) return;
   timelineIsPlaying = true;
-  timelinePlayBtn.classList.add("playing");
-  timelinePlayBtn.innerHTML = `
-    <span class="ctrl-icon">⏸</span>
-    <span>Pause Simulation</span>
-  `;
+  if (timelinePlayBtn) {
+    timelinePlayBtn.classList.add("playing");
+    timelinePlayBtn.innerHTML = `
+      <span class="ctrl-icon">⏸</span>
+      <span>Pause Simulation</span>
+    `;
+  }
 
   let lastTime = performance.now();
   const tick = () => {
@@ -3918,7 +3924,9 @@ function startTimelinePlayback() {
 
     if (newMs >= timelineMaxDate.getTime()) {
       currentTimelineDate = new Date(timelineMaxDate);
-      timelineSlider.value = timelineSlider.max;
+      if (timelineSlider) {
+        timelineSlider.value = timelineSlider.max;
+      }
       updateTimelineDateUI();
       updateTimelineVisualState();
       stopTimelinePlayback();
@@ -3926,7 +3934,9 @@ function startTimelinePlayback() {
       currentTimelineDate = new Date(newMs);
       const diffMs = currentTimelineDate.getTime() - timelineMinDate.getTime();
       const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-      timelineSlider.value = String(diffDays);
+      if (timelineSlider) {
+        timelineSlider.value = String(diffDays);
+      }
       updateTimelineDateUI();
       updateTimelineVisualState();
       timelineTimer = requestAnimationFrame(tick);
@@ -3953,30 +3963,38 @@ function stopTimelinePlayback() {
 }
 
 // Scrubber events
-timelineSlider.addEventListener("input", () => {
-  if (!timelineMinDate) return;
-  const daysOffset = Number(timelineSlider.value);
-  currentTimelineDate = new Date(timelineMinDate.getTime() + (daysOffset * 24 * 60 * 60 * 1000));
-  updateTimelineDateUI();
-  updateTimelineVisualState();
-});
+if (timelineSlider) {
+  timelineSlider.addEventListener("input", () => {
+    if (!timelineMinDate) return;
+    const daysOffset = Number(timelineSlider.value);
+    currentTimelineDate = new Date(timelineMinDate.getTime() + (daysOffset * 24 * 60 * 60 * 1000));
+    updateTimelineDateUI();
+    updateTimelineVisualState();
+  });
+}
 
-timelinePlayBtn.addEventListener("click", () => {
-  if (timelineIsPlaying) {
-    stopTimelinePlayback();
-  } else {
-    // If we are at the end, restart from beginning
-    if (currentTimelineDate && timelineMaxDate && currentTimelineDate.getTime() >= timelineMaxDate.getTime()) {
-      currentTimelineDate = new Date(timelineMinDate!);
-      timelineSlider.value = "0";
+if (timelinePlayBtn) {
+  timelinePlayBtn.addEventListener("click", () => {
+    if (timelineIsPlaying) {
+      stopTimelinePlayback();
+    } else {
+      // If we are at the end, restart from beginning
+      if (currentTimelineDate && timelineMaxDate && currentTimelineDate.getTime() >= timelineMaxDate.getTime()) {
+        currentTimelineDate = new Date(timelineMinDate!);
+        if (timelineSlider) {
+          timelineSlider.value = "0";
+        }
+      }
+      startTimelinePlayback();
     }
-    startTimelinePlayback();
-  }
-});
+  });
+}
 
-timelineSpeedSelect.addEventListener("change", () => {
-  timelineSpeed = Number(timelineSpeedSelect.value);
-});
+if (timelineSpeedSelect) {
+  timelineSpeedSelect.addEventListener("change", () => {
+    timelineSpeed = Number(timelineSpeedSelect.value);
+  });
+}
 
 // Initial empty state call
 updateClassificationUI();

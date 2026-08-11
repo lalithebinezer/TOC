@@ -198,9 +198,10 @@ export const THEME_PALETTES: ThemePalettes = {
 export function getCategoryColor(themeName: string, ifcCategory: string): string {
   const normalizedCategory = ifcCategory.toUpperCase().replace(/STANDARDCASE$/, '');
   const palette = THEME_PALETTES[themeName] || THEME_PALETTES['default'];
+  const defaultPalette = THEME_PALETTES['default'];
   return palette[ifcCategory.toUpperCase()] 
     || palette[normalizedCategory]
-    || palette['default']?.[ifcCategory.toUpperCase()]
+    || defaultPalette[ifcCategory.toUpperCase()]
     || FALLBACK_COLOR;
 }
 
