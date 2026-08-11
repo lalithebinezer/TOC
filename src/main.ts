@@ -14,6 +14,8 @@ import { exportBOQAsCSV, generateBOQSummary, extractQuantityData, type BOQLineIt
 import { BCFManager } from "./bcf-manager";
 import { IDSChecker } from "./ids-checker";
 
+BUI.Manager.init();
+
 // --- THEME TOGGLE ---
 function initTheme() {
   const saved = localStorage.getItem('bim-theme-preset') || localStorage.getItem('bim-theme') || 'cozy';
