@@ -3041,12 +3041,20 @@ input[type="range"].custom-slider {
 
 @media (max-width: 768px) {
   header {
-    padding: 0 0.8rem;
+    padding: 0 0.5rem;
   }
 
   /* Compress brand name for small screens to prevent overlap */
   .brand-text h1 {
-    font-size: 0.82rem;
+    font-size: 0.75rem;
+  }
+
+  .brand-badge {
+    display: none;
+  }
+
+  .header-center-info {
+    display: none; /* Hide header status text on mobile to make room for drawer controls */
   }
 
   .nav-links {
