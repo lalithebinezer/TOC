@@ -46,12 +46,36 @@ const world = worlds.create<
 
 const scene = new OBC.ShadowedScene(components);
 world.scene = scene;
+(window as any).viewer_world = world;
 
 const container = document.getElementById("container")!;
 world.renderer = new OBF.PostproductionRenderer(components, container);
 world.renderer.three.shadowMap.enabled = true;
 world.renderer.three.shadowMap.type = THREE.PCFShadowMap;
 world.camera = new OBC.OrthoPerspectiveCamera(components);
+if (world.camera.controls) {
+  const controls = world.camera.controls as any;
+  controls.enabled = true;
+  if (controls.mouseButtons) {
+    controls.mouseButtons.left = 1;  // CameraControls ACTION.ROTATE = 1
+    controls.mouseButtons.right = 2; // CameraControls ACTION.TRUCK = 2 (Pan)
+    controls.mouseButtons.wheel = 3; // CameraControls ACTION.DOLLY = 3 (Zoom)
+  }
+  if (controls.touches) {
+    controls.touches.one = 1; // ROTATE
+    controls.touches.two = 3; // DOLLY / PAN
+  }
+}
+world.camera.set("Orbit");
+
+// Wheel Zoom Handler for smooth canvas scrolling dolly zoom
+container.addEventListener("wheel", (e: WheelEvent) => {
+  e.preventDefault();
+  if (world.camera && world.camera.controls) {
+    const zoomFactor = e.deltaY > 0 ? 1.15 : 0.85;
+    world.camera.controls.dollyTo(world.camera.controls.distance * zoomFactor, true);
+  }
+}, { passive: false });
 
 scene.setup();
 scene.three.background = null; // Use transparent background for our body styling
@@ -2776,14 +2800,45 @@ function animateFirstPerson() {
     return;
   }
 
-  // Original FirstPerson WASD Navigation when no preset is selected
-  if (settingsCameraMode.value !== "FirstPerson") return;
+  // --- Standard WASD Keyboard Navigation (Orbit Mode & FPS) ---
   if (!toggleWASD.checked) return;
 
-  if (firstPersonKeys.forward) controls.forward(movementSpeed, false);
-  if (firstPersonKeys.backward) controls.forward(-movementSpeed, false);
-  if (firstPersonKeys.left) controls.truck(-movementSpeed, 0, false);
-  if (firstPersonKeys.right) controls.truck(movementSpeed, 0, false);
+  const isAnyWASDPressed = firstPersonKeys.forward || firstPersonKeys.backward || firstPersonKeys.left || firstPersonKeys.right || firstPersonKeys.up || firstPersonKeys.down;
+  if (!isAnyWASDPressed) return;
+
+  if (settingsCameraMode.value === "FirstPerson") {
+    if (firstPersonKeys.forward) controls.forward(movementSpeed, false);
+    if (firstPersonKeys.backward) controls.forward(-movementSpeed, false);
+    if (firstPersonKeys.left) controls.truck(-movementSpeed, 0, false);
+    if (firstPersonKeys.right) controls.truck(movementSpeed, 0, false);
+    if (firstPersonKeys.up) controls.elevate(movementSpeed, false);
+    if (firstPersonKeys.down) controls.elevate(-movementSpeed, false);
+  } else {
+    // Default Orbit mode WASD panning relative to camera look direction
+    const forward = new THREE.Vector3();
+    world.camera.three.getWorldDirection(forward);
+    forward.y = 0;
+    forward.normalize();
+
+    const right = new THREE.Vector3();
+    right.crossVectors(forward, new THREE.Vector3(0, 1, 0)).normalize();
+
+    const speed = movementSpeed * 0.35;
+    const panDelta = new THREE.Vector3();
+    if (firstPersonKeys.forward) panDelta.addScaledVector(forward, speed);
+    if (firstPersonKeys.backward) panDelta.addScaledVector(forward, -speed);
+    if (firstPersonKeys.left) panDelta.addScaledVector(right, -speed);
+    if (firstPersonKeys.right) panDelta.addScaledVector(right, speed);
+    if (firstPersonKeys.up) panDelta.y += speed;
+    if (firstPersonKeys.down) panDelta.y -= speed;
+
+    if (panDelta.lengthSq() > 0.000001) {
+      const targetVal = new THREE.Vector3();
+      controls.getTarget(targetVal);
+      targetVal.add(panDelta);
+      controls.moveTo(targetVal.x, targetVal.y, targetVal.z, false);
+    }
+  }
 }
 animateFirstPerson();
 

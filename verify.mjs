@@ -41,8 +41,14 @@ import { chromium } from 'playwright';
   console.log(`Navigating to target url: ${targetUrl}`);
   await page.goto(targetUrl);
 
+  // Close welcome modal if present
+  const closeBtn = await page.$('#btn-shortcuts-close');
+  if (closeBtn) {
+    await closeBtn.click().catch(() => {});
+  }
+
   // Click load sample button
-  await page.click('#load-sample-btn');
+  await page.click('#load-sample-btn', { force: true });
   
   // Wait for model to finish loading
   await page.waitForFunction(() => {
@@ -78,6 +84,64 @@ import { chromium } from 'playwright';
     }
   }
   
+  // Perform Mouse Orbit Drag Test
+  const initialCamPos = await page.evaluate(() => {
+    if (!window.viewer_world || !window.viewer_world.camera) return null;
+    const p = window.viewer_world.camera.three.position;
+    return { x: p.x, y: p.y, z: p.z };
+  });
+
+  if (canvas) {
+    const box = await canvas.boundingBox();
+    if (box) {
+      const cx = box.x + box.width / 2;
+      const cy = box.y + box.height / 2;
+      await page.mouse.move(cx, cy);
+      await page.mouse.down({ button: 'left' });
+      await page.mouse.move(cx + 200, cy + 100, { steps: 10 });
+      await page.mouse.up({ button: 'left' });
+      await page.waitForTimeout(500);
+    }
+  }
+
+  const newCamPos = await page.evaluate(() => {
+    if (!window.viewer_world || !window.viewer_world.camera) return null;
+    const p = window.viewer_world.camera.three.position;
+    return { x: p.x, y: p.y, z: p.z };
+  });
+
+  console.log("Initial Camera Position:", initialCamPos);
+  console.log("Post-Orbit Camera Position:", newCamPos);
+
+  // Wheel Zoom Test
+  const initialDist = await page.evaluate(() => window.viewer_world.camera.controls.distance);
+  if (canvas) {
+    const box = await canvas.boundingBox();
+    if (box) {
+      await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+      await page.mouse.wheel(0, 500); // Scroll down to zoom out
+      await page.waitForTimeout(500);
+    }
+  }
+  const newDist = await page.evaluate(() => window.viewer_world.camera.controls.distance);
+  console.log(`Zoom Test -- Initial Distance: ${initialDist}, Post-Zoom Distance: ${newDist}`);
+
+  // WASD Keyboard Movement Test
+  const preWASDPos = await page.evaluate(() => {
+    const p = window.viewer_world.camera.three.position;
+    return { x: p.x, y: p.y, z: p.z };
+  });
+
+  await page.keyboard.down('KeyW');
+  await page.waitForTimeout(600);
+  await page.keyboard.up('KeyW');
+
+  const postWASDPos = await page.evaluate(() => {
+    const p = window.viewer_world.camera.three.position;
+    return { x: p.x, y: p.y, z: p.z };
+  });
+  console.log("WASD Move Test -- Pre Pos:", preWASDPos, "Post Pos:", postWASDPos);
+
   // Dump properties from the model
   const propsDump = await page.evaluate(() => {
     if (!window.viewer_model) return "No model";

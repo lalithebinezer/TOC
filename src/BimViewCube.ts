@@ -53,9 +53,9 @@ export class BimViewCube extends HTMLElement {
           position: absolute;
           width: 60px;
           height: 60px;
-          background: #1c202e;
-          border: 2.5px solid #000000;
-          color: #ffffff;
+          background: var(--bg-card, #1c202e);
+          border: 2.5px solid var(--border-color, #000000);
+          color: var(--text-primary, #ffffff);
           display: flex;
           align-items: center;
           justify-content: center;
@@ -64,13 +64,13 @@ export class BimViewCube extends HTMLElement {
           font-weight: 700;
           letter-spacing: 0.5px;
           user-select: none;
-          box-shadow: 2px 2px 0px #000000;
-          transition: background 0.15s, border-color 0.15s, transform 0.15s;
+          box-shadow: var(--shadow-sm, 2px 2px 0px #000000);
+          transition: background 0.15s, border-color 0.15s, color 0.15s, transform 0.15s;
         }
 
         .cube-face:hover {
-          background: #dc2626;
-          border-color: #000000;
+          background: var(--accent-500, #dc2626);
+          border-color: var(--border-color, #000000);
           color: #ffffff;
           cursor: pointer;
         }
@@ -86,7 +86,7 @@ export class BimViewCube extends HTMLElement {
         .compass-ring {
           position: absolute;
           inset: -14px;
-          border: 2px dashed #000000;
+          border: 2px dashed var(--border-color, #000000);
           border-radius: 50%;
           pointer-events: none;
         }
@@ -96,8 +96,9 @@ export class BimViewCube extends HTMLElement {
           font-family: 'Space Mono', monospace;
           font-size: 0.58rem;
           font-weight: 900;
-          color: #dc2626;
-          background: #000000;
+          color: var(--accent-400, #dc2626);
+          background: var(--bg-void, #000000);
+          border: 1px solid var(--border-color, #000000);
           padding: 0 3px;
           border-radius: 2px;
           line-height: 1;

@@ -229,6 +229,81 @@
   --shadow-glow: 4px 4px 0px #dc2626;
 }
 
+/* ── Blue Pen on Paper (Warm Cream Drafting) ── */
+[data-theme="bluepen"] {
+  --bg-void: #f4f4f0;
+  --bg-app: #fdfbf7;
+  --bg-panel: #f9f9f6;
+  --bg-panel-header: #ebebe5;
+  --bg-card: #ffffff;
+  --bg-input: #fdfbf7;
+  --bg-overlay: rgba(249, 249, 246, 0.95);
+
+  --border-subtle: #002395;
+  --border-color: #002395;
+  --border-hover: #0047ab;
+  --border-accent: #002395;
+  --border-accent-hi: #1d4ed8;
+
+  --accent-400: #002395;
+  --accent-500: #001a70;
+  --accent-glow: rgba(0, 35, 149, 0.25);
+
+  --violet-500: #2563eb;
+
+  --text-primary: #001a70;
+  --text-main: #002395;
+  --text-muted: #1e3a8a;
+  --text-dim: #3b82f6;
+  --text-dark: #001a70;
+
+  --glass-bg: #f9f9f6;
+  --glass-border: #002395;
+  --glass-shine: none;
+
+  --shadow-xs: 2px 2px 0px #002395;
+  --shadow-sm: 3px 3px 0px #002395;
+  --shadow-md: 4px 4px 0px #002395;
+  --shadow-panel: 4px 4px 0px #002395;
+  --shadow-float: 6px 6px 0px #002395;
+  --shadow-glow: 4px 4px 0px #002395;
+}
+
+/* ── Classic Blueprint (Blueprint Blue & Crisp White) ── */
+[data-theme="blueprint"] {
+  --bg-void: #031430;
+  --bg-app: #051e44;
+  --bg-panel: #092857;
+  --bg-panel-header: #0e346d;
+  --bg-card: #0c3066;
+  --bg-input: #041635;
+  --bg-overlay: rgba(5, 30, 68, 0.95);
+
+  --border-subtle: #93c5fd;
+  --border-color: #60a5fa;
+  --border-hover: #ffffff;
+  --border-accent: #3b82f6;
+  --border-accent-hi: #93c5fd;
+
+  --accent-400: #60a5fa;
+  --accent-500: #3b82f6;
+  --accent-glow: rgba(96, 165, 250, 0.3);
+
+  --violet-500: #38bdf8;
+
+  --text-primary: #ffffff;
+  --text-main: #eff6ff;
+  --text-muted: #bfdbfe;
+  --text-dim: #93c5fd;
+
+  --shadow-xs: 2px 2px 0px #000000;
+  --shadow-sm: 3px 3px 0px #000000;
+  --shadow-md: 4px 4px 0px #000000;
+  --shadow-panel: 4px 4px 0px #000000;
+  --shadow-float: 6px 6px 0px #000000;
+  --shadow-glow: 4px 4px 0px #60a5fa;
+}
+
 /* ============================================================
    RESET & BASE — Ultra-Clean Sharp Typography
    ============================================================ */
@@ -269,6 +344,11 @@ body {
   position: absolute;
   inset: 0;
   z-index: 1;
+  pointer-events: auto;
+}
+
+#container canvas {
+  pointer-events: auto;
 }
 
 /* ── Ambient light effect ── */
@@ -296,8 +376,13 @@ body {
   gap: 0.6rem;
 }
 
-.ui-layer>* {
+header, .sidebar, .tactical-ticker-bar {
   pointer-events: auto;
+}
+
+.view-cube-layer {
+  pointer-events: none;
+  position: relative;
 }
 
 /* ============================================================
@@ -2184,7 +2269,8 @@ input[type="range"].custom-slider {
 
 .loading-overlay.hidden {
   opacity: 0;
-  pointer-events: none;
+  pointer-events: none !important;
+  display: none !important;
 }
 
 .spinner-wrapper {
@@ -2730,8 +2816,7 @@ input[type="range"].custom-slider {
   .ui-layer {
     grid-template-columns: 1fr;
     grid-template-rows: 52px auto auto;
-    overflow-y: auto;
-    pointer-events: auto;
+    pointer-events: none;
   }
 
   header {
@@ -2957,9 +3042,13 @@ input[type="range"].custom-slider {
   font-family: var(--font-mono);
   font-weight: 700;
   color: var(--text-main);
-  pointer-events: auto;
+  pointer-events: none;
   transition: all var(--ease-normal);
   animation: fadeInDown 0.3s ease both;
+}
+
+.viewport-hint-bar .btn-hint-close {
+  pointer-events: auto;
 }
 
 [data-theme="light"] .viewport-hint-bar {
@@ -3017,8 +3106,12 @@ input[type="range"].custom-slider {
   padding: 0.3rem 0.5rem;
   border-radius: 2px;
   box-shadow: 4px 4px 0px #000000;
-  pointer-events: auto;
+  pointer-events: none;
   transition: all var(--ease-fast);
+}
+
+.quick-view-toolbar .btn-quick-view {
+  pointer-events: auto;
 }
 
 [data-theme="light"] .quick-view-toolbar {
