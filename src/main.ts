@@ -4,41 +4,32 @@ import * as OBC from "@thatopen/components";
 import * as OBF from "@thatopen/components-front";
 import * as BUI from "@thatopen/ui";
 import { PropertyEditor, initPropertyEditorUI } from "./PropertyEditor";
-import { ShaderPass } from "three/examples/jsm/postprocessing/ShaderPass.js";
-import { BluePenShader } from "./shaders/BluePenShader";
+import "./BimViewCube";
 
-// --- THEME TOGGLE & SHADER SYNCRONIZATION ---
-let bluePenPass: ShaderPass | null = null;
+// Unregister any old service workers (like coi-serviceworker) to prevent unexpected crossOriginIsolated 
+// states that crash the web-ifc WebWorker loader in ES module environments.
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.getRegistrations().then((registrations) => {
+    if (registrations.length > 0) {
+      for (const registration of registrations) {
+        registration.unregister();
+      }
+      // Force reload to clear crossOriginIsolated state
+      window.location.reload();
+    }
+  });
+}
 
-function applyTheme(themeName: string) {
-  if (themeName && themeName !== 'dark') {
-    document.documentElement.setAttribute('data-theme', themeName);
+BUI.Manager.init();
+
+// --- THEME TOGGLE ---
+function initTheme() {
+  const saved = localStorage.getItem('bim-theme-preset') || localStorage.getItem('bim-theme') || 'dark';
+  if (saved && saved !== 'dark') {
+    document.documentElement.setAttribute('data-theme', saved);
   } else {
     document.documentElement.removeAttribute('data-theme');
   }
-  localStorage.setItem('bim-theme-preset', themeName);
-  localStorage.setItem('bim-theme', themeName);
-
-  if (bluePenPass) {
-    if (themeName === 'bluepen') {
-      bluePenPass.uniforms.enabled.value = 1.0;
-      bluePenPass.uniforms.paperColor.value.set('#F9F9F6');
-      bluePenPass.uniforms.inkColor.value.set('#002395');
-      bluePenPass.uniforms.jitterAmount.value = 0.0018;
-    } else if (themeName === 'blueprint') {
-      bluePenPass.uniforms.enabled.value = 1.0;
-      bluePenPass.uniforms.paperColor.value.set('#051e44');
-      bluePenPass.uniforms.inkColor.value.set('#ffffff');
-      bluePenPass.uniforms.jitterAmount.value = 0.0012;
-    } else {
-      bluePenPass.uniforms.enabled.value = 0.0;
-    }
-  }
-}
-
-function initTheme() {
-  const saved = localStorage.getItem('bim-theme-preset') || localStorage.getItem('bim-theme') || 'dark';
-  applyTheme(saved);
 }
 initTheme();
 
@@ -99,29 +90,6 @@ if (world.renderer) {
 
 // Initialize components system
 components.init();
-
-// --- ATTACH BLUE PEN SHADER PASS TO POSTPRODUCTION COMPOSER ---
-const postproduction = world.renderer.postproduction;
-if (postproduction && postproduction.composer) {
-  const composer = postproduction.composer;
-  bluePenPass = new ShaderPass(BluePenShader as any);
-  if (bluePenPass) {
-    bluePenPass.uniforms.resolution.value.set(window.innerWidth, window.innerHeight);
-    if (postproduction.depthTexture) {
-      bluePenPass.uniforms.tDepth.value = postproduction.depthTexture;
-    }
-    composer.addPass(bluePenPass);
-
-    window.addEventListener('resize', () => {
-      if (bluePenPass) {
-        bluePenPass.uniforms.resolution.value.set(window.innerWidth, window.innerHeight);
-      }
-    });
-
-    const currentTheme = localStorage.getItem('bim-theme-preset') || localStorage.getItem('bim-theme') || 'dark';
-    applyTheme(currentTheme);
-  }
-}
 
 // Add a standard Grid Helper
 const grid = new THREE.GridHelper(100, 100, 0x1d283a, 0x111926);
@@ -1555,16 +1523,17 @@ loadSampleBtn.addEventListener("click", async () => {
   }
 });
 
-// Theme Preset Switcher (8 Themes + Shaders)
+// Theme Preset Switcher (6 Themes)
 const themeToggleSelect = document.getElementById("btn-theme-toggle") as HTMLSelectElement | null;
 if (themeToggleSelect) {
-  const savedTheme = localStorage.getItem("bim-theme-preset") || localStorage.getItem("bim-theme") || "dark";
-  applyTheme(savedTheme);
+  const savedTheme = localStorage.getItem("bim-theme-preset") || "dark";
+  document.documentElement.setAttribute("data-theme", savedTheme);
   themeToggleSelect.value = savedTheme;
 
   themeToggleSelect.addEventListener("change", () => {
     const selectedTheme = themeToggleSelect.value;
-    applyTheme(selectedTheme);
+    document.documentElement.setAttribute("data-theme", selectedTheme);
+    localStorage.setItem("bim-theme-preset", selectedTheme);
   });
 }
 

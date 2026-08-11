@@ -229,6 +229,48 @@
   --shadow-glow: 4px 4px 0px #dc2626;
 }
 
+/* ── Cozy Studio (Marumi / Sakura Crossing Warm Terracotta & Mint) ── */
+[data-theme="cozy"] {
+  --bg-void: #DDA380;
+  --bg-app: #E7B08F;
+  --bg-panel: #2C2621;
+  --bg-panel-header: #211C18;
+  --bg-card: #38302A;
+  --bg-input: #1D1815;
+  --bg-overlay: rgba(44, 38, 33, 0.95);
+
+  --border-subtle: #4D4239;
+  --border-color: #5C4F44;
+  --border-hover: #69D7A5;
+  --border-accent: #69D7A5;
+  --border-accent-hi: #82E0B5;
+
+  --accent-400: #69D7A5;
+  --accent-500: #4ECB93;
+  --accent-glow: rgba(105, 215, 165, 0.25);
+
+  --violet-400: #69D7A5;
+  --violet-500: #4ECB93;
+  --violet-glow: rgba(105, 215, 165, 0.2);
+
+  --text-primary: #F2E8DF;
+  --text-main: #E5D9CD;
+  --text-muted: #B8A89A;
+  --text-dim: #8C7B6D;
+  --text-dark: #120F0D;
+
+  --glass-bg: #2C2621;
+  --glass-border: #5C4F44;
+  --glass-shine: none;
+
+  --shadow-xs: 2px 2px 0px #120F0D;
+  --shadow-sm: 3px 3px 0px #120F0D;
+  --shadow-md: 4px 4px 0px #120F0D;
+  --shadow-panel: 4px 4px 0px #120F0D;
+  --shadow-float: 6px 6px 0px #120F0D;
+  --shadow-glow: 4px 4px 0px #69D7A5;
+}
+
 /* ── Blue Pen on Paper (Warm Cream Drafting) ── */
 [data-theme="bluepen"] {
   --bg-void: #f4f4f0;
