@@ -4575,7 +4575,8 @@ mobileNavBtns.forEach((btn) => {
       rightSidebar?.classList.remove("open");
       leftSidebar?.classList.add("open");
 
-      const tabBtn = document.querySelector<HTMLButtonElement>(`#left-tab-bar [data-tab="${targetTab}"]`);
+      const actualTab = targetTab === "sched" ? "schedule" : targetTab;
+      const tabBtn = document.querySelector<HTMLButtonElement>(`#left-tab-bar [data-tab="${actualTab}"]`);
       if (tabBtn) tabBtn.click();
     } else if (targetTab === "scene" || targetTab === "tools") {
       leftSidebar?.classList.remove("open");
