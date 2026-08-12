@@ -6,65 +6,67 @@
    Light: Bright ice + frosted white + sky-blue/teal accents
    ============================================================ */
 :root {
-  --font-body: 'Space Grotesk', system-ui, -apple-system, sans-serif;
-  --font-mono: 'Space Mono', monospace;
+  --font-body: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
 
-  /* ── Neo-Brutalist Dark Surfaces ── */
-  --bg-void: #07080a;
-  --bg-app: #0d0f14;
-  --bg-panel: #141720;
-  --bg-panel-header: #1a1e2b;
-  --bg-card: #1c202e;
-  --bg-input: #090b10;
-  --bg-overlay: rgba(7, 8, 10, 0.95);
+  /* ── Stitch Zen Infrastructure Surfaces (Future-Ready Engineering) ── */
+  --bg-void: #0d1516;
+  --bg-app: #0d1516;
+  --bg-panel: #151d1e;
+  --bg-panel-header: #192122;
+  --bg-card: #242b2d;
+  --bg-input: #080f11;
+  --bg-overlay: rgba(13, 21, 22, 0.96);
 
-  /* ── 3px Hard Solid Black & Accent Borders ── */
-  --border-subtle: #000000;
-  --border-color: #000000;
-  --border-hover: #b91c1c;
-  --border-accent: #dc2626;
-  --border-accent-hi: #ef4444;
+  /* ── Structural Hairline Borders ── */
+  --border-subtle: #3b494c;
+  --border-color: #849396;
+  --border-hover: #00e5ff;
+  --border-accent: #00e5ff;
+  --border-accent-hi: #9cf0ff;
 
-  /* ── Agrarian Red & Olive Accent ── */
-  --accent-100: #fee2e2;
-  --accent-200: #fca5a5;
-  --accent-300: #f87171;
-  --accent-400: #dc2626;
-  --accent-500: #b91c1c;
-  --accent-600: #991b1b;
-  --accent-glow: rgba(220, 38, 38, 0.3);
-  --accent-glow2: rgba(220, 38, 38, 0.1);
+  /* ── Primary Action (Electric Cyan / Kintsugi Gold Accents) ── */
+  --accent-100: #c3f5ff;
+  --accent-200: #9cf0ff;
+  --accent-300: #00daf3;
+  --accent-400: #00e5ff;
+  --accent-500: #006875;
+  --accent-600: #004f58;
+  --accent-glow: rgba(0, 229, 255, 0.35);
+  --accent-glow2: rgba(0, 229, 255, 0.15);
 
-  /* ── Olive Resistance & Earth Tones ── */
-  --violet-300: #a7f3d0;
-  --violet-400: #34d399;
-  --violet-500: #10b981;
-  --violet-glow: rgba(52, 211, 153, 0.2);
+  /* ── Kintsugi Gold & Functional Accents ── */
+  --gold-primary: #D4AF37;
+  --gold-bright: #FFD700;
+  --violet-300: #ffeac0;
+  --violet-400: #fec931;
+  --violet-500: #D4AF37;
+  --violet-glow: rgba(212, 175, 55, 0.3);
 
-  /* ── Semantic Colors ── */
-  --color-success: #4a5d43;
-  --color-warning: #d97706;
-  --color-error: #dc2626;
+  /* ── Functional Status Indicators ── */
+  --color-success: #34C759;
+  --color-warning: #FFB300;
+  --color-error: #FF3B30;
 
-  /* ── High Contrast Text ── */
-  --text-primary: #ffffff;
-  --text-main: #f9fafb;
-  --text-muted: #e5e7eb;
-  --text-dim: #d1d5db;
-  --text-dark: #000000;
+  /* ── High Contrast Typography ── */
+  --text-primary: #dce4e5;
+  --text-main: #bac9cc;
+  --text-muted: #849396;
+  --text-dim: #3b494c;
+  --text-dark: #001f24;
 
-  /* ── Hard Opaque Brutalist Drop Shadows ── */
-  --glass-bg: #141720;
-  --glass-border: #000000;
-  --glass-blur: 0px;
-  --glass-shine: none;
+  /* ── HUD Tonal Layering & Glassmorphism ── */
+  --glass-bg: rgba(21, 29, 30, 0.85);
+  --glass-border: #3b494c;
+  --glass-blur: 16px;
+  --glass-shine: linear-gradient(135deg, rgba(0, 229, 255, 0.12), transparent 60%);
 
-  --shadow-xs: 2px 2px 0px #000000;
-  --shadow-sm: 3px 3px 0px #000000;
-  --shadow-md: 4px 4px 0px #000000;
-  --shadow-panel: 4px 4px 0px #000000;
-  --shadow-float: 6px 6px 0px #000000;
-  --shadow-glow: 4px 4px 0px #dc2626;
+  --shadow-xs: 0px 2px 4px rgba(0, 0, 0, 0.4);
+  --shadow-sm: 0px 4px 8px rgba(0, 0, 0, 0.5);
+  --shadow-md: 0px 6px 12px rgba(0, 0, 0, 0.6);
+  --shadow-panel: 0px 8px 24px rgba(0, 0, 0, 0.7);
+  --shadow-float: 0px 12px 32px rgba(0, 0, 0, 0.8);
+  --shadow-glow: 0px 0px 16px rgba(0, 229, 255, 0.4);
 
   /* ── Tactile Press Transitions ── */
   --ease-fast: 0.1s ease;

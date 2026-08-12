@@ -2007,7 +2007,7 @@ function updateThemeShaderUniforms(theme: string) {
 // Theme Preset Switcher (Multi-Theme)
 const themeToggleSelect = document.getElementById("btn-theme-toggle") as HTMLSelectElement | null;
 if (themeToggleSelect) {
-  const savedTheme = localStorage.getItem("bim-theme-preset") || "cozy";
+  const savedTheme = localStorage.getItem("bim-theme-preset") || "zen";
   document.documentElement.setAttribute("data-theme", savedTheme);
   themeToggleSelect.value = savedTheme;
   updateThemeShaderUniforms(savedTheme);
