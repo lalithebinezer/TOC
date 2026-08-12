@@ -8,10 +8,17 @@ export const BluePenShader = {
     cameraNear: { value: 0.1 },
     cameraFar: { value: 1000.0 },
     resolution: { value: new THREE.Vector2(1, 1) },
-    paperColor: { value: new THREE.Color('#F9F9F6') },
-    inkColor: { value: new THREE.Color('#002395') },
+    paperColor: { value: new THREE.Color('#0d1516') },
+    inkColor: { value: new THREE.Color('#d4af37') },
+    outlineGlowColor: { value: new THREE.Color('#00e5ff') },
+    vignetteIntensity: { value: 0.35 },
+    bloomThreshold: { value: 0.75 },
+    bloomStrength: { value: 0.4 },
+    toonSteps: { value: 4.0 },
     lineThickness: { value: 1.2 },
     jitterAmount: { value: 0.0018 },
+    postMode: { value: 0.0 }, // 0: Standard/Toon, 1: Architectural Draft, 2: Cyber/CRT Grid, 3: Pencil Sketch, 4: Matrix/Emerald Terminal
+    chromaticAberration: { value: 0.0 },
     enabled: { value: 1.0 },
   },
   vertexShader: /* glsl */ `
@@ -28,8 +35,15 @@ export const BluePenShader = {
     uniform vec2 resolution;
     uniform vec3 paperColor;
     uniform vec3 inkColor;
+    uniform vec3 outlineGlowColor;
+    uniform float vignetteIntensity;
+    uniform float bloomThreshold;
+    uniform float bloomStrength;
+    uniform float toonSteps;
     uniform float lineThickness;
     uniform float jitterAmount;
+    uniform float postMode;
+    uniform float chromaticAberration;
     uniform float enabled;
 
     varying vec2 vUv;
@@ -103,21 +117,65 @@ export const BluePenShader = {
       float edgeIntensity = smoothstep(0.003, 0.035, depthEdge) + smoothstep(0.12, 0.4, colorEdge);
       edgeIntensity = clamp(edgeIntensity, 0.0, 1.0);
 
+      // --- CHROMATIC ABERRATION (Lumiere/GDX Style) ---
+      if (chromaticAberration > 0.0001) {
+        vec2 caOffset = (vUv - 0.5) * chromaticAberration * 0.015;
+        float caR = texture2D(tDiffuse, vUv + caOffset).r;
+        float caB = texture2D(tDiffuse, vUv - caOffset).b;
+        originalColor.r = caR;
+        originalColor.b = caB;
+      }
+
       // Subtle warm paper background grain
-      float grain = (rand(vUv * resolution) - 0.5) * 0.015;
+      float grain = (rand(vUv * resolution) - 0.5) * 0.018;
 
       // Smooth surface luminance shading (un-jittered baseUv for clean faces)
       float luminance = dot(originalColor.rgb, vec3(0.299, 0.587, 0.114));
       float toneShading = smoothstep(0.05, 0.9, luminance);
 
-      // Clean 3-step toon shading for warm paper/ink surfaces
-      float cellTone = floor(toneShading * 3.0 + 0.5) / 3.0;
+      // Dynamic cell toon shading based on theme toonSteps parameter
+      float steps = max(toonSteps, 2.0);
+      float cellTone = floor(toneShading * steps + 0.5) / steps;
 
       // Shaded faces blend cleanly between paper color and ink tone
       vec3 themeElementShade = mix(inkColor * 0.25 + paperColor * 0.45, paperColor, cellTone);
 
-      // Mix clean smooth surface shading with hand-drawn jittered ink lines
-      vec3 finalColor = mix(themeElementShade + vec3(grain), inkColor, edgeIntensity * 0.95);
+      // Mix clean smooth surface shading with edge outlines and emissive glow
+      vec3 outlineColor = mix(inkColor, outlineGlowColor, 0.35);
+      vec3 finalColor = mix(themeElementShade + vec3(grain), outlineColor, edgeIntensity * 0.95);
+
+      // --- SPECIALIZED THEME MODE POST-EFFECTS ---
+      // PostMode 1: Architectural Blue Draft Grid
+      if (postMode > 0.5 && postMode < 1.5) {
+        vec2 gridUv = vUv * resolution * 0.05;
+        float gridLine = step(0.96, fract(gridUv.x)) + step(0.96, fract(gridUv.y));
+        finalColor += inkColor * gridLine * 0.08;
+      }
+      // PostMode 2: Cyberpunk / CRT Scanlines (Lumiere/GDX CRT Style)
+      else if (postMode > 1.5 && postMode < 2.5) {
+        float scanline = sin(vUv.y * resolution.y * 1.5) * 0.07;
+        finalColor -= vec3(scanline);
+      }
+      // PostMode 3: Pencil Cross-Hatching
+      else if (postMode > 2.5 && postMode < 3.5) {
+        float hatch1 = step(0.5, fract((vUv.x + vUv.y) * resolution.x * 0.08));
+        float hatch2 = step(0.5, fract((vUv.x - vUv.y) * resolution.x * 0.08));
+        if (luminance < 0.4) finalColor *= mix(0.7, 1.0, hatch1);
+        if (luminance < 0.2) finalColor *= mix(0.7, 1.0, hatch2);
+      }
+
+      // --- TOP-CLASS BLOOM HIGHLIGHT PASS (Unity/pmndrs style) ---
+      float bloomLuma = dot(originalColor.rgb, vec3(0.2126, 0.7152, 0.0722));
+      if (bloomLuma > bloomThreshold) {
+        float bloomFactor = (bloomLuma - bloomThreshold) / (1.0 - bloomThreshold);
+        finalColor += originalColor.rgb * bloomFactor * bloomStrength;
+      }
+
+      // --- VIGNETTE SHADING (Lumiere/Sundown style) ---
+      vec2 uvCentered = vUv - 0.5;
+      float dist = length(uvCentered);
+      float vignette = smoothstep(0.75, 0.2, dist * vignetteIntensity * 2.2);
+      finalColor *= vignette;
 
       // Keep selection/highlighting intact
       if (originalColor.g > 0.6 && originalColor.r < 0.35) {

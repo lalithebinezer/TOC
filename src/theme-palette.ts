@@ -14,6 +14,140 @@ export interface ThemePalettes {
   [themeName: string]: CategoryColorMap;
 }
 
+export interface ThemePostProcessConfig {
+  paperColor: string;
+  inkColor: string;
+  outlineGlowColor: string;
+  vignetteIntensity: number;
+  bloomThreshold: number;
+  bloomStrength: number;
+  toonSteps: number;
+  lineThickness: number;
+  jitterAmount: number;
+  postMode: number; // 0: Standard, 1: Draft Grid, 2: Cyber Scanlines, 3: Pencil Cross-Hatching
+  chromaticAberration: number;
+}
+
+export const THEME_POST_PROCESS_CONFIG: Record<string, ThemePostProcessConfig> = {
+  zen: {
+    paperColor: '#0d1516',
+    inkColor: '#d4af37', // Kintsugi Gold Outlines
+    outlineGlowColor: '#00e5ff',
+    vignetteIntensity: 0.35,
+    bloomThreshold: 0.75,
+    bloomStrength: 0.4,
+    toonSteps: 4,
+    lineThickness: 1.2,
+    jitterAmount: 0.0012,
+    postMode: 0,
+    chromaticAberration: 0.05,
+  },
+  pencil: {
+    paperColor: '#f8fafc',
+    inkColor: '#0f172a', // Clean Graphite Outline
+    outlineGlowColor: '#0284c7',
+    vignetteIntensity: 0.12,
+    bloomThreshold: 0.95,
+    bloomStrength: 0.1,
+    toonSteps: 3,
+    lineThickness: 1.6,
+    jitterAmount: 0.0035, // Hand-drawn sketch jitter
+    postMode: 3, // Cross-hatch sketch pass
+    chromaticAberration: 0.0,
+  },
+  bluepen: {
+    paperColor: '#0b1329',
+    inkColor: '#60a5fa', // Architectural Blue Draft Ink
+    outlineGlowColor: '#3b82f6',
+    vignetteIntensity: 0.45,
+    bloomThreshold: 0.70,
+    bloomStrength: 0.5,
+    toonSteps: 3,
+    lineThickness: 1.4,
+    jitterAmount: 0.0022,
+    postMode: 1, // Architectural grid background
+    chromaticAberration: 0.08,
+  },
+  cozy: {
+    paperColor: '#1c1917',
+    inkColor: '#f59e0b', // Warm Amber Ink
+    outlineGlowColor: '#d97706',
+    vignetteIntensity: 0.28,
+    bloomThreshold: 0.80,
+    bloomStrength: 0.3,
+    toonSteps: 4,
+    lineThickness: 1.1,
+    jitterAmount: 0.0008,
+    postMode: 0,
+    chromaticAberration: 0.02,
+  },
+  cyberpunk: {
+    paperColor: '#11111b',
+    inkColor: '#f5c2e7', // Neon Magenta Edge
+    outlineGlowColor: '#89dceb',
+    vignetteIntensity: 0.55,
+    bloomThreshold: 0.50,
+    bloomStrength: 0.85, // Intense Cyber Bloom
+    toonSteps: 5,
+    lineThickness: 1.5,
+    jitterAmount: 0.0005,
+    postMode: 2, // CRT Scanline overlay
+    chromaticAberration: 0.35, // High Chromatic Fringe
+  },
+  amber: {
+    paperColor: '#0f0500',
+    inkColor: '#fbbf24', // Retro Amber CRT Outline
+    outlineGlowColor: '#f59e0b',
+    vignetteIntensity: 0.50,
+    bloomThreshold: 0.65,
+    bloomStrength: 0.65,
+    toonSteps: 3,
+    lineThickness: 1.3,
+    jitterAmount: 0.0004,
+    postMode: 2, // Retro CRT Scanlines
+    chromaticAberration: 0.15,
+  },
+  emerald: {
+    paperColor: '#011711',
+    inkColor: '#34d399', // Matrix Emerald Outline
+    outlineGlowColor: '#10b981',
+    vignetteIntensity: 0.42,
+    bloomThreshold: 0.65,
+    bloomStrength: 0.6,
+    toonSteps: 4,
+    lineThickness: 1.2,
+    jitterAmount: 0.0006,
+    postMode: 1, // Terminal Matrix Grid
+    chromaticAberration: 0.12,
+  },
+  indigo: {
+    paperColor: '#070619',
+    inkColor: '#818cf8', // High-Tech Indigo Line
+    outlineGlowColor: '#6366f1',
+    vignetteIntensity: 0.38,
+    bloomThreshold: 0.70,
+    bloomStrength: 0.48,
+    toonSteps: 4,
+    lineThickness: 1.1,
+    jitterAmount: 0.0010,
+    postMode: 0,
+    chromaticAberration: 0.06,
+  },
+  light: {
+    paperColor: '#f1f5f9',
+    inkColor: '#0284c7', // Ice Blue Outline
+    outlineGlowColor: '#38bdf8',
+    vignetteIntensity: 0.15,
+    bloomThreshold: 0.90,
+    bloomStrength: 0.2,
+    toonSteps: 3,
+    lineThickness: 1.0,
+    jitterAmount: 0.0002,
+    postMode: 0,
+    chromaticAberration: 0.0,
+  },
+};
+
 /** Fallback color when a category is not in the palette */
 export const FALLBACK_COLOR = '#888888';
 
@@ -52,119 +186,11 @@ export type IfcCategoryKey = typeof IFC_CATEGORIES[number] | string;
  * Per-theme color palettes for IFC categories.
  * 
  * Design rationale:
- * - Cyberpunk: Neon-saturated, high-contrast sci-fi palette
- * - Sakura: Warm earth tones, organic Japanese garden palette
- * - BluePen: Monochrome blue drafting tones (blueprint style)
- * - Light: Clean pastel tones for light backgrounds
- * - Default (dark): Industrial/muted tones for the default dark theme
+ * - Zen: Kintsugi Gold & Charcoal infrastructure theme
  */
 export const THEME_PALETTES: ThemePalettes = {
 
-  // ── Default Dark Theme ──
-  default: {
-    IFCWALL:                '#6B7280',  // cool grey
-    IFCWALLSTANDARDCASE:    '#6B7280',
-    IFCSLAB:                '#4B5563',  // darker grey
-    IFCCOLUMN:              '#9CA3AF',  // light grey
-    IFCBEAM:                '#78716C',  // warm grey
-    IFCDOOR:                '#D97706',  // amber
-    IFCWINDOW:              '#38BDF8',  // sky blue (glass)
-    IFCROOF:                '#92400E',  // brown
-    IFCSTAIR:               '#A78BFA',  // violet
-    IFCSTAIRFLIGHT:         '#A78BFA',
-    IFCRAILING:             '#F59E0B',  // yellow
-    IFCFURNISHINGELEMENT:   '#34D399',  // emerald
-    IFCFLOWSEGMENT:         '#F472B6',  // pink (MEP)
-    IFCFLOWFITTING:         '#F472B6',
-    IFCFLOWTERMINAL:        '#FB923C',  // orange (MEP)
-    IFCCOVERING:            '#A3E635',  // lime
-    IFCPLATE:               '#94A3B8',  // slate
-    IFCMEMBER:              '#7DD3FC',  // light blue
-    IFCFOOTING:             '#57534E',  // stone
-    IFCBUILDINGSTOREY:      '#6B7280',
-    IFCSITE:                '#166534',  // dark green
-    IFCBUILDINGELEMENTPROXY:'#9CA3AF',
-  },
-
-  // ── Cyberpunk Neon Theme ──
-  cyberpunk: {
-    IFCWALL:                '#0E7490',  // dark cyan
-    IFCWALLSTANDARDCASE:    '#0E7490',
-    IFCSLAB:                '#164E63',  // deep teal
-    IFCCOLUMN:              '#22D3EE',  // cyan neon
-    IFCBEAM:                '#06B6D4',  // cyan
-    IFCDOOR:                '#FBBF24',  // electric gold
-    IFCWINDOW:              '#67E8F9',  // ice cyan (glass)
-    IFCROOF:                '#7C3AED',  // violet neon
-    IFCSTAIR:               '#A78BFA',  // purple
-    IFCSTAIRFLIGHT:         '#A78BFA',
-    IFCRAILING:             '#F59E0B',  // amber
-    IFCFURNISHINGELEMENT:   '#10B981',  // neon green
-    IFCFLOWSEGMENT:         '#EC4899',  // hot pink (MEP)
-    IFCFLOWFITTING:         '#EC4899',
-    IFCFLOWTERMINAL:        '#F97316',  // neon orange (MEP)
-    IFCCOVERING:            '#84CC16',  // lime
-    IFCPLATE:               '#3B82F6',  // electric blue
-    IFCMEMBER:              '#38BDF8',  // sky
-    IFCFOOTING:             '#475569',  // dark slate
-    IFCBUILDINGSTOREY:      '#0891B2',
-    IFCSITE:                '#059669',  // emerald
-    IFCBUILDINGELEMENTPROXY:'#06B6D4',
-  },
-
-  // ── Sakura / Cozy Theme ──
-  sakura: {
-    IFCWALL:                '#8B7355',  // warm wood
-    IFCWALLSTANDARDCASE:    '#8B7355',
-    IFCSLAB:                '#6B5B4A',  // dark wood
-    IFCCOLUMN:              '#A0826D',  // warm stone
-    IFCBEAM:                '#7A6552',  // walnut
-    IFCDOOR:                '#C4956A',  // honey oak
-    IFCWINDOW:              '#69D7A5',  // jade green (glass)
-    IFCROOF:                '#8B4513',  // saddle brown
-    IFCSTAIR:               '#B8927A',  // terracotta
-    IFCSTAIRFLIGHT:         '#B8927A',
-    IFCRAILING:             '#D4A76A',  // gold bamboo
-    IFCFURNISHINGELEMENT:   '#4ECB93',  // matcha green
-    IFCFLOWSEGMENT:         '#CD8B76',  // salmon (MEP)
-    IFCFLOWFITTING:         '#CD8B76',
-    IFCFLOWTERMINAL:        '#E8A87C',  // peach (MEP)
-    IFCCOVERING:            '#9CAF88',  // sage
-    IFCPLATE:               '#A89080',  // warm grey
-    IFCMEMBER:              '#7D9B8A',  // moss
-    IFCFOOTING:             '#5C4F44',  // dark earth
-    IFCBUILDINGSTOREY:      '#8B7355',
-    IFCSITE:                '#3D6B4F',  // forest green
-    IFCBUILDINGELEMENTPROXY:'#A0826D',
-  },
-
-  // ── Pencil & Paper Minimalist Theme (2 Colors: Graphite & White) ──
-  pencil: {
-    IFCWALL:                '#2C2C2C',  // graphite
-    IFCWALLSTANDARDCASE:    '#2C2C2C',
-    IFCSLAB:                '#3D3D3D',  // medium graphite
-    IFCCOLUMN:              '#1A1A1A',  // dark graphite
-    IFCBEAM:                '#2C2C2C',  // graphite
-    IFCDOOR:                '#1A1A1A',  // dark graphite
-    IFCWINDOW:              '#666666',  // light graphite (glass)
-    IFCROOF:                '#1A1A1A',  // dark graphite
-    IFCSTAIR:               '#2C2C2C',
-    IFCSTAIRFLIGHT:         '#2C2C2C',
-    IFCRAILING:             '#4A4A4A',
-    IFCFURNISHINGELEMENT:   '#333333',
-    IFCFLOWSEGMENT:         '#2C2C2C',  // MEP
-    IFCFLOWFITTING:         '#2C2C2C',
-    IFCFLOWTERMINAL:        '#333333',
-    IFCCOVERING:            '#555555',
-    IFCPLATE:               '#2C2C2C',
-    IFCMEMBER:              '#2C2C2C',
-    IFCFOOTING:             '#111111',
-    IFCBUILDINGSTOREY:      '#2C2C2C',
-    IFCSITE:                '#444444',
-    IFCBUILDINGELEMENTPROXY:'#2C2C2C',
-  },
-
-  // ── Zen Infrastructure Theme (Kintsugi Gold & Charcoal) ──
+  // ── Zen Infrastructure Theme (Future-Ready Engineering) ──
   zen: {
     IFCWALL:                '#333535',  // slate charcoal
     IFCWALLSTANDARDCASE:    '#333535',
@@ -172,11 +198,11 @@ export const THEME_PALETTES: ThemePalettes = {
     IFCCOLUMN:              '#D4AF37',  // kintsugi liquid gold
     IFCBEAM:                '#B5952F',  // antique gold
     IFCDOOR:                '#FFD700',  // electric amber gold
-    IFCWINDOW:              '#60A5FA',  // translucent ice blue (glass)
+    IFCWINDOW:              '#00E5FF',  // electric cyan glass
     IFCROOF:                '#997A20',  // dark metallic gold
     IFCSTAIR:               '#C5A028',  // brushed gold
     IFCSTAIRFLIGHT:         '#C5A028',
-    IFCRAILING:             '#F59E0B',  // amber gold
+    IFCRAILING:             '#FFB300',  // safety amber
     IFCFURNISHINGELEMENT:   '#D4AF37',  // liquid gold
     IFCFLOWSEGMENT:         '#EC4899',  // hot pink MEP accent
     IFCFLOWFITTING:         '#EC4899',
@@ -184,64 +210,215 @@ export const THEME_PALETTES: ThemePalettes = {
     IFCCOVERING:            '#84CC16',  // lime
     IFCPLATE:               '#D4AF37',  // gold plate
     IFCMEMBER:              '#B5952F',  // antique gold member
-    IFCFOOTING:             '#0C0F0F',  // obsidian foundation
+    IFCFOOTING:             '#080F11',  // obsidian foundation
     IFCBUILDINGSTOREY:      '#333535',
     IFCSITE:                '#151D1E',  // deep site
     IFCBUILDINGELEMENTPROXY:'#D4AF37',
   },
 
-  // ── Blue Pen / Blueprint Theme ──
-  bluepen: {
-    IFCWALL:                '#002395',  // royal blue
-    IFCWALLSTANDARDCASE:    '#002395',
-    IFCSLAB:                '#001A70',  // navy
-    IFCCOLUMN:              '#1D4ED8',  // cobalt
-    IFCBEAM:                '#1E3A8A',  // dark blue
-    IFCDOOR:                '#2563EB',  // bright blue
-    IFCWINDOW:              '#60A5FA',  // light blue (glass)
-    IFCROOF:                '#1E40AF',  // dark royal
-    IFCSTAIR:               '#3B82F6',  // blue
-    IFCSTAIRFLIGHT:         '#3B82F6',
-    IFCRAILING:             '#93C5FD',  // pale blue
-    IFCFURNISHINGELEMENT:   '#2563EB',  // medium blue
-    IFCFLOWSEGMENT:         '#6366F1',  // indigo (MEP)
-    IFCFLOWFITTING:         '#6366F1',
-    IFCFLOWTERMINAL:        '#818CF8',  // light indigo (MEP)
-    IFCCOVERING:            '#BFDBFE',  // ice blue
-    IFCPLATE:               '#1E3A8A',  // dark blue
-    IFCMEMBER:              '#3B82F6',  // blue
-    IFCFOOTING:             '#0F172A',  // near black blue
-    IFCBUILDINGSTOREY:      '#002395',
-    IFCSITE:                '#1E3A8A',
-    IFCBUILDINGELEMENTPROXY:'#1D4ED8',
+  pencil: {
+    IFCWALL:                '#e2e8f0',
+    IFCWALLSTANDARDCASE:    '#e2e8f0',
+    IFCSLAB:                '#cbd5e1',
+    IFCCOLUMN:              '#0284c7',
+    IFCBEAM:                '#0369a1',
+    IFCDOOR:                '#f59e0b',
+    IFCWINDOW:              '#38bdf8',
+    IFCROOF:                '#94a3b8',
+    IFCSTAIR:               '#64748b',
+    IFCSTAIRFLIGHT:         '#64748b',
+    IFCRAILING:             '#ea580c',
+    IFCFURNISHINGELEMENT:   '#a855f7',
+    IFCFLOWSEGMENT:         '#ef4444',
+    IFCFLOWFITTING:         '#ef4444',
+    IFCFLOWTERMINAL:        '#f97316',
+    IFCCOVERING:            '#84cc16',
+    IFCPLATE:               '#0284c7',
+    IFCMEMBER:              '#0369a1',
+    IFCFOOTING:             '#475569',
+    IFCBUILDINGSTOREY:      '#e2e8f0',
+    IFCSITE:                '#f8fafc',
+    IFCBUILDINGELEMENTPROXY:'#0284c7',
   },
 
-  // ── Light Theme ──
+  bluepen: {
+    IFCWALL:                '#1e3a8a',
+    IFCWALLSTANDARDCASE:    '#1e3a8a',
+    IFCSLAB:                '#1e40af',
+    IFCCOLUMN:              '#60a5fa',
+    IFCBEAM:                '#3b82f6',
+    IFCDOOR:                '#f59e0b',
+    IFCWINDOW:              '#93c5fd',
+    IFCROOF:                '#1d4ed8',
+    IFCSTAIR:               '#2563eb',
+    IFCSTAIRFLIGHT:         '#2563eb',
+    IFCRAILING:             '#f97316',
+    IFCFURNISHINGELEMENT:   '#c084fc',
+    IFCFLOWSEGMENT:         '#f43f5e',
+    IFCFLOWFITTING:         '#f43f5e',
+    IFCFLOWTERMINAL:        '#fb923c',
+    IFCCOVERING:            '#a3e635',
+    IFCPLATE:               '#60a5fa',
+    IFCMEMBER:              '#3b82f6',
+    IFCFOOTING:             '#172554',
+    IFCBUILDINGSTOREY:      '#1e3a8a',
+    IFCSITE:                '#0f172a',
+    IFCBUILDINGELEMENTPROXY:'#60a5fa',
+  },
+
+  cozy: {
+    IFCWALL:                '#44403c',
+    IFCWALLSTANDARDCASE:    '#44403c',
+    IFCSLAB:                '#292524',
+    IFCCOLUMN:              '#f59e0b',
+    IFCBEAM:                '#d97706',
+    IFCDOOR:                '#b45309',
+    IFCWINDOW:              '#38bdf8',
+    IFCROOF:                '#78350f',
+    IFCSTAIR:               '#92400e',
+    IFCSTAIRFLIGHT:         '#92400e',
+    IFCRAILING:             '#ef4444',
+    IFCFURNISHINGELEMENT:   '#fbbf24',
+    IFCFLOWSEGMENT:         '#f43f5e',
+    IFCFLOWFITTING:         '#f43f5e',
+    IFCFLOWTERMINAL:        '#fb923c',
+    IFCCOVERING:            '#a3e635',
+    IFCPLATE:               '#f59e0b',
+    IFCMEMBER:              '#d97706',
+    IFCFOOTING:             '#1c1917',
+    IFCBUILDINGSTOREY:      '#44403c',
+    IFCSITE:                '#0c0a09',
+    IFCBUILDINGELEMENTPROXY:'#f59e0b',
+  },
+
+  cyberpunk: {
+    IFCWALL:                '#181825',
+    IFCWALLSTANDARDCASE:    '#181825',
+    IFCSLAB:                '#11111b',
+    IFCCOLUMN:              '#f5c2e7',
+    IFCBEAM:                '#cba6f7',
+    IFCDOOR:                '#fab387',
+    IFCWINDOW:              '#89dceb',
+    IFCROOF:                '#b4befe',
+    IFCSTAIR:               '#74c7ec',
+    IFCSTAIRFLIGHT:         '#74c7ec',
+    IFCRAILING:             '#f38ba8',
+    IFCFURNISHINGELEMENT:   '#a6e3a1',
+    IFCFLOWSEGMENT:         '#f38ba8',
+    IFCFLOWFITTING:         '#f38ba8',
+    IFCFLOWTERMINAL:        '#fab387',
+    IFCCOVERING:            '#a6e3a1',
+    IFCPLATE:               '#f5c2e7',
+    IFCMEMBER:              '#cba6f7',
+    IFCFOOTING:             '#1e1e2e',
+    IFCBUILDINGSTOREY:      '#181825',
+    IFCSITE:                '#11111b',
+    IFCBUILDINGELEMENTPROXY:'#f5c2e7',
+  },
+
+  amber: {
+    IFCWALL:                '#451a03',
+    IFCWALLSTANDARDCASE:    '#451a03',
+    IFCSLAB:                '#290f02',
+    IFCCOLUMN:              '#f59e0b',
+    IFCBEAM:                '#d97706',
+    IFCDOOR:                '#b45309',
+    IFCWINDOW:              '#fbbf24',
+    IFCROOF:                '#78350f',
+    IFCSTAIR:               '#92400e',
+    IFCSTAIRFLIGHT:         '#92400e',
+    IFCRAILING:             '#f97316',
+    IFCFURNISHINGELEMENT:   '#fef08a',
+    IFCFLOWSEGMENT:         '#ef4444',
+    IFCFLOWFITTING:         '#ef4444',
+    IFCFLOWTERMINAL:        '#ea580c',
+    IFCCOVERING:            '#ca8a04',
+    IFCPLATE:               '#f59e0b',
+    IFCMEMBER:              '#d97706',
+    IFCFOOTING:             '#180800',
+    IFCBUILDINGSTOREY:      '#451a03',
+    IFCSITE:                '#0f0500',
+    IFCBUILDINGELEMENTPROXY:'#f59e0b',
+  },
+
+  emerald: {
+    IFCWALL:                '#064e3b',
+    IFCWALLSTANDARDCASE:    '#064e3b',
+    IFCSLAB:                '#022c22',
+    IFCCOLUMN:              '#34d399',
+    IFCBEAM:                '#10b981',
+    IFCDOOR:                '#fbbf24',
+    IFCWINDOW:              '#6ee7b7',
+    IFCROOF:                '#047857',
+    IFCSTAIR:               '#059669',
+    IFCSTAIRFLIGHT:         '#059669',
+    IFCRAILING:             '#f97316',
+    IFCFURNISHINGELEMENT:   '#a7f3d0',
+    IFCFLOWSEGMENT:         '#ef4444',
+    IFCFLOWFITTING:         '#ef4444',
+    IFCFLOWTERMINAL:        '#ea580c',
+    IFCCOVERING:            '#84cc16',
+    IFCPLATE:               '#34d399',
+    IFCMEMBER:              '#10b981',
+    IFCFOOTING:             '#022c22',
+    IFCBUILDINGSTOREY:      '#064e3b',
+    IFCSITE:                '#011711',
+    IFCBUILDINGELEMENTPROXY:'#34d399',
+  },
+
+  indigo: {
+    IFCWALL:                '#312e81',
+    IFCWALLSTANDARDCASE:    '#312e81',
+    IFCSLAB:                '#1e1b4b',
+    IFCCOLUMN:              '#818cf8',
+    IFCBEAM:                '#6366f1',
+    IFCDOOR:                '#f59e0b',
+    IFCWINDOW:              '#a5b4fc',
+    IFCROOF:                '#4338ca',
+    IFCSTAIR:               '#4f46e5',
+    IFCSTAIRFLIGHT:         '#4f46e5',
+    IFCRAILING:             '#f97316',
+    IFCFURNISHINGELEMENT:   '#c7d2fe',
+    IFCFLOWSEGMENT:         '#ef4444',
+    IFCFLOWFITTING:         '#ef4444',
+    IFCFLOWTERMINAL:        '#ea580c',
+    IFCCOVERING:            '#84cc16',
+    IFCPLATE:               '#818cf8',
+    IFCMEMBER:              '#6366f1',
+    IFCFOOTING:             '#0f0d2e',
+    IFCBUILDINGSTOREY:      '#312e81',
+    IFCSITE:                '#070619',
+    IFCBUILDINGELEMENTPROXY:'#818cf8',
+  },
+
   light: {
-    IFCWALL:                '#D1D5DB',  // light grey
-    IFCWALLSTANDARDCASE:    '#D1D5DB',
-    IFCSLAB:                '#E5E7EB',  // pale grey
-    IFCCOLUMN:              '#9CA3AF',  // medium grey
-    IFCBEAM:                '#B0A090',  // warm beige
-    IFCDOOR:                '#F59E0B',  // amber
-    IFCWINDOW:              '#93C5FD',  // soft blue (glass)
-    IFCROOF:                '#B45309',  // dark amber
-    IFCSTAIR:               '#C084FC',  // soft purple
-    IFCSTAIRFLIGHT:         '#C084FC',
-    IFCRAILING:             '#FCD34D',  // light yellow
-    IFCFURNISHINGELEMENT:   '#6EE7B7',  // mint
-    IFCFLOWSEGMENT:         '#F9A8D4',  // soft pink (MEP)
-    IFCFLOWFITTING:         '#F9A8D4',
-    IFCFLOWTERMINAL:        '#FDBA74',  // soft orange (MEP)
-    IFCCOVERING:            '#BEF264',  // lime
-    IFCPLATE:               '#CBD5E1',  // blue grey
-    IFCMEMBER:              '#BAE6FD',  // pale blue
-    IFCFOOTING:             '#78716C',  // stone
-    IFCBUILDINGSTOREY:      '#D1D5DB',
-    IFCSITE:                '#86EFAC',  // soft green
-    IFCBUILDINGELEMENTPROXY:'#D1D5DB',
+    IFCWALL:                '#cbd5e1',
+    IFCWALLSTANDARDCASE:    '#cbd5e1',
+    IFCSLAB:                '#94a3b8',
+    IFCCOLUMN:              '#0284c7',
+    IFCBEAM:                '#0369a1',
+    IFCDOOR:                '#d97706',
+    IFCWINDOW:              '#38bdf8',
+    IFCROOF:                '#64748b',
+    IFCSTAIR:               '#475569',
+    IFCSTAIRFLIGHT:         '#475569',
+    IFCRAILING:             '#ea580c',
+    IFCFURNISHINGELEMENT:   '#9333ea',
+    IFCFLOWSEGMENT:         '#dc2626',
+    IFCFLOWFITTING:         '#dc2626',
+    IFCFLOWTERMINAL:        '#d97706',
+    IFCCOVERING:            '#65a30d',
+    IFCPLATE:               '#0284c7',
+    IFCMEMBER:              '#0369a1',
+    IFCFOOTING:             '#334155',
+    IFCBUILDINGSTOREY:      '#cbd5e1',
+    IFCSITE:                '#e2e8f0',
+    IFCBUILDINGELEMENTPROXY:'#0284c7',
   },
 };
+
+/** Default fallback palette */
+THEME_PALETTES['default'] = THEME_PALETTES.zen;
 
 /**
  * Get the category color for a given theme and IFC category.
@@ -249,8 +426,8 @@ export const THEME_PALETTES: ThemePalettes = {
  */
 export function getCategoryColor(themeName: string, ifcCategory: string): string {
   const normalizedCategory = ifcCategory.toUpperCase().replace(/STANDARDCASE$/, '');
-  const palette = THEME_PALETTES[themeName] || THEME_PALETTES['default'];
-  const defaultPalette = THEME_PALETTES['default'];
+  const palette = THEME_PALETTES[themeName] || THEME_PALETTES['zen'];
+  const defaultPalette = THEME_PALETTES['zen'];
   return palette[ifcCategory.toUpperCase()] 
     || palette[normalizedCategory]
     || defaultPalette[ifcCategory.toUpperCase()]
@@ -261,5 +438,5 @@ export function getCategoryColor(themeName: string, ifcCategory: string): string
  * Get the full palette for the current theme.
  */
 export function getThemePalette(themeName: string): CategoryColorMap {
-  return THEME_PALETTES[themeName] || THEME_PALETTES['default'];
+  return THEME_PALETTES[themeName] || THEME_PALETTES['zen'];
 }

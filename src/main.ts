@@ -7,7 +7,7 @@ import { PropertyEditor, initPropertyEditorUI } from "./PropertyEditor";
 import "./BimViewCube";
 import { ShaderPass } from "three/examples/jsm/postprocessing/ShaderPass.js";
 import { BluePenShader } from "./shaders/BluePenShader";
-import { getCategoryColor } from "./theme-palette";
+import { getCategoryColor, THEME_POST_PROCESS_CONFIG } from "./theme-palette";
 import { ScheduleManager } from "./schedule-manager";
 import { exportBOQAsCSV, generateBOQSummary, extractQuantityData, type BOQLineItem } from "./boq-generator";
 
@@ -169,6 +169,23 @@ if (dirLight) {
 }
 world.scene.shadowsEnabled = false;
 
+export function syncPostProcessingWithTheme(themeName: string) {
+  if (!bluePenPass) return;
+  const cfg = THEME_POST_PROCESS_CONFIG[themeName] || THEME_POST_PROCESS_CONFIG['zen'];
+  bluePenPass.uniforms.paperColor.value.setStyle(cfg.paperColor);
+  bluePenPass.uniforms.inkColor.value.setStyle(cfg.inkColor);
+  bluePenPass.uniforms.outlineGlowColor.value.setStyle(cfg.outlineGlowColor);
+  bluePenPass.uniforms.vignetteIntensity.value = cfg.vignetteIntensity;
+  bluePenPass.uniforms.bloomThreshold.value = cfg.bloomThreshold;
+  bluePenPass.uniforms.bloomStrength.value = cfg.bloomStrength;
+  bluePenPass.uniforms.toonSteps.value = cfg.toonSteps;
+  bluePenPass.uniforms.lineThickness.value = cfg.lineThickness;
+  bluePenPass.uniforms.jitterAmount.value = cfg.jitterAmount;
+  bluePenPass.uniforms.postMode.value = cfg.postMode;
+  bluePenPass.uniforms.chromaticAberration.value = cfg.chromaticAberration;
+}
+(window as any).syncPostProcessingWithTheme = syncPostProcessingWithTheme;
+
 // Attach BluePenShader postprocessing pass for sketched/themed model elements
 let bluePenPass: ShaderPass | null = null;
 const postproduction = (world.renderer as any).postproduction;
@@ -181,6 +198,7 @@ if (postproduction) {
     }
     bluePenPass.uniforms.resolution.value.set(window.innerWidth, window.innerHeight);
     postproduction.composer.addPass(bluePenPass);
+    syncPostProcessingWithTheme('zen');
   }
 }
 
@@ -1936,21 +1954,7 @@ if (loadSampleBtn) {
 // Theme-to-3D mapping: paper (model fill), ink (edges), grid colors
 const themeVisualMap: Record<string, { paper: string; ink: string; jitter: number; gridMajor: string; gridMinor: string }> = {
   // Zen Infrastructure Theme (Kintsugi Gold & Dark Void)
-  zen:       { paper: "#0C1014", ink: "#D4AF37", jitter: 0.0008, gridMajor: "#2C2614", gridMinor: "#181A1A" },
-
-  // Sketch / artistic themes — strong jitter for hand-drawn feel
-  pencil:    { paper: "#FFFFFF", ink: "#2C2C2C", jitter: 0.0028, gridMajor: "#D0D0D0", gridMinor: "#E5E5E5" },
-  bluepen:   { paper: "#F9F9F6", ink: "#002395", jitter: 0.0018, gridMajor: "#b0b8d0", gridMinor: "#d8dce8" },
-  blueprint: { paper: "#051e44", ink: "#ffffff", jitter: 0.0012, gridMajor: "#1e4785", gridMinor: "#0c3066" },
-  cozy:      { paper: "#DDA380", ink: "#2C2621", jitter: 0.0010, gridMajor: "#A8785A", gridMinor: "#C4956F" },
-
-  // Standard themes — very subtle jitter for clean stylized rendering
-  dark:      { paper: "#0d0f14", ink: "#dc2626", jitter: 0.0005, gridMajor: "#1d283a", gridMinor: "#111926" },
-  cyberpunk: { paper: "#0b0f19", ink: "#06b6d4", jitter: 0.0005, gridMajor: "#162040", gridMinor: "#0e1730" },
-  amber:     { paper: "#121214", ink: "#f59e0b", jitter: 0.0005, gridMajor: "#2a2420", gridMinor: "#1a1816" },
-  emerald:   { paper: "#0a100d", ink: "#10b981", jitter: 0.0005, gridMajor: "#152018", gridMinor: "#0e1610" },
-  indigo:    { paper: "#0f172a", ink: "#6366f1", jitter: 0.0005, gridMajor: "#1e2850", gridMinor: "#141e3a" },
-  light:     { paper: "#e5e7eb", ink: "#dc2626", jitter: 0.0005, gridMajor: "#c0c4cc", gridMinor: "#d4d6dc" },
+  zen: { paper: "#0D1516", ink: "#00E5FF", jitter: 0.0008, gridMajor: "#3B494C", gridMinor: "#151D1E" },
 };
 
 function applyThemeToThreeMaterials(theme: string) {
@@ -2004,21 +2008,9 @@ function updateThemeShaderUniforms(theme: string) {
   }
 }
 
-// Theme Preset Switcher (Multi-Theme)
-const themeToggleSelect = document.getElementById("btn-theme-toggle") as HTMLSelectElement | null;
-if (themeToggleSelect) {
-  const savedTheme = localStorage.getItem("bim-theme-preset") || "zen";
-  document.documentElement.setAttribute("data-theme", savedTheme);
-  themeToggleSelect.value = savedTheme;
-  updateThemeShaderUniforms(savedTheme);
-
-  themeToggleSelect.addEventListener("change", () => {
-    const selectedTheme = themeToggleSelect.value;
-    document.documentElement.setAttribute("data-theme", selectedTheme);
-    localStorage.setItem("bim-theme-preset", selectedTheme);
-    updateThemeShaderUniforms(selectedTheme);
-  });
-}
+// Apply Zen Infrastructure theme by default
+document.documentElement.setAttribute("data-theme", "zen");
+updateThemeShaderUniforms("zen");
 
 // Bottom Toolbar Actions: Visibility
 const showAllBtn = document.getElementById("btn-show-all");
@@ -2438,6 +2430,69 @@ if (postProcJitter) {
     if (postProcJitterVal) postProcJitterVal.innerText = val.toFixed(4);
     if (bluePenPass) {
       bluePenPass.uniforms.jitterAmount.value = val;
+    }
+  });
+}
+
+// Bloom Glow Slider
+const postProcBloom = document.getElementById("settings-postproc-bloom") as HTMLInputElement | null;
+const postProcBloomVal = document.getElementById("val-postproc-bloom");
+if (postProcBloom) {
+  postProcBloom.addEventListener("input", () => {
+    const val = Number(postProcBloom.value);
+    if (postProcBloomVal) postProcBloomVal.innerText = val.toFixed(2);
+    if (bluePenPass) {
+      bluePenPass.uniforms.bloomStrength.value = val;
+    }
+  });
+}
+
+// Radial Vignette Slider
+const postProcVignette = document.getElementById("settings-postproc-vignette") as HTMLInputElement | null;
+const postProcVignetteVal = document.getElementById("val-postproc-vignette");
+if (postProcVignette) {
+  postProcVignette.addEventListener("input", () => {
+    const val = Number(postProcVignette.value);
+    if (postProcVignetteVal) postProcVignetteVal.innerText = val.toFixed(2);
+    if (bluePenPass) {
+      bluePenPass.uniforms.vignetteIntensity.value = val;
+    }
+  });
+}
+
+// Chromatic Aberration Slider
+const postProcChroma = document.getElementById("settings-postproc-chroma") as HTMLInputElement | null;
+const postProcChromaVal = document.getElementById("val-postproc-chroma");
+if (postProcChroma) {
+  postProcChroma.addEventListener("input", () => {
+    const val = Number(postProcChroma.value);
+    if (postProcChromaVal) postProcChromaVal.innerText = val.toFixed(2);
+    if (bluePenPass) {
+      bluePenPass.uniforms.chromaticAberration.value = val;
+    }
+  });
+}
+
+// Toon Quantization Steps Slider
+const postProcToon = document.getElementById("settings-postproc-toon") as HTMLInputElement | null;
+const postProcToonVal = document.getElementById("val-postproc-toon");
+if (postProcToon) {
+  postProcToon.addEventListener("input", () => {
+    const val = Number(postProcToon.value);
+    if (postProcToonVal) postProcToonVal.innerText = val.toString();
+    if (bluePenPass) {
+      bluePenPass.uniforms.toonSteps.value = val;
+    }
+  });
+}
+
+// Shader FX Mode Selector
+const postProcFxMode = document.getElementById("settings-postproc-fxmode") as HTMLSelectElement | null;
+if (postProcFxMode) {
+  postProcFxMode.addEventListener("change", () => {
+    const val = Number(postProcFxMode.value);
+    if (bluePenPass) {
+      bluePenPass.uniforms.postMode.value = val;
     }
   });
 }
@@ -4763,3 +4818,24 @@ mobileNavBtns.forEach((btn) => {
     if (backdrop) backdrop.classList.add("active");
   });
 });
+
+// ============================================================
+// THEME SWITCHER HANDLER
+// ============================================================
+const themeSelect = document.getElementById("select-theme-toggle") as HTMLSelectElement | null;
+if (themeSelect) {
+  themeSelect.addEventListener("change", (e) => {
+    const targetTheme = (e.target as HTMLSelectElement).value;
+    document.documentElement.setAttribute("data-theme", targetTheme);
+    (window as any).currentTheme = targetTheme;
+    
+    // Apply theme materials if model manager exists
+    if ((window as any).modelManager && typeof (window as any).modelManager.applyThemePalette === 'function') {
+      (window as any).modelManager.applyThemePalette(targetTheme);
+    }
+    
+    // Sync GLSL post-processing pass (vignette, bloom glow, toon steps, ink outline)
+    syncPostProcessingWithTheme(targetTheme);
+  });
+}
+
