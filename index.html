@@ -10,7 +10,7 @@
     content="Enterprise BIM Viewer with IFC model loading, 3D navigation, digital twin data, and section cutting tools." />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@600;700&family=Patrick+Hand&family=Space+Grotesk:wght@500;600;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
 </head>
 
 <body>
@@ -73,6 +73,7 @@
             <span id="btn-4d-label">Activate 4D</span>
           </button>
           <select class="select-theme-toggle" id="btn-theme-toggle" title="Select Theme Palette">
+            <option value="pencil">✏️ Pencil & Paper (Minimalist)</option>
             <option value="dark">🔴 Dark Red</option>
             <option value="cozy">🍡 Cozy Studio (Warm Wood)</option>
             <option value="bluepen">✒️ Blue Pen (Drafting)</option>
@@ -376,7 +377,7 @@
                     <span>Show Logo</span>
                   </div>
                   <label class="toggle-switch">
-                    <input type="checkbox" id="settings-toggle-logo" checked />
+                    <input type="checkbox" id="settings-toggle-logo" />
                     <span class="toggle-slider"></span>
                   </label>
                 </div>
@@ -473,6 +474,37 @@
                   <span class="value-badge" id="val-dir-light">1.5</span>
                 </div>
                 <input type="range" class="custom-slider" id="dir-light-slider" min="0" max="4" step="0.1" value="1.5" />
+              </div>
+
+              <!-- Post-Processing Effect Settings -->
+              <div class="section-subtitle" style="font-size: 0.68rem; margin-top: 0.5rem; text-transform: uppercase; color: var(--text-dim); font-weight: 700; border-top: 1px solid var(--border-subtle); padding-top: 0.4rem;">
+                Post-Processing Effects
+              </div>
+
+              <div class="scene-control-item" style="display: flex; justify-content: space-between; align-items: center; background: var(--bg-card); border: 1px solid var(--border-subtle); padding: 0.35rem 0.6rem; border-radius: 8px;">
+                <div class="scene-control-label" style="display: flex; align-items: center; gap: 0.4rem; font-size: 0.7rem; color: var(--text-muted); font-weight: 600;">
+                  <span>Enable Post-Processing</span>
+                </div>
+                <label class="toggle-switch">
+                  <input type="checkbox" id="settings-toggle-postproc" checked />
+                  <span class="toggle-slider"></span>
+                </label>
+              </div>
+
+              <div class="control-row">
+                <div class="control-label" style="display: flex; justify-content: space-between; font-size: 0.7rem; color: var(--text-muted);">
+                  <span>Outline Line Thickness</span>
+                  <span class="value-badge" id="val-postproc-thickness">1.2</span>
+                </div>
+                <input type="range" class="custom-slider" id="settings-postproc-thickness" min="0.2" max="4.0" step="0.1" value="1.2" style="width: 100%;" />
+              </div>
+
+              <div class="control-row">
+                <div class="control-label" style="display: flex; justify-content: space-between; font-size: 0.7rem; color: var(--text-muted);">
+                  <span>Hand-Drawn Sketch Jitter</span>
+                  <span class="value-badge" id="val-postproc-jitter">0.0018</span>
+                </div>
+                <input type="range" class="custom-slider" id="settings-postproc-jitter" min="0" max="0.008" step="0.0002" value="0.0018" style="width: 100%;" />
               </div>
 
               <div class="tree-search">
@@ -930,21 +962,30 @@
                 <option value="10">10 Days/s</option>
               </select>
             </div>
+            
+            <button class="btn-secondary" id="btn-export-4d-csv" title="Download Auto-Generated 4D Schedule CSV Template" style="padding: 0.15rem 0.4rem; font-size: 0.65rem;">
+              📥 CSV Template
+            </button>
+            
+            <label class="btn-secondary" title="Upload Custom 4D Schedule CSV with Adjusted Dates" style="padding: 0.15rem 0.4rem; font-size: 0.65rem; cursor: pointer; display: inline-flex; align-items: center; gap: 0.2rem;">
+              📤 Import CSV
+              <input type="file" id="btn-import-4d-csv-input" accept=".csv" style="display: none;" />
+            </label>
           </div>
 
           <div class="timeline-legend">
-            <div class="legend-item">
-              <span class="legend-color legend-planned"></span>
+            <label class="legend-item" title="Click to change Planned status model color">
+              <input type="color" id="4d-color-planned" value="#6b7280" class="legend-color-picker" />
               <span>Planned</span>
-            </div>
-            <div class="legend-item">
-              <span class="legend-color legend-active"></span>
+            </label>
+            <label class="legend-item" title="Click to change In Progress status model color">
+              <input type="color" id="4d-color-active" value="#f59e0b" class="legend-color-picker" />
               <span>In Progress</span>
-            </div>
-            <div class="legend-item">
-              <span class="legend-color legend-complete"></span>
+            </label>
+            <label class="legend-item" title="Click to change Completed status model color">
+              <input type="color" id="4d-color-complete" value="#10b981" class="legend-color-picker" />
               <span>Completed</span>
-            </div>
+            </label>
           </div>
         </div>
       </div>

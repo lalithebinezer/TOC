@@ -138,6 +138,32 @@ export const THEME_PALETTES: ThemePalettes = {
     IFCBUILDINGELEMENTPROXY:'#A0826D',
   },
 
+  // ── Pencil & Paper Minimalist Theme (2 Colors: Graphite & White) ──
+  pencil: {
+    IFCWALL:                '#2C2C2C',  // graphite
+    IFCWALLSTANDARDCASE:    '#2C2C2C',
+    IFCSLAB:                '#3D3D3D',  // medium graphite
+    IFCCOLUMN:              '#1A1A1A',  // dark graphite
+    IFCBEAM:                '#2C2C2C',  // graphite
+    IFCDOOR:                '#1A1A1A',  // dark graphite
+    IFCWINDOW:              '#666666',  // light graphite (glass)
+    IFCROOF:                '#1A1A1A',  // dark graphite
+    IFCSTAIR:               '#2C2C2C',
+    IFCSTAIRFLIGHT:         '#2C2C2C',
+    IFCRAILING:             '#4A4A4A',
+    IFCFURNISHINGELEMENT:   '#333333',
+    IFCFLOWSEGMENT:         '#2C2C2C',  // MEP
+    IFCFLOWFITTING:         '#2C2C2C',
+    IFCFLOWTERMINAL:        '#333333',
+    IFCCOVERING:            '#555555',
+    IFCPLATE:               '#2C2C2C',
+    IFCMEMBER:              '#2C2C2C',
+    IFCFOOTING:             '#111111',
+    IFCBUILDINGSTOREY:      '#2C2C2C',
+    IFCSITE:                '#444444',
+    IFCBUILDINGELEMENTPROXY:'#2C2C2C',
+  },
+
   // ── Blue Pen / Blueprint Theme ──
   bluepen: {
     IFCWALL:                '#002395',  // royal blue

@@ -13,27 +13,60 @@ import { exportBOQAsCSV, generateBOQSummary, extractQuantityData, type BOQLineIt
 
 import { BCFManager } from "./bcf-manager";
 import { IDSChecker } from "./ids-checker";
+import { BimEngine } from "./core/BimEngine";
+import { ModelManager } from "./core/ModelManager";
+import { ViewportController } from "./core/ViewportController";
+import { ClippingModule } from "./modules/ClippingModule";
+import { QueryModule } from "./modules/QueryModule";
+import { IdsModule } from "./modules/IdsModule";
+import { Timeline4DModule } from "./modules/Timeline4DModule";
+import { Boq5DModule } from "./modules/Boq5DModule";
+import { FederationModule } from "./modules/FederationModule";
+import { CommandPalette } from "./ui/CommandPalette";
 
 BUI.Manager.init();
 
-// --- THEME TOGGLE ---
-function initTheme() {
-  const saved = localStorage.getItem('bim-theme-preset') || localStorage.getItem('bim-theme') || 'cozy';
-  document.documentElement.setAttribute('data-theme', saved);
-}
-initTheme();
-
-// --- 3D ENVIRONMENT SETUP ---
+// --- INITIALIZE ENTERPRISE BIM ENGINE ---
 const components = new OBC.Components();
 const worlds = components.get(OBC.Worlds);
 
-// Create world with SimpleScene, SimpleCamera, and PostproductionRenderer
 const world = worlds.create<
   OBC.ShadowedScene,
   OBC.OrthoPerspectiveCamera,
   OBF.PostproductionRenderer
 >();
 
+const scene = new OBC.ShadowedScene(components);
+world.scene = scene;
+(window as any).viewer_world = world;
+
+const container = document.getElementById("container")!;
+world.renderer = new OBF.PostproductionRenderer(components, container);
+world.renderer.three.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+world.renderer.three.shadowMap.enabled = true;
+world.renderer.three.shadowMap.type = THREE.PCFShadowMap;
+world.camera = new OBC.OrthoPerspectiveCamera(components);
+if (world.camera.controls) {
+  const controls = world.camera.controls as any;
+  controls.enabled = true;
+  if (controls.mouseButtons) {
+    controls.mouseButtons.left = 1;
+    controls.mouseButtons.right = 2;
+    controls.mouseButtons.wheel = 3;
+  }
+  if (controls.touches) {
+    controls.touches.one = 1;
+    controls.touches.two = 3;
+  }
+}
+world.camera.set("Orbit");
+
+scene.setup();
+scene.three.background = null;
+
+components.init();
+
+// Initialize Managers
 const scheduleManager = new ScheduleManager();
 (window as any).scheduleManager = scheduleManager;
 
@@ -44,56 +77,64 @@ bcfManager.init();
 const idsChecker = new IDSChecker(components);
 (window as any).idsChecker = idsChecker;
 
-const scene = new OBC.ShadowedScene(components);
-world.scene = scene;
-(window as any).viewer_world = world;
+// Initialize FragmentsManager early
+const fragments = components.get(OBC.FragmentsManager);
+fragments.init(import.meta.env.BASE_URL + "worker.mjs");
 
-const container = document.getElementById("container")!;
-world.renderer = new OBF.PostproductionRenderer(components, container);
-world.renderer.three.shadowMap.enabled = true;
-world.renderer.three.shadowMap.type = THREE.PCFShadowMap;
-world.camera = new OBC.OrthoPerspectiveCamera(components);
-if (world.camera.controls) {
-  const controls = world.camera.controls as any;
-  controls.enabled = true;
-  if (controls.mouseButtons) {
-    controls.mouseButtons.left = 1;  // CameraControls ACTION.ROTATE = 1
-    controls.mouseButtons.right = 2; // CameraControls ACTION.TRUCK = 2 (Pan)
-    controls.mouseButtons.wheel = 3; // CameraControls ACTION.DOLLY = 3 (Zoom)
-  }
-  if (controls.touches) {
-    controls.touches.one = 1; // ROTATE
-    controls.touches.two = 3; // DOLLY / PAN
-  }
-}
-world.camera.set("Orbit");
+const bimEngine = BimEngine.getInstance(components, world);
+const modelManager = new ModelManager();
+const viewportController = new ViewportController();
+const clippingModule = new ClippingModule();
+const queryModule = new QueryModule();
+const idsModule = new IdsModule();
+const timeline4DModule = new Timeline4DModule();
+const boq5DModule = new Boq5DModule();
+const federationModule = new FederationModule();
 
-// Wheel Zoom Handler for smooth canvas scrolling dolly zoom
-container.addEventListener("wheel", (e: WheelEvent) => {
-  e.preventDefault();
-  if (world.camera && world.camera.controls) {
-    const zoomFactor = e.deltaY > 0 ? 1.15 : 0.85;
-    world.camera.controls.dollyTo(world.camera.controls.distance * zoomFactor, true);
-  }
-}, { passive: false });
+(window as any).bimEngine = bimEngine;
+(window as any).modelManager = modelManager;
+(window as any).viewportController = viewportController;
+(window as any).federationModule = federationModule;
 
-scene.setup();
-scene.three.background = null; // Use transparent background for our body styling
+// Setup Command Palette (Ctrl + K)
+const commandPalette = new CommandPalette([
+  { label: "Isolate Architectural Discipline (ARQ)", action: () => federationModule.isolateDiscipline("ARQ") },
+  { label: "Isolate Structural Discipline (STR)", action: () => federationModule.isolateDiscipline("STR") },
+  { label: "Isolate MEP Discipline (MEP)", action: () => federationModule.isolateDiscipline("MEP") },
+  { label: "Reset All Federated Model Layers", action: () => federationModule.resetAllVisibility() },
+  { label: "Fit Camera to Federated Bounding Box", action: () => federationModule.fitCameraToFederation() },
+  { label: "Toggle Section Clipper Plane", action: () => clippingModule.createSectionPlane() },
+  { label: "Clear All Section Planes", action: () => clippingModule.deleteAllPlanes() },
+  { label: "Run IDS Door Compliance Audit", action: () => {
+      const spec = idsModule.createSampleDoorSpec();
+      idsModule.runAudit(spec);
+    } 
+  },
+  { label: "Toggle IDS Ghost View", action: () => idsModule.toggleGhostMode() },
+  { label: "Start 4D Simulation Playback", action: () => timeline4DModule.startSimulation() },
+  { label: "Stop 4D Simulation", action: () => timeline4DModule.stopSimulation() },
+  { label: "Export 5D BOQ as CSV", action: () => boq5DModule.exportCSV() },
+  { label: "Reset Model Visibility", action: () => queryModule.resetVisibility() },
+]);
+(window as any).commandPalette = commandPalette;
+
 world.onCameraChanged.add((camera) => {
   for (const [, model] of fragments.list) {
     model.useCamera(camera.three);
   }
 });
 if (world.renderer) {
-  world.renderer.showLogo = true;
+  world.renderer.showLogo = false;
 }
-
-// Initialize components system
-components.init();
 
 // Add Grid via OBC.Grids component
 const grids = components.get(OBC.Grids);
-const simpleGrid = grids.create(world);
+let simpleGrid: any;
+try {
+  simpleGrid = grids.create(world);
+} catch (e) {
+  simpleGrid = (grids as any).list?.values()?.next()?.value;
+}
 (window as any).viewer_grid = simpleGrid;
 
 const grid = new THREE.GridHelper(100, 100, 0x1d283a, 0x111926);
@@ -136,8 +177,6 @@ if (postproduction) {
 }
 
 // --- BIM & GEOMETRY INGESTION SETUP ---
-const fragments = components.get(OBC.FragmentsManager);
-fragments.init(import.meta.env.BASE_URL + "worker.mjs");
 const ifcLoader = components.get(OBC.IfcLoader);
 
 // --- CLIPPER (SECTION PLANES) SETUP ---
@@ -1252,19 +1291,42 @@ if (btnExportBoqCsv) {
   });
 }
 
-// Wire IDS Compliance Audit button
-const btnRunIdsAudit = document.getElementById("btn-run-ids-audit");
-if (btnRunIdsAudit) {
-  btnRunIdsAudit.addEventListener("click", async () => {
-    const originalHtml = btnRunIdsAudit.innerHTML;
-    btnRunIdsAudit.innerHTML = `<span>⏳ Auditing Model...</span>`;
-    const res = await idsChecker.validateBimDataReadiness();
-    if (res.passed) {
-      alert(`✅ IDS Validation Passed!\nChecked: ${res.totalChecked} elements\nAll elements contain required 4D/5D properties.`);
-    } else {
-      alert(`⚠️ IDS Validation Results:\nChecked: ${res.totalChecked} elements\nPassed: ${res.passCount}\nFailed: ${res.failCount}\n\nFailing Categories:\n${res.failingCategories.join("\n") || "Some elements missing Qto_WallBaseQuantities"}`);
+// Wire 4D Schedule CSV Template Export & Import Listeners
+const btnExport4dCsv = document.getElementById("btn-export-4d-csv");
+if (btnExport4dCsv) {
+  btnExport4dCsv.addEventListener("click", () => {
+    const csvData = scheduleManager.exportScheduleTemplateCSV();
+    const blob = new Blob([csvData], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `4D_Schedule_Template_${new Date().toISOString().split("T")[0]}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+    updateViewportHint("📥 4D Schedule CSV Template downloaded! Open in Excel to edit task dates.");
+  });
+}
+
+const btnImport4dCsvInput = document.getElementById("btn-import-4d-csv-input") as HTMLInputElement | null;
+if (btnImport4dCsvInput) {
+  btnImport4dCsvInput.addEventListener("change", async (e) => {
+    const target = e.target as HTMLInputElement;
+    if (target.files && target.files[0]) {
+      const file = target.files[0];
+      const text = await file.text();
+      const count = scheduleManager.importScheduleFromCSV(text);
+      if (count > 0) {
+        calculateTimelineBounds();
+        if (currentTimelineDate) {
+          await updateTimelineVisualState();
+        }
+        alert(`✅ Imported ${count} custom 4D schedule tasks from CSV!\nTimeline and simulation playback updated.`);
+        updateViewportHint(`✅ Custom 4D Schedule CSV applied (${count} tasks updated)`);
+      } else {
+        alert("⚠️ Could not parse valid 4D tasks from the CSV file. Please check column headers (TaskID, StartDate, EndDate).");
+      }
+      target.value = "";
     }
-    btnRunIdsAudit.innerHTML = originalHtml;
   });
 }
 
@@ -1401,6 +1463,18 @@ const initBim = async () => {
         }
       }
 
+      // Fit camera to model bounding box so loaded model is immediately visible in view
+      try {
+        const bbox = new THREE.Box3().setFromObject(model.object);
+        if (!bbox.isEmpty() && world.camera.controls) {
+          const sphere = new THREE.Sphere();
+          bbox.getBoundingSphere(sphere);
+          world.camera.controls.fitToSphere(sphere, true);
+        }
+      } catch (err) {
+        console.warn("Camera fitToSphere fallback:", err);
+      }
+
       fragments.core.update(true);
     });
 
@@ -1441,7 +1515,10 @@ const initBim = async () => {
     });
 
     // Hide initial loader overlay once initialized
-    document.getElementById("loading-overlay")!.classList.add("hidden");
+    const loadingOverlay = document.getElementById("loading-overlay");
+    if (loadingOverlay) {
+      loadingOverlay.classList.add("hidden");
+    }
 
     // Force renderer to resize and update layout
     if (world.renderer) {
@@ -1688,6 +1765,7 @@ async function loadModelData(name: string, buffer: Uint8Array) {
 
     if (model) {
       (window as any).viewer_model = model;
+      federationModule.registerModel(model, name);
       // Enable shadows if checked
       const shadowsToggleEl = document.getElementById("settings-toggle-shadows") as HTMLInputElement | null;
       const shadowsOn = shadowsToggleEl?.checked ?? false;
@@ -1719,6 +1797,21 @@ async function loadModelData(name: string, buffer: Uint8Array) {
       // Sync/generate local database twin properties using classifications
       await initializeModelTwinData(model);
 
+      // Auto-populate 4D Schedule tasks for all elements and categories in loaded model
+      const categoriesGroup = classifier.list.get("Categories");
+      if (categoriesGroup) {
+        const catMap = new Map<string, { modelId: string; elementIds: number[] }[]>();
+        for (const [catName, groupData] of categoriesGroup) {
+          const res = await groupData.get();
+          const itemsArr: { modelId: string; elementIds: number[] }[] = [];
+          for (const mId in res) {
+            itemsArr.push({ modelId: mId, elementIds: Array.from(res[mId]) });
+          }
+          catMap.set(catName, itemsArr);
+        }
+        scheduleManager.generateFromCategories(catMap);
+      }
+
       // Update 5D cumulative project budget now that twin data is populated
       if (typeof (window as any).updateCumulative5DCost === 'function') {
         (window as any).updateCumulative5DCost();
@@ -1736,9 +1829,11 @@ async function loadModelData(name: string, buffer: Uint8Array) {
       window.dispatchEvent(new Event('resize'));
 
       // Sync 4D simulation state for newly loaded model
-      calculateTimelineBounds();
-      if (is4dMode) {
-        updateTimelineVisualState();
+      if (typeof calculateTimelineBounds === 'function') {
+        calculateTimelineBounds();
+      }
+      if (is4dMode && typeof (window as any).updateTimelineVisualState === 'function') {
+        (window as any).updateTimelineVisualState();
       }
 
       // Fit camera controls box around loaded model
@@ -1833,6 +1928,7 @@ if (loadSampleBtn) {
 // Theme-to-3D mapping: paper (model fill), ink (edges), grid colors
 const themeVisualMap: Record<string, { paper: string; ink: string; jitter: number; gridMajor: string; gridMinor: string }> = {
   // Sketch / artistic themes — strong jitter for hand-drawn feel
+  pencil:    { paper: "#FFFFFF", ink: "#2C2C2C", jitter: 0.0028, gridMajor: "#D0D0D0", gridMinor: "#E5E5E5" },
   bluepen:   { paper: "#F9F9F6", ink: "#002395", jitter: 0.0018, gridMajor: "#b0b8d0", gridMinor: "#d8dce8" },
   blueprint: { paper: "#051e44", ink: "#ffffff", jitter: 0.0012, gridMajor: "#1e4785", gridMinor: "#0c3066" },
   cozy:      { paper: "#DDA380", ink: "#2C2621", jitter: 0.0010, gridMajor: "#A8785A", gridMinor: "#C4956F" },
@@ -2294,6 +2390,47 @@ dirSlider.addEventListener("input", () => {
   }
 });
 
+
+
+// Post-Processing Settings Event Bindings
+const postProcToggle = document.getElementById("settings-toggle-postproc") as HTMLInputElement | null;
+if (postProcToggle) {
+  postProcToggle.addEventListener("change", () => {
+    const enabled = postProcToggle.checked;
+    if (postproduction) {
+      postproduction.enabled = enabled;
+    }
+    if (bluePenPass) {
+      bluePenPass.uniforms.enabled.value = enabled ? 1.0 : 0.0;
+    }
+    fragments.core.update(true);
+  });
+}
+
+const postProcThickness = document.getElementById("settings-postproc-thickness") as HTMLInputElement | null;
+const postProcThicknessVal = document.getElementById("val-postproc-thickness");
+if (postProcThickness) {
+  postProcThickness.addEventListener("input", () => {
+    const val = Number(postProcThickness.value);
+    if (postProcThicknessVal) postProcThicknessVal.innerText = val.toFixed(1);
+    if (bluePenPass) {
+      bluePenPass.uniforms.lineThickness.value = val;
+    }
+  });
+}
+
+const postProcJitter = document.getElementById("settings-postproc-jitter") as HTMLInputElement | null;
+const postProcJitterVal = document.getElementById("val-postproc-jitter");
+if (postProcJitter) {
+  postProcJitter.addEventListener("input", () => {
+    const val = Number(postProcJitter.value);
+    if (postProcJitterVal) postProcJitterVal.innerText = val.toFixed(4);
+    if (bluePenPass) {
+      bluePenPass.uniforms.jitterAmount.value = val;
+    }
+  });
+}
+
 const bgColorPicker = document.getElementById("settings-bg-color")! as HTMLInputElement;
 bgColorPicker.addEventListener("input", () => {
   const color = bgColorPicker.value;
@@ -2377,6 +2514,31 @@ hoverColorPicker.addEventListener("input", () => {
     style.color = new THREE.Color(colorHex);
   }
 });
+
+// Interactive 4D Simulation Status Color Pickers
+const plannedColorPicker = document.getElementById("4d-color-planned") as HTMLInputElement | null;
+if (plannedColorPicker) {
+  plannedColorPicker.addEventListener("input", () => {
+    ScheduleManager.statusColors['Planned'] = plannedColorPicker.value;
+    if (currentTimelineDate) updateTimelineVisualState();
+  });
+}
+
+const activeColorPicker = document.getElementById("4d-color-active") as HTMLInputElement | null;
+if (activeColorPicker) {
+  activeColorPicker.addEventListener("input", () => {
+    ScheduleManager.statusColors['In Progress'] = activeColorPicker.value;
+    if (currentTimelineDate) updateTimelineVisualState();
+  });
+}
+
+const completeColorPicker = document.getElementById("4d-color-complete") as HTMLInputElement | null;
+if (completeColorPicker) {
+  completeColorPicker.addEventListener("input", () => {
+    ScheduleManager.statusColors['Completed'] = completeColorPicker.value;
+    if (currentTimelineDate) updateTimelineVisualState();
+  });
+}
 
 const clearSelectionColorsBtn = document.getElementById("btn-clear-select-colors")!;
 clearSelectionColorsBtn.addEventListener("click", async () => {

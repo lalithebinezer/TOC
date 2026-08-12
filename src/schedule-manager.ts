@@ -209,16 +209,113 @@ export class ScheduleManager {
     return result;
   }
 
+  public static statusColors: Record<TaskStatus, string> = {
+    'Planned': '#6B7280',
+    'In Progress': '#F59E0B',
+    'Completed': '#10B981',
+  };
+
   /**
    * Get task status color for timeline visualization.
    */
   static getStatusColor(status: TaskStatus): string {
-    switch (status) {
-      case 'Planned': return '#6B7280';      // grey
-      case 'In Progress': return '#F59E0B';  // amber
-      case 'Completed': return '#10B981';    // green
-      default: return '#6B7280';
+    return this.statusColors[status] || '#6B7280';
+  }
+
+  /**
+   * Export all tasks as a downloadable CSV template.
+   */
+  exportScheduleTemplateCSV(): string {
+    const headers = ["TaskID", "TaskName", "Category", "StartDate", "EndDate", "Status", "ModelID", "ElementCount", "ExpressIDs", "UnitCost"];
+    const rows: string[] = [headers.join(",")];
+
+    for (const [, task] of this.tasks) {
+      const expressIdsStr = `"${Array.from(task.elementIds).join(";")}"`;
+      const cleanTaskName = `"${task.name.replace(/"/g, '""')}"`;
+      const row = [
+        task.id,
+        cleanTaskName,
+        task.category,
+        task.startDate,
+        task.endDate,
+        task.status,
+        task.modelId,
+        task.elementIds.size,
+        expressIdsStr,
+        task.unitCost || 0
+      ];
+      rows.push(row.join(","));
     }
+
+    return rows.join("\n");
+  }
+
+  /**
+   * Import schedule CSV and update tasks and element data.
+   */
+  importScheduleFromCSV(csvText: string): number {
+    const lines = csvText.split(/\r?\n/).filter(line => line.trim().length > 0);
+    if (lines.length <= 1) return 0;
+
+    let importedCount = 0;
+    const headerLine = lines[0];
+    const headers = headerLine.split(",").map(h => h.trim().replace(/^"|"$/g, ""));
+
+    const idIdx = headers.indexOf("TaskID");
+    const nameIdx = headers.indexOf("TaskName");
+    const catIdx = headers.indexOf("Category");
+    const startIdx = headers.indexOf("StartDate");
+    const endIdx = headers.indexOf("EndDate");
+    const statusIdx = headers.indexOf("Status");
+    const modelIdx = headers.indexOf("ModelID");
+    const idsIdx = headers.indexOf("ExpressIDs");
+    const costIdx = headers.indexOf("UnitCost");
+
+    for (let i = 1; i < lines.length; i++) {
+      // Basic CSV regex split supporting quoted commas
+      const cols = lines[i].match(/(".*?"|[^",\s]+)(?=\s*,|\s*$)/g) || lines[i].split(",");
+      if (cols.length < 5) continue;
+
+      const getCol = (idx: number) => (idx >= 0 && cols[idx] ? cols[idx].trim().replace(/^"|"$/g, "") : "");
+
+      const id = getCol(idIdx) || `csv-task-${i}`;
+      const name = getCol(nameIdx) || `Custom Task ${i}`;
+      const category = getCol(catIdx) || "IFCELEMENT";
+      const startDate = getCol(startIdx);
+      const endDate = getCol(endIdx);
+      const status = (getCol(statusIdx) as TaskStatus) || "Planned";
+      const modelId = getCol(modelIdx) || "";
+      const idsRaw = getCol(idsIdx);
+      const unitCost = Number(getCol(costIdx)) || 0;
+
+      if (!startDate || !endDate) continue;
+
+      const elementIds = new Set<number>();
+      if (idsRaw) {
+        idsRaw.split(";").forEach(val => {
+          const num = Number(val.trim());
+          if (!isNaN(num) && num > 0) elementIds.add(num);
+        });
+      }
+
+      const task: ScheduleTask = {
+        id,
+        name,
+        category,
+        startDate,
+        endDate,
+        status,
+        elementIds,
+        modelId,
+        unitCost,
+        quantity: elementIds.size,
+      };
+
+      this.tasks.set(id, task);
+      importedCount++;
+    }
+
+    return importedCount;
   }
 
   /**
