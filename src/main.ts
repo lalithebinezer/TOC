@@ -98,6 +98,15 @@ const federationModule = new FederationModule();
 
 // Setup Command Palette (Ctrl + K)
 const commandPalette = new CommandPalette([
+  { label: "Switch to ⛩️ Zen Infrastructure Theme", action: () => {
+      const themeSelect = document.getElementById("btn-theme-toggle") as HTMLSelectElement | null;
+      if (themeSelect) {
+        themeSelect.value = "zen";
+        themeSelect.dispatchEvent(new Event("change"));
+      }
+    } 
+  },
+  { label: "Toggle Zen Ghost Workspace (Transparent Model)", action: () => idsModule.toggleGhostMode() },
   { label: "Isolate Architectural Discipline (ARQ)", action: () => federationModule.isolateDiscipline("ARQ") },
   { label: "Isolate Structural Discipline (STR)", action: () => federationModule.isolateDiscipline("STR") },
   { label: "Isolate MEP Discipline (MEP)", action: () => federationModule.isolateDiscipline("MEP") },
@@ -110,7 +119,6 @@ const commandPalette = new CommandPalette([
       idsModule.runAudit(spec);
     } 
   },
-  { label: "Toggle IDS Ghost View", action: () => idsModule.toggleGhostMode() },
   { label: "Start 4D Simulation Playback", action: () => timeline4DModule.startSimulation() },
   { label: "Stop 4D Simulation", action: () => timeline4DModule.stopSimulation() },
   { label: "Export 5D BOQ as CSV", action: () => boq5DModule.exportCSV() },
@@ -1927,6 +1935,9 @@ if (loadSampleBtn) {
 
 // Theme-to-3D mapping: paper (model fill), ink (edges), grid colors
 const themeVisualMap: Record<string, { paper: string; ink: string; jitter: number; gridMajor: string; gridMinor: string }> = {
+  // Zen Infrastructure Theme (Kintsugi Gold & Dark Void)
+  zen:       { paper: "#0C1014", ink: "#D4AF37", jitter: 0.0008, gridMajor: "#2C2614", gridMinor: "#181A1A" },
+
   // Sketch / artistic themes — strong jitter for hand-drawn feel
   pencil:    { paper: "#FFFFFF", ink: "#2C2C2C", jitter: 0.0028, gridMajor: "#D0D0D0", gridMinor: "#E5E5E5" },
   bluepen:   { paper: "#F9F9F6", ink: "#002395", jitter: 0.0018, gridMajor: "#b0b8d0", gridMinor: "#d8dce8" },

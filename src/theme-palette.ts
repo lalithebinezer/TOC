@@ -164,6 +164,32 @@ export const THEME_PALETTES: ThemePalettes = {
     IFCBUILDINGELEMENTPROXY:'#2C2C2C',
   },
 
+  // ── Zen Infrastructure Theme (Kintsugi Gold & Charcoal) ──
+  zen: {
+    IFCWALL:                '#333535',  // slate charcoal
+    IFCWALLSTANDARDCASE:    '#333535',
+    IFCSLAB:                '#1A1C1C',  // deep charcoal
+    IFCCOLUMN:              '#D4AF37',  // kintsugi liquid gold
+    IFCBEAM:                '#B5952F',  // antique gold
+    IFCDOOR:                '#FFD700',  // electric amber gold
+    IFCWINDOW:              '#60A5FA',  // translucent ice blue (glass)
+    IFCROOF:                '#997A20',  // dark metallic gold
+    IFCSTAIR:               '#C5A028',  // brushed gold
+    IFCSTAIRFLIGHT:         '#C5A028',
+    IFCRAILING:             '#F59E0B',  // amber gold
+    IFCFURNISHINGELEMENT:   '#D4AF37',  // liquid gold
+    IFCFLOWSEGMENT:         '#EC4899',  // hot pink MEP accent
+    IFCFLOWFITTING:         '#EC4899',
+    IFCFLOWTERMINAL:        '#F97316',  // neon orange MEP accent
+    IFCCOVERING:            '#84CC16',  // lime
+    IFCPLATE:               '#D4AF37',  // gold plate
+    IFCMEMBER:              '#B5952F',  // antique gold member
+    IFCFOOTING:             '#0C0F0F',  // obsidian foundation
+    IFCBUILDINGSTOREY:      '#333535',
+    IFCSITE:                '#151D1E',  // deep site
+    IFCBUILDINGELEMENTPROXY:'#D4AF37',
+  },
+
   // ── Blue Pen / Blueprint Theme ──
   bluepen: {
     IFCWALL:                '#002395',  // royal blue
