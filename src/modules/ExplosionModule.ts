@@ -1,5 +1,4 @@
 import * as THREE from "three";
-import * as OBC from "@thatopen/components";
 import { BimEngine } from "../core/BimEngine";
 
 export class ExplosionModule {

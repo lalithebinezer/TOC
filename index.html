@@ -727,6 +727,7 @@
 
                 <div class="section-subtitle" style="margin-top: 0.4rem;">5D Category Cost Breakdown</div>
                 <div id="cost-breakdown-chart-container" style="width: 100%; margin-bottom: 0.6rem;"></div>
+                <div id="scurve-chart-container" style="width: 100%; margin-bottom: 0.6rem;"></div>
 
                 <div class="form-inputs-group">
                   <div class="form-input-box">
@@ -1409,9 +1410,13 @@
           id="ticker-camera-mode">3D PERSPECTIVE ORBIT</span></div>
     </div>
 
-    <!-- Credit Watermark -->
-    <a id="credit-watermark" href="https://www.linkedin.com/in/lalith-ebinezer/" target="_blank"
-      rel="noopener noreferrer">by Lalith Ebinezer</a>
+    <!-- Logo + Credit Watermark -->
+    <div id="logo-credit-group" style="position: fixed; bottom: 36px; left: 14px; z-index: 50; display: flex; flex-direction: column; align-items: flex-start; gap: 0.25rem;">
+      <img id="viewer-logo" src="logo.jpg" alt="BIM Viewer Pro Logo"
+        style="display: none; width: 52px; height: 52px; border-radius: 8px; border: 1.5px solid var(--border-subtle); box-shadow: 0 4px 16px rgba(0,0,0,0.45); object-fit: cover; transition: opacity 0.3s ease;" />
+      <a id="credit-watermark" href="https://www.linkedin.com/in/lalith-ebinezer/" target="_blank"
+        rel="noopener noreferrer">by Lalith Ebinezer</a>
+    </div>
 
     <!-- Welcome Tutorial / Help Modal -->
     <div class="help-modal-overlay hidden" id="shortcuts-modal" aria-modal="true" role="dialog"

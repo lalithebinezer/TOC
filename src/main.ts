@@ -2651,10 +2651,14 @@ gridToggle.addEventListener("change", () => {
 });
 
 const logoToggle = document.getElementById("settings-toggle-logo")! as HTMLInputElement;
+const viewerLogoEl = document.getElementById("viewer-logo") as HTMLImageElement | null;
 logoToggle.addEventListener("change", () => {
   try {
     if (world.renderer) {
       world.renderer.showLogo = logoToggle.checked;
+    }
+    if (viewerLogoEl) {
+      viewerLogoEl.style.display = logoToggle.checked ? "block" : "none";
     }
   } catch (e) {
     console.error("Failed to toggle logo:", e);

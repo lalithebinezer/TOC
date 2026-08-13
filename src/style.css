@@ -364,10 +364,6 @@ header, .sidebar, .tactical-ticker-bar {
 
 /* ── Credit Watermark ── */
 #credit-watermark {
-  position: fixed;
-  bottom: 40px;
-  left: 14px;
-  z-index: 50;
   font-family: var(--font-mono);
   font-size: 10px;
   font-weight: 700;
@@ -2873,9 +2869,7 @@ input[type="range"].custom-slider {
 .sidebar-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(8, 12, 24, 0.5);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
+  background: transparent;
   z-index: 85;
   opacity: 0;
   pointer-events: none;

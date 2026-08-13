@@ -49,7 +49,9 @@ export class ClippingModule {
 
   public setSectionBoxEnabled(enabled: boolean) {
     this.sectionBoxEnabled = enabled;
-    const rendererThree = this.engine.world.renderer.three;
+    const renderer = this.engine.world.renderer;
+    if (!renderer) return;
+    const rendererThree = renderer.three;
     
     if (enabled) {
       rendererThree.clippingPlanes = this.sectionPlanes;

@@ -102,10 +102,12 @@ export class MinimapHUD {
     }
 
     const camPos = new THREE.Vector3();
-    this.engine.world.camera.controls.getPosition(camPos);
+    const cam = this.engine.world.camera;
+    if (!cam || !cam.controls) return;
+    cam.controls.getPosition(camPos);
 
     const dir = new THREE.Vector3();
-    this.engine.world.camera.three.getWorldDirection(dir);
+    cam.three.getWorldDirection(dir);
     const angle = Math.atan2(dir.x, dir.z);
 
     // Draw model footprint box
