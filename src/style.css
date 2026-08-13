@@ -705,10 +705,15 @@ body.mode-4d .schedule-widget[data-4d] {
   flex-direction: column;
 }
 
-/* Timeline panel is a flex column */
+/* Timeline panel is a flex column when active */
 body.mode-4d #timeline-panel[data-4d] {
   display: flex !important;
-  flex-direction: column;
+  flex-direction: column !important;
+  position: fixed !important;
+  bottom: calc(36px + 1rem) !important;
+  left: 50% !important;
+  transform: translateX(-50%) !important;
+  z-index: 9999 !important;
 }
 
 /* The 4D/5D section inside properties panel is a block wrapper */
