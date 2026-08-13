@@ -3968,11 +3968,13 @@ window.addEventListener("keydown", (e) => {
   }
 });
 
-const btnClearMeasurements = document.getElementById("btn-clear-measurements")!;
-btnClearMeasurements.addEventListener("click", () => {
-  measurements.list.clear();
-  measurements.cancelCreation();
-});
+const btnClearMeasurements = document.getElementById("btn-clear-measurements");
+if (btnClearMeasurements) {
+  btnClearMeasurements.addEventListener("click", () => {
+    measurements.list.clear();
+    measurements.cancelCreation();
+  });
+}
 
 // --- BCF ISSUE MANAGEMENT BINDINGS ---
 const btnCreateBcfTopic = document.getElementById("btn-create-bcf-topic");
