@@ -1904,7 +1904,8 @@ async function loadModelData(name: string, buffer: Uint8Array) {
         clearInterval(interval);
         progress.innerText = "100%";
         
-        model = await fragments.core.load(cachedBuffer, { modelId: name } as any);
+        const fragData = cachedBuffer instanceof Uint8Array ? cachedBuffer : new Uint8Array(cachedBuffer as any);
+        model = await fragments.core.load(fragData, { modelId: name } as any);
       } else {
         console.log(`Cache miss for ${name}. Converting IFC via WASM loader with complete attributes & relations...`);
         text.innerText = "Converting IFC to Fragments (All Attributes & Relations)...";
@@ -1934,7 +1935,8 @@ async function loadModelData(name: string, buffer: Uint8Array) {
         }
       }
     } else {
-      model = await fragments.core.load(buffer, { modelId: name } as any);
+      const fragData = buffer instanceof Uint8Array ? buffer : new Uint8Array(buffer as any);
+      model = await fragments.core.load(fragData, { modelId: name } as any);
     }
 
     clearInterval(interval);
