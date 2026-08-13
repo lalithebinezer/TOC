@@ -536,6 +536,9 @@ header {
   display: flex;
   align-items: center;
   gap: 0.5rem;
+  position: relative;
+  z-index: 100;
+  pointer-events: auto;
 }
 
 .btn-shortcuts-toggle {
@@ -643,6 +646,9 @@ header {
   box-shadow: 2px 2px 0px #000000;
   transition: all var(--ease-fast);
   white-space: nowrap;
+  position: relative;
+  z-index: 101;
+  pointer-events: auto;
 }
 
 .btn-4d-mode:hover {
