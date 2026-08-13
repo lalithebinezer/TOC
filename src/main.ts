@@ -216,7 +216,15 @@ world.onCameraChanged.add((camera) => {
   for (const [, model] of fragments.list) {
     model.useCamera(camera.three);
   }
+  MinimapHUD.getInstance().update();
 });
+
+// Continuously update MinimapHUD on render loops
+function animateHUD() {
+  MinimapHUD.getInstance().update();
+  requestAnimationFrame(animateHUD);
+}
+animateHUD();
 if (world.renderer) {
   world.renderer.showLogo = false;
 }
