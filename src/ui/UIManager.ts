@@ -23,30 +23,55 @@ export class UIManager {
   }
 
   public setupSettingsCategorySystem() {
-    const nav = document.getElementById("scene-settings-cat-nav");
-    if (!nav) return;
+    const sceneNav = document.getElementById("scene-settings-cat-nav");
+    if (sceneNav) {
+      sceneNav.querySelectorAll(".settings-cat-btn").forEach((btn) => {
+        btn.addEventListener("click", (e) => {
+          const target = e.currentTarget as HTMLElement;
+          const cat = target.getAttribute("data-cat");
+          if (!cat) return;
 
-    nav.querySelectorAll(".settings-cat-btn").forEach((btn) => {
-      btn.addEventListener("click", (e) => {
-        const target = e.currentTarget as HTMLElement;
-        const cat = target.getAttribute("data-cat");
-        if (!cat) return;
+          sceneNav.querySelectorAll(".settings-cat-btn").forEach((b) => b.classList.remove("active"));
+          target.classList.add("active");
 
-        nav.querySelectorAll(".settings-cat-btn").forEach((b) => b.classList.remove("active"));
-        target.classList.add("active");
-
-        document.querySelectorAll(".settings-cat-panel").forEach((panel) => {
-          const el = panel as HTMLElement;
-          if (el.id === `scat-${cat}`) {
-            el.style.display = "block";
-            el.classList.add("active");
-          } else {
-            el.style.display = "none";
-            el.classList.remove("active");
-          }
+          document.querySelectorAll(".settings-cat-panel").forEach((panel) => {
+            const el = panel as HTMLElement;
+            if (el.id === `scat-${cat}`) {
+              el.style.display = "block";
+              el.classList.add("active");
+            } else {
+              el.style.display = "none";
+              el.classList.remove("active");
+            }
+          });
         });
       });
-    });
+    }
+
+    const toolsNav = document.getElementById("tools-settings-cat-nav");
+    if (toolsNav) {
+      toolsNav.querySelectorAll(".tools-cat-btn").forEach((btn) => {
+        btn.addEventListener("click", (e) => {
+          const target = e.currentTarget as HTMLElement;
+          const tcat = target.getAttribute("data-tcat");
+          if (!tcat) return;
+
+          toolsNav.querySelectorAll(".tools-cat-btn").forEach((b) => b.classList.remove("active"));
+          target.classList.add("active");
+
+          document.querySelectorAll(".tools-cat-panel").forEach((panel) => {
+            const el = panel as HTMLElement;
+            if (el.id === `tcat-${tcat}`) {
+              el.style.display = "flex";
+              el.classList.add("active");
+            } else {
+              el.style.display = "none";
+              el.classList.remove("active");
+            }
+          });
+        });
+      });
+    }
   }
 
   public setupSidebarTabSystem() {
