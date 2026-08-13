@@ -64,9 +64,14 @@ export class SceneManager {
     // Sync UI Controls & Badges while respecting user's toggle state
     const postProcToggle = document.getElementById("settings-toggle-postproc") as HTMLInputElement | null;
     const postproduction = this.postproduction;
-    const isEnabled = postProcToggle ? postProcToggle.checked : (postproduction ? postproduction.enabled : true);
+    const isEnabled = postProcToggle ? postProcToggle.checked : false;
     if (postproduction) {
-      postproduction.enabled = isEnabled;
+      try {
+        postproduction.enabled = isEnabled;
+      } catch (e) {
+        // Base pass initialized lazily by @thatopen/components
+        console.warn("Postproduction base pass lazy initialization:", e);
+      }
     }
     if (this.bluePenPass) {
       this.bluePenPass.uniforms.enabled.value = isEnabled ? 1.0 : 0.0;
