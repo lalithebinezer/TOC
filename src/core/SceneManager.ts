@@ -26,7 +26,12 @@ export class SceneManager {
     if (postproduction) {
       const postProcToggle = document.getElementById("settings-toggle-postproc") as HTMLInputElement | null;
       const isEnabled = postProcToggle ? postProcToggle.checked : false;
-      postproduction.enabled = isEnabled;
+      try {
+        postproduction.enabled = isEnabled;
+      } catch (e) {
+        // Base pass initialized lazily by @thatopen/components
+        console.warn("Postproduction base pass lazy initialization:", e);
+      }
       if (postproduction.composer) {
         this.bluePenPass = new ShaderPass(BluePenShader as any);
         if (postproduction.depthTexture) {
