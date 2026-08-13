@@ -64,19 +64,22 @@ if (!camAny._navigationModes.has("Orbit")) {
 }
 world.camera.set("Orbit");
 if (world.camera.threePersp) {
+  world.camera.threePersp.fov = 55;
   world.camera.threePersp.near = 0.01;
+  world.camera.threePersp.far = 3000;
   world.camera.threePersp.updateProjectionMatrix();
 }
 if (world.camera.threeOrtho) {
   world.camera.threeOrtho.near = 0.01;
+  world.camera.threeOrtho.far = 3000;
   world.camera.threeOrtho.updateProjectionMatrix();
 }
 if (world.camera.controls) {
   const controls = world.camera.controls as any;
   controls.enabled = true;
   controls.dollyToCursor = true;
-  controls.dollySpeed = 1.2;
-  controls.zoomSpeed = 1.2;
+  controls.dollySpeed = 0.3;
+  controls.zoomSpeed = 0.3;
   if (controls.mouseButtons) {
     controls.mouseButtons.left = CameraControls.ACTION.ROTATE;
     controls.mouseButtons.right = CameraControls.ACTION.TRUCK;
