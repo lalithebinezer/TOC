@@ -831,18 +831,22 @@ body.mode-4d::after {
 
 .sidebar-tab-badge {
   font-family: var(--font-mono);
-  font-size: 0.56rem;
+  font-size: 0.52rem;
   font-weight: 800;
   background: #000000;
   color: #ffffff;
-  padding: 0.05rem 0.25rem;
+  padding: 0.05rem 0.2rem;
   border-radius: 2px;
   line-height: 1;
+  max-width: 42px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .sidebar-tab-btn.active .sidebar-tab-badge {
   background: #ffffff;
-  color: var(--accent-500);
+  color: #000000;
 }
 
 /* ── Tab Content Panels ── */
