@@ -4686,7 +4686,15 @@ function apply4dMode(active: boolean) {
 // Restore last 4D mode state on load
 apply4dMode(is4dMode);
 
-btn4dMode.addEventListener('click', () => apply4dMode(!is4dMode));
+if (btn4dMode) {
+  btn4dMode.addEventListener('click', (e) => {
+    e.stopPropagation();
+    apply4dMode(!is4dMode);
+  });
+}
+(window as any).toggle4DMode = (active?: boolean) => {
+  apply4dMode(typeof active === 'boolean' ? active : !is4dMode);
+};
 
 // --- 3D VIEW CUBE CONTROLLER ---
 async function orientCameraToFace(face: string) {
