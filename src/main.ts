@@ -4682,6 +4682,10 @@ function apply4dMode(active: boolean) {
     calculateTimelineBounds();
     updateScheduleWidgetUI();
     updateTimelineVisualState();
+    // Auto-open 4D Schedule drawer panel on left sidebar for immediate access
+    if (typeof (window as any).switchSidebarTab === 'function') {
+      (window as any).switchSidebarTab('left-tab-bar', 'schedule');
+    }
   } else {
     document.body.classList.remove('mode-4d');
     if (btn4dMode) btn4dMode.classList.remove('active');
