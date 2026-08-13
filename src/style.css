@@ -760,7 +760,7 @@ body.mode-4d::after {
 /* Sidebar Module Segmented Tabs Header */
 .sidebar-tab-bar {
   display: flex;
-  gap: 0.2rem;
+  gap: 0.25rem;
   background: var(--bg-card);
   padding: 0.25rem;
   border: 3px solid #000000;
@@ -778,15 +778,15 @@ body.mode-4d::after {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 0.2rem;
-  padding: 0.35rem 0.1rem;
+  gap: 0.25rem;
+  padding: 0.4rem 0.25rem;
   min-width: 0;
   background: var(--bg-input);
   border: 2px solid #000000;
   border-radius: 2px;
   color: var(--text-primary);
   font-family: var(--font-body);
-  font-size: 0.64rem;
+  font-size: 0.65rem;
   font-weight: 800;
   letter-spacing: 0.02em;
   cursor: pointer;
