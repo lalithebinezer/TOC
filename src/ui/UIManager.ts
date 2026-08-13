@@ -17,8 +17,36 @@ export class UIManager {
 
   public init() {
     this.setupSidebarTabSystem();
+    this.setupSettingsCategorySystem();
     this.setupHelpModalController();
     this.setupMobileNavigation();
+  }
+
+  public setupSettingsCategorySystem() {
+    const nav = document.getElementById("scene-settings-cat-nav");
+    if (!nav) return;
+
+    nav.querySelectorAll(".settings-cat-btn").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        const target = e.currentTarget as HTMLElement;
+        const cat = target.getAttribute("data-cat");
+        if (!cat) return;
+
+        nav.querySelectorAll(".settings-cat-btn").forEach((b) => b.classList.remove("active"));
+        target.classList.add("active");
+
+        document.querySelectorAll(".settings-cat-panel").forEach((panel) => {
+          const el = panel as HTMLElement;
+          if (el.id === `scat-${cat}`) {
+            el.style.display = "block";
+            el.classList.add("active");
+          } else {
+            el.style.display = "none";
+            el.classList.remove("active");
+          }
+        });
+      });
+    });
   }
 
   public setupSidebarTabSystem() {

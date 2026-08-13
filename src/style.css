@@ -933,6 +933,20 @@ body.mode-4d::after {
   box-shadow: 2px 2px 0px #000000;
 }
 
+/* Categorized Settings Sub-Nav Buttons */
+.settings-cat-btn:hover {
+  background: var(--bg-card) !important;
+  transform: translate(-1px, -1px);
+  box-shadow: 1px 1px 0px #000000;
+}
+
+.settings-cat-btn.active {
+  background: var(--accent-500) !important;
+  color: #000000 !important;
+  border-color: #000000 !important;
+  box-shadow: 1px 1px 0px #000000 !important;
+}
+
 .header-title-group {
   display: flex;
   align-items: center;

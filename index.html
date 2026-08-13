@@ -323,348 +323,329 @@
               </button>
             </div>
             <div class="panel-body thin-scrollbar">
-              <div class="scene-controls-grid">
-                <div class="control-row" style="grid-column: span 2;">
+              <!-- Categorized Settings Icon Sub-Nav -->
+              <div class="settings-category-nav" id="scene-settings-cat-nav" style="display: flex; gap: 0.25rem; background: var(--bg-card); padding: 0.25rem; border: 2px solid #000000; border-radius: 4px; box-shadow: 2px 2px 0px #000000; margin-bottom: 0.65rem;">
+                <button class="settings-cat-btn active" data-cat="cam" title="Camera Settings" style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 0.15rem; padding: 0.3rem 0.1rem; background: var(--bg-input); border: 1.5px solid #000000; border-radius: 3px; color: var(--text-primary); cursor: pointer; font-size: 0.6rem; font-weight: 800; font-family: var(--font-body); transition: all 0.15s ease;">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+                  <span>Camera</span>
+                </button>
+                <button class="settings-cat-btn" data-cat="display" title="Display & Render Options" style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 0.15rem; padding: 0.3rem 0.1rem; background: var(--bg-input); border: 1.5px solid #000000; border-radius: 3px; color: var(--text-primary); cursor: pointer; font-size: 0.6rem; font-weight: 800; font-family: var(--font-body); transition: all 0.15s ease;">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+                  <span>Display</span>
+                </button>
+                <button class="settings-cat-btn" data-cat="env" title="Lighting & Solar Environment" style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 0.15rem; padding: 0.3rem 0.1rem; background: var(--bg-input); border: 1.5px solid #000000; border-radius: 3px; color: var(--text-primary); cursor: pointer; font-size: 0.6rem; font-weight: 800; font-family: var(--font-body); transition: all 0.15s ease;">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+                  <span>Sun/Light</span>
+                </button>
+                <button class="settings-cat-btn" data-cat="fx" title="Post-Processing Shader FX" style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 0.15rem; padding: 0.3rem 0.1rem; background: var(--bg-input); border: 1.5px solid #000000; border-radius: 3px; color: var(--text-primary); cursor: pointer; font-size: 0.6rem; font-weight: 800; font-family: var(--font-body); transition: all 0.15s ease;">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+                  <span>Post-FX</span>
+                </button>
+                <button class="settings-cat-btn" data-cat="tree" title="Scene Hierarchy Tree" style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 0.15rem; padding: 0.3rem 0.1rem; background: var(--bg-input); border: 1.5px solid #000000; border-radius: 3px; color: var(--text-primary); cursor: pointer; font-size: 0.6rem; font-weight: 800; font-family: var(--font-body); transition: all 0.15s ease;">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="6" y1="3" x2="6" y2="15"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/></svg>
+                  <span>Tree</span>
+                </button>
+              </div>
+
+              <!-- CATEGORY 1: CAMERA SETTINGS -->
+              <div class="settings-cat-panel active" id="scat-cam">
+                <div class="scene-controls-grid">
+                  <div class="control-row" style="grid-column: span 2;">
+                    <div class="control-label" style="display: flex; justify-content: space-between; font-size: 0.7rem; color: var(--text-muted);">
+                      <span>Camera Far Limit</span>
+                      <span class="value-badge" id="val-camera-far">3000m</span>
+                    </div>
+                    <input type="range" class="custom-slider" id="settings-camera-far" min="100" max="10000" step="100" value="3000" style="width: 100%;" />
+                  </div>
+
+                  <div class="control-row" style="grid-column: span 2;">
+                    <div class="control-label" style="display: flex; justify-content: space-between; font-size: 0.7rem; color: var(--text-muted);">
+                      <span>Camera Near Limit</span>
+                      <span class="value-badge" id="val-camera-near">0.01m</span>
+                    </div>
+                    <input type="range" class="custom-slider" id="settings-camera-near" min="0.01" max="10.0" step="0.05" value="0.01" style="width: 100%;" />
+                  </div>
+
+                  <div class="control-row" style="grid-column: span 2;">
+                    <div class="control-label" style="display: flex; justify-content: space-between; font-size: 0.7rem; color: var(--text-muted);">
+                      <span>Field of View (FOV)</span>
+                      <span class="value-badge" id="val-camera-fov">60°</span>
+                    </div>
+                    <input type="range" class="custom-slider" id="settings-camera-fov" min="30" max="120" step="1" value="60" style="width: 100%;" />
+                  </div>
+
+                  <div class="control-row" style="grid-column: span 2;">
+                    <div class="control-label" style="display: flex; justify-content: space-between; font-size: 0.7rem; color: var(--text-muted);">
+                      <span>Zoom & Dolly Speed</span>
+                      <span class="value-badge" id="val-camera-speed">1.2x</span>
+                    </div>
+                    <input type="range" class="custom-slider" id="settings-camera-speed" min="0.2" max="3.0" step="0.1" value="1.2" style="width: 100%;" />
+                  </div>
+
+                  <div class="scene-control-item" style="grid-column: span 2;">
+                    <div class="scene-control-label">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 2 22 12 17 22 22 12 2" /></svg>
+                      <span>Navigation Mode</span>
+                    </div>
+                    <select id="settings-camera-mode" class="btn-secondary" style="padding: 0.15rem 0.5rem; font-size: 0.7rem; outline: none; border-color: var(--border-color); background: var(--bg-input); color: var(--text-main); border-radius: 6px;">
+                      <option value="Orbit">Orbit</option>
+                      <option value="FirstPerson">First Person</option>
+                      <option value="Plan">Plan</option>
+                    </select>
+                  </div>
+
+                  <div class="scene-control-item" style="grid-column: span 2;">
+                    <div class="scene-control-label">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 2 7 12 12 22 7 12 2" /></svg>
+                      <span>Projection</span>
+                    </div>
+                    <select id="settings-camera-projection" class="btn-secondary" style="padding: 0.15rem 0.5rem; font-size: 0.7rem; outline: none; border-color: var(--border-color); background: var(--bg-input); color: var(--text-main); border-radius: 6px;">
+                      <option value="Perspective">Perspective</option>
+                      <option value="Orthographic">Orthographic</option>
+                    </select>
+                  </div>
+
+                  <div class="scene-control-item">
+                    <div class="scene-control-label">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="16" /></svg>
+                      <span>Allow Input</span>
+                    </div>
+                    <label class="toggle-switch">
+                      <input type="checkbox" id="settings-camera-input" checked />
+                      <span class="toggle-slider"></span>
+                    </label>
+                  </div>
+
+                  <div class="scene-control-item">
+                    <button class="pill-value font-purple" id="btn-camera-fit" style="width: 100%; border: none; cursor: pointer; text-align: center; height: 22px; line-height: 18px;">Fit Model</button>
+                  </div>
+                </div>
+
+                <!-- Camera Viewpoints Bookmarks -->
+                <div class="section-subtitle" style="font-size: 0.68rem; margin-top: 0.65rem; text-transform: uppercase; color: var(--text-dim); font-weight: 700; border-top: 1px solid var(--border-subtle); padding-top: 0.4rem; display: flex; justify-content: space-between; align-items: center;">
+                  <span>Camera Viewpoints</span>
+                  <button class="btn-secondary" id="btn-add-viewpoint" style="padding: 0.1rem 0.4rem; font-size: 0.62rem; cursor: pointer; color: var(--accent-500); border-color: var(--accent-500);">+ Bookmark View</button>
+                </div>
+                <div id="viewpoint-bookmarks-list" style="margin-bottom: 0.4rem;"></div>
+              </div>
+
+              <!-- CATEGORY 2: DISPLAY & RENDER SETTINGS -->
+              <div class="settings-cat-panel" id="scat-display" style="display: none;">
+                <div class="scene-controls-grid">
+                  <div class="scene-control-item">
+                    <div class="scene-control-label">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10" /><path d="M2 12h20" /><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" /></svg>
+                      <span>Grid layer</span>
+                    </div>
+                    <label class="toggle-switch">
+                      <input type="checkbox" id="settings-toggle-grid" checked />
+                      <span class="toggle-slider"></span>
+                    </label>
+                  </div>
+
+                  <div class="scene-control-item">
+                    <div class="scene-control-label">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10" /><path d="M12 8h.01" /><path d="M11 12h1v4h1" /></svg>
+                      <span>Show Logo</span>
+                    </div>
+                    <label class="toggle-switch">
+                      <input type="checkbox" id="settings-toggle-logo" />
+                      <span class="toggle-slider"></span>
+                    </label>
+                  </div>
+
+                  <div class="scene-control-item">
+                    <div class="scene-control-label">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5" /><line x1="12" y1="1" x2="12" y2="3" /><line x1="12" y1="21" x2="12" y2="23" /><line x1="4.22" y1="4.22" x2="5.64" y2="5.64" /><line x1="18.36" y1="18.36" x2="19.78" y2="19.78" /><line x1="1" y1="12" x2="3" y2="12" /><line x1="21" y1="12" x2="23" y2="12" /><line x1="4.22" y1="19.78" x2="5.64" y2="18.36" /><line x1="18.36" y1="5.64" x2="19.78" y2="4.22" /></svg>
+                      <span>Shadows</span>
+                    </div>
+                    <label class="toggle-switch">
+                      <input type="checkbox" id="settings-toggle-shadows" />
+                      <span class="toggle-slider"></span>
+                    </label>
+                  </div>
+
+                  <div class="scene-control-item">
+                    <div class="scene-control-label">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="12" /></svg>
+                      <span>Background</span>
+                    </div>
+                    <div class="setting-toggle-row">
+                      <input type="color" id="settings-bg-color" value="#0c1021" />
+                    </div>
+                  </div>
+
+                  <div class="scene-control-item">
+                    <div class="scene-control-label">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="8" /></svg>
+                      <span>Select Color</span>
+                    </div>
+                    <div class="setting-toggle-row">
+                      <input type="color" id="settings-select-color" value="#00d2ff" />
+                    </div>
+                  </div>
+
+                  <div class="scene-control-item">
+                    <div class="scene-control-label">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="8" /></svg>
+                      <span>Hover Color</span>
+                    </div>
+                    <div class="setting-toggle-row">
+                      <input type="color" id="settings-hover-color" value="#00f5a0" />
+                    </div>
+                  </div>
+
+                  <div class="scene-control-item" style="grid-column: span 2;">
+                    <button class="btn-secondary" id="btn-clear-select-colors" style="width: 100%; border-color: var(--color-warning); color: var(--color-warning); display: flex; align-items: center; justify-content: center; gap: 0.35rem;">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+                      Clear Selection Highlight
+                    </button>
+                  </div>
+
+                  <div class="scene-control-item" style="grid-column: span 2;">
+                    <button class="btn-secondary" id="btn-clear-cache" style="width: 100%; border-color: var(--color-error); color: var(--color-error); display: flex; align-items: center; justify-content: center; gap: 0.35rem;">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg>
+                      Clear Offline Cache
+                    </button>
+                  </div>
+                </div>
+
+                <!-- Exploded Disassembly View -->
+                <div class="control-row" style="margin-top: 0.65rem;">
                   <div class="control-label" style="display: flex; justify-content: space-between; font-size: 0.7rem; color: var(--text-muted);">
-                    <span>Camera Far Limit</span>
-                    <span class="value-badge" id="val-camera-far">3000m</span>
+                    <span>Exploded Disassembly View</span>
+                    <span class="value-badge" id="val-explosion-factor">0%</span>
                   </div>
-                  <input type="range" class="custom-slider" id="settings-camera-far" min="100" max="10000" step="100" value="3000" style="width: 100%;" />
+                  <input type="range" class="custom-slider" id="settings-explosion-slider" min="0" max="100" step="1" value="0" style="width: 100%;" />
                 </div>
+              </div>
 
-                <div class="control-row" style="grid-column: span 2;">
-                  <div class="control-label" style="display: flex; justify-content: space-between; font-size: 0.7rem; color: var(--text-muted);">
-                    <span>Camera Near Limit</span>
-                    <span class="value-badge" id="val-camera-near">0.01m</span>
+              <!-- CATEGORY 3: SOLAR & LIGHTING ENVIRONMENT -->
+              <div class="settings-cat-panel" id="scat-env" style="display: none;">
+                <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+                  <div class="control-row">
+                    <div class="control-label" style="display: flex; justify-content: space-between; font-size: 0.7rem; color: var(--text-muted);">
+                      <span>Solar Sun Azimuth</span>
+                      <span class="value-badge" id="val-sun-azimuth">135°</span>
+                    </div>
+                    <input type="range" class="custom-slider" id="settings-sun-azimuth" min="0" max="360" step="5" value="135" style="width: 100%;" />
                   </div>
-                  <input type="range" class="custom-slider" id="settings-camera-near" min="0.01" max="10.0" step="0.05" value="0.01" style="width: 100%;" />
-                </div>
 
-                <div class="control-row" style="grid-column: span 2;">
-                  <div class="control-label" style="display: flex; justify-content: space-between; font-size: 0.7rem; color: var(--text-muted);">
-                    <span>Field of View (FOV)</span>
-                    <span class="value-badge" id="val-camera-fov">60°</span>
+                  <div class="control-row">
+                    <div class="control-label" style="display: flex; justify-content: space-between; font-size: 0.7rem; color: var(--text-muted);">
+                      <span>Solar Sun Elevation</span>
+                      <span class="value-badge" id="val-sun-elevation">45°</span>
+                    </div>
+                    <input type="range" class="custom-slider" id="settings-sun-elevation" min="5" max="90" step="1" value="45" style="width: 100%;" />
                   </div>
-                  <input type="range" class="custom-slider" id="settings-camera-fov" min="30" max="120" step="1" value="60" style="width: 100%;" />
-                </div>
 
-                <div class="control-row" style="grid-column: span 2;">
-                  <div class="control-label" style="display: flex; justify-content: space-between; font-size: 0.7rem; color: var(--text-muted);">
-                    <span>Zoom & Dolly Speed</span>
-                    <span class="value-badge" id="val-camera-speed">1.2x</span>
+                  <div class="control-row">
+                    <div class="control-label" style="display: flex; justify-content: space-between; font-size: 0.7rem; color: var(--text-muted);">
+                      <span>Ambient Light</span>
+                      <span class="value-badge" id="val-ambient-light">1.5</span>
+                    </div>
+                    <input type="range" class="custom-slider" id="ambient-light-slider" min="0" max="4" step="0.1" value="1.5" style="width: 100%;" />
                   </div>
-                  <input type="range" class="custom-slider" id="settings-camera-speed" min="0.2" max="3.0" step="0.1" value="1.2" style="width: 100%;" />
-                </div>
-                <div class="scene-control-item" style="grid-column: span 2;">
-                  <div class="scene-control-label">
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                      <polygon points="12 2 2 22 12 17 22 22 12 2" />
-                    </svg>
-                    <span>Navigation Mode</span>
-                  </div>
-                  <select id="settings-camera-mode" class="btn-secondary"
-                    style="padding: 0.15rem 0.5rem; font-size: 0.7rem; outline: none; border-color: var(--border-color); background: var(--bg-input); color: var(--text-main); border-radius: 6px;">
-                    <option value="Orbit">Orbit</option>
-                    <option value="FirstPerson">First Person</option>
-                    <option value="Plan">Plan</option>
-                  </select>
-                </div>
-                <div class="scene-control-item" style="grid-column: span 2;">
-                  <div class="scene-control-label">
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                      <polygon points="12 2 2 7 12 12 22 7 12 2" />
-                    </svg>
-                    <span>Projection</span>
-                  </div>
-                  <select id="settings-camera-projection" class="btn-secondary"
-                    style="padding: 0.15rem 0.5rem; font-size: 0.7rem; outline: none; border-color: var(--border-color); background: var(--bg-input); color: var(--text-main); border-radius: 6px;">
-                    <option value="Perspective">Perspective</option>
-                    <option value="Orthographic">Orthographic</option>
-                  </select>
-                </div>
-                <div class="scene-control-item">
-                  <div class="scene-control-label">
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                      <circle cx="12" cy="12" r="10" />
-                      <line x1="12" y1="8" x2="12" y2="16" />
-                    </svg>
-                    <span>Allow Input</span>
-                  </div>
-                  <label class="toggle-switch">
-                    <input type="checkbox" id="settings-camera-input" checked />
-                    <span class="toggle-slider"></span>
-                  </label>
-                </div>
-                <div class="scene-control-item">
-                  <button class="pill-value font-purple" id="btn-camera-fit"
-                    style="width: 100%; border: none; cursor: pointer; text-align: center; height: 18px; line-height: 14px;">Fit
-                    Model</button>
-                </div>
-                <div class="scene-control-item">
-                  <div class="scene-control-label">
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                      <circle cx="12" cy="12" r="10" />
-                      <path d="M2 12h20" />
-                      <path
-                        d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
-                    </svg>
-                    <span>Grid layer</span>
-                  </div>
-                  <label class="toggle-switch">
-                    <input type="checkbox" id="settings-toggle-grid" checked />
-                    <span class="toggle-slider"></span>
-                  </label>
-                </div>
-                <div class="scene-control-item">
-                  <div class="scene-control-label">
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                      <circle cx="12" cy="12" r="10" />
-                      <path d="M12 8h.01" />
-                      <path d="M11 12h1v4h1" />
-                    </svg>
-                    <span>Show Logo</span>
-                  </div>
-                  <label class="toggle-switch">
-                    <input type="checkbox" id="settings-toggle-logo" />
-                    <span class="toggle-slider"></span>
-                  </label>
-                </div>
-                <div class="scene-control-item">
-                  <div class="scene-control-label">
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                      <circle cx="12" cy="12" r="5" />
-                      <line x1="12" y1="1" x2="12" y2="3" />
-                      <line x1="12" y1="21" x2="12" y2="23" />
-                      <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
-                      <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
-                      <line x1="1" y1="12" x2="3" y2="12" />
-                      <line x1="21" y1="12" x2="23" y2="12" />
-                      <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
-                      <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
-                    </svg>
-                    <span>Shadows</span>
-                  </div>
-                  <label class="toggle-switch">
-                    <input type="checkbox" id="settings-toggle-shadows" />
-                    <span class="toggle-slider"></span>
-                  </label>
-                </div>
-                <div class="scene-control-item">
-                  <div class="scene-control-label">
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                      <circle cx="12" cy="12" r="12" />
-                    </svg>
-                    <span>Background</span>
-                  </div>
-                  <div class="setting-toggle-row">
-                    <input type="color" id="settings-bg-color" value="#0c1021" />
+
+                  <div class="control-row">
+                    <div class="control-label" style="display: flex; justify-content: space-between; font-size: 0.7rem; color: var(--text-muted);">
+                      <span>Directional Light</span>
+                      <span class="value-badge" id="val-dir-light">1.5</span>
+                    </div>
+                    <input type="range" class="custom-slider" id="dir-light-slider" min="0" max="4" step="0.1" value="1.5" style="width: 100%;" />
                   </div>
                 </div>
-                <div class="scene-control-item">
-                  <div class="scene-control-label">
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                      <circle cx="12" cy="12" r="8" />
-                    </svg>
-                    <span>Select Color</span>
+              </div>
+
+              <!-- CATEGORY 4: POST-PROCESSING FX SHADERS -->
+              <div class="settings-cat-panel" id="scat-fx" style="display: none;">
+                <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+                  <div class="scene-control-item" style="display: flex; justify-content: space-between; align-items: center; background: var(--bg-card); border: 1px solid var(--border-subtle); padding: 0.35rem 0.6rem; border-radius: 8px;">
+                    <div class="scene-control-label" style="display: flex; align-items: center; gap: 0.4rem; font-size: 0.7rem; color: var(--text-muted); font-weight: 600;">
+                      <span>Enable Post-Processing</span>
+                    </div>
+                    <label class="toggle-switch">
+                      <input type="checkbox" id="settings-toggle-postproc" checked />
+                      <span class="toggle-slider"></span>
+                    </label>
                   </div>
-                  <div class="setting-toggle-row">
-                    <input type="color" id="settings-select-color" value="#00d2ff" />
+
+                  <div class="control-row">
+                    <div class="control-label" style="display: flex; justify-content: space-between; font-size: 0.7rem; color: var(--text-muted);">
+                      <span>Outline Line Thickness</span>
+                      <span class="value-badge" id="val-postproc-thickness">1.2</span>
+                    </div>
+                    <input type="range" class="custom-slider" id="settings-postproc-thickness" min="0.2" max="4.0" step="0.1" value="1.2" style="width: 100%;" />
+                  </div>
+
+                  <div class="control-row">
+                    <div class="control-label" style="display: flex; justify-content: space-between; font-size: 0.7rem; color: var(--text-muted);">
+                      <span>Hand-Drawn Sketch Jitter</span>
+                      <span class="value-badge" id="val-postproc-jitter">0.0018</span>
+                    </div>
+                    <input type="range" class="custom-slider" id="settings-postproc-jitter" min="0" max="0.008" step="0.0002" value="0.0018" style="width: 100%;" />
+                  </div>
+
+                  <div class="control-row">
+                    <div class="control-label" style="display: flex; justify-content: space-between; font-size: 0.7rem; color: var(--text-muted);">
+                      <span>Bloom Glow Intensity</span>
+                      <span class="value-badge" id="val-postproc-bloom">0.4</span>
+                    </div>
+                    <input type="range" class="custom-slider" id="settings-postproc-bloom" min="0.0" max="1.5" step="0.05" value="0.4" style="width: 100%;" />
+                  </div>
+
+                  <div class="control-row">
+                    <div class="control-label" style="display: flex; justify-content: space-between; font-size: 0.7rem; color: var(--text-muted);">
+                      <span>Radial Vignette Shading</span>
+                      <span class="value-badge" id="val-postproc-vignette">0.35</span>
+                    </div>
+                    <input type="range" class="custom-slider" id="settings-postproc-vignette" min="0.0" max="1.0" step="0.05" value="0.35" style="width: 100%;" />
+                  </div>
+
+                  <div class="control-row">
+                    <div class="control-label" style="display: flex; justify-content: space-between; font-size: 0.7rem; color: var(--text-muted);">
+                      <span>Chromatic Aberration</span>
+                      <span class="value-badge" id="val-postproc-chroma">0.05</span>
+                    </div>
+                    <input type="range" class="custom-slider" id="settings-postproc-chroma" min="0.0" max="0.8" step="0.02" value="0.05" style="width: 100%;" />
+                  </div>
+
+                  <div class="control-row">
+                    <div class="control-label" style="display: flex; justify-content: space-between; font-size: 0.7rem; color: var(--text-muted);">
+                      <span>Quantized Toon Steps</span>
+                      <span class="value-badge" id="val-postproc-toon">4</span>
+                    </div>
+                    <input type="range" class="custom-slider" id="settings-postproc-toon" min="2" max="8" step="1" value="4" style="width: 100%;" />
+                  </div>
+
+                  <div class="scene-control-item" style="display: flex; justify-content: space-between; align-items: center; background: var(--bg-card); border: 1px solid var(--border-subtle); padding: 0.35rem 0.6rem; border-radius: 8px; margin-top: 0.2rem;">
+                    <div class="scene-control-label" style="display: flex; align-items: center; gap: 0.4rem; font-size: 0.7rem; color: var(--text-muted); font-weight: 600;">
+                      <span>Shader FX Overlay</span>
+                    </div>
+                    <select id="settings-postproc-fxmode" class="btn-secondary" style="padding: 0.15rem 0.4rem; font-size: 0.65rem; background: var(--bg-input); color: var(--text-primary); border-radius: 4px; border: 1px solid var(--border-subtle);">
+                      <option value="0">Default (Theme Auto)</option>
+                      <option value="1">Blueprint Draft Grid</option>
+                      <option value="2">CRT Cyber Scanlines</option>
+                      <option value="3">Pencil Cross-Hatch</option>
+                    </select>
                   </div>
                 </div>
-                <div class="scene-control-item">
-                  <div class="scene-control-label">
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                      <circle cx="12" cy="12" r="8" />
-                    </svg>
-                    <span>Hover Color</span>
+              </div>
+
+              <!-- CATEGORY 5: SCENE HIERARCHY TREE -->
+              <div class="settings-cat-panel" id="scat-tree" style="display: none;">
+                <div class="tree-search">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="11" cy="11" r="8" />
+                    <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                  </svg>
+                  <input type="text" id="scene-search" placeholder="Search tree.." />
+                </div>
+
+                <div class="scene-tree thin-scrollbar" id="classification-tree" style="display: flex; flex-direction: column; gap: 0.35rem; margin-top: 0.4rem;">
+                  <div class="empty-state-container" style="padding: 2rem 1rem; text-align: center;">
+                    <span class="empty-state-text" style="font-size: 0.73rem; color: var(--text-dim);">Load a model to view categories and storeys classification.</span>
                   </div>
-                  <div class="setting-toggle-row">
-                    <input type="color" id="settings-hover-color" value="#00f5a0" />
-                  </div>
-                </div>
-                <div class="scene-control-item" style="grid-column: span 2;">
-                  <button class="btn-secondary" id="btn-clear-select-colors"
-                    style="width: 100%; border-color: var(--color-warning); color: var(--color-warning); display: flex; align-items: center; justify-content: center; gap: 0.35rem;">
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                      <line x1="18" y1="6" x2="6" y2="18" />
-                      <line x1="6" y1="6" x2="18" y2="18" />
-                    </svg>
-                    Clear Selection Highlight
-                  </button>
-                </div>
-                <div class="scene-control-item" style="grid-column: span 2;">
-                  <button class="btn-secondary" id="btn-clear-cache"
-                    style="width: 100%; border-color: var(--color-error); color: var(--color-error); display: flex; align-items: center; justify-content: center; gap: 0.35rem;">
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                      <polyline points="3 6 5 6 21 6" />
-                      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                    </svg>
-                    Clear Offline Cache
-                  </button>
-                </div>
-              </div>
-
-              <!-- Camera Viewpoints Bookmarks -->
-              <div class="section-subtitle"
-                style="font-size: 0.68rem; margin-top: 0.5rem; text-transform: uppercase; color: var(--text-dim); font-weight: 700; border-top: 1px solid var(--border-subtle); padding-top: 0.4rem; display: flex; justify-content: space-between; align-items: center;">
-                <span>Camera Viewpoints</span>
-                <button class="btn-secondary" id="btn-add-viewpoint" style="padding: 0.1rem 0.4rem; font-size: 0.62rem; cursor: pointer; color: var(--accent-500); border-color: var(--accent-500);">+ Bookmark View</button>
-              </div>
-              <div id="viewpoint-bookmarks-list" style="margin-bottom: 0.6rem;"></div>
-
-              <!-- Exploded Disassembly View -->
-              <div class="control-row">
-                <div class="control-label" style="display: flex; justify-content: space-between; font-size: 0.7rem; color: var(--text-muted);">
-                  <span>Exploded Disassembly View</span>
-                  <span class="value-badge" id="val-explosion-factor">0%</span>
-                </div>
-                <input type="range" class="custom-slider" id="settings-explosion-slider" min="0" max="100" step="1" value="0" style="width: 100%;" />
-              </div>
-
-              <!-- Solar Sun Position Analysis -->
-              <div class="control-row">
-                <div class="control-label" style="display: flex; justify-content: space-between; font-size: 0.7rem; color: var(--text-muted);">
-                  <span>Solar Sun Azimuth</span>
-                  <span class="value-badge" id="val-sun-azimuth">135°</span>
-                </div>
-                <input type="range" class="custom-slider" id="settings-sun-azimuth" min="0" max="360" step="5" value="135" style="width: 100%;" />
-              </div>
-
-              <div class="control-row">
-                <div class="control-label" style="display: flex; justify-content: space-between; font-size: 0.7rem; color: var(--text-muted);">
-                  <span>Solar Sun Elevation</span>
-                  <span class="value-badge" id="val-sun-elevation">45°</span>
-                </div>
-                <input type="range" class="custom-slider" id="settings-sun-elevation" min="5" max="90" step="1" value="45" style="width: 100%;" />
-              </div>
-
-              <!-- Lighting Controls -->
-              <div class="control-row">
-                <div class="control-label">
-                  <span>Ambient Light</span>
-                  <span class="value-badge" id="val-ambient-light">1.5</span>
-                </div>
-                <input type="range" class="custom-slider" id="ambient-light-slider" min="0" max="4" step="0.1"
-                  value="1.5" />
-              </div>
-
-              <div class="control-row">
-                <div class="control-label">
-                  <span>Directional Light</span>
-                  <span class="value-badge" id="val-dir-light">1.5</span>
-                </div>
-                <input type="range" class="custom-slider" id="dir-light-slider" min="0" max="4" step="0.1"
-                  value="1.5" />
-              </div>
-
-              <!-- Post-Processing Effect Settings -->
-              <div class="section-subtitle"
-                style="font-size: 0.68rem; margin-top: 0.5rem; text-transform: uppercase; color: var(--text-dim); font-weight: 700; border-top: 1px solid var(--border-subtle); padding-top: 0.4rem;">
-                Post-Processing Effects
-              </div>
-
-              <div class="scene-control-item"
-                style="display: flex; justify-content: space-between; align-items: center; background: var(--bg-card); border: 1px solid var(--border-subtle); padding: 0.35rem 0.6rem; border-radius: 8px;">
-                <div class="scene-control-label"
-                  style="display: flex; align-items: center; gap: 0.4rem; font-size: 0.7rem; color: var(--text-muted); font-weight: 600;">
-                  <span>Enable Post-Processing</span>
-                </div>
-                <label class="toggle-switch">
-                  <input type="checkbox" id="settings-toggle-postproc" checked />
-                  <span class="toggle-slider"></span>
-                </label>
-              </div>
-
-              <div class="control-row">
-                <div class="control-label"
-                  style="display: flex; justify-content: space-between; font-size: 0.7rem; color: var(--text-muted);">
-                  <span>Outline Line Thickness</span>
-                  <span class="value-badge" id="val-postproc-thickness">1.2</span>
-                </div>
-                <input type="range" class="custom-slider" id="settings-postproc-thickness" min="0.2" max="4.0"
-                  step="0.1" value="1.2" style="width: 100%;" />
-              </div>
-
-              <div class="control-row">
-                <div class="control-label"
-                  style="display: flex; justify-content: space-between; font-size: 0.7rem; color: var(--text-muted);">
-                  <span>Hand-Drawn Sketch Jitter</span>
-                  <span class="value-badge" id="val-postproc-jitter">0.0018</span>
-                </div>
-                <input type="range" class="custom-slider" id="settings-postproc-jitter" min="0" max="0.008"
-                  step="0.0002" value="0.0018" style="width: 100%;" />
-              </div>
-
-              <!-- Advanced Post-Processing FX Controls -->
-              <div class="control-row">
-                <div class="control-label"
-                  style="display: flex; justify-content: space-between; font-size: 0.7rem; color: var(--text-muted);">
-                  <span>Bloom Glow Intensity</span>
-                  <span class="value-badge" id="val-postproc-bloom">0.4</span>
-                </div>
-                <input type="range" class="custom-slider" id="settings-postproc-bloom" min="0.0" max="1.5"
-                  step="0.05" value="0.4" style="width: 100%;" />
-              </div>
-
-              <div class="control-row">
-                <div class="control-label"
-                  style="display: flex; justify-content: space-between; font-size: 0.7rem; color: var(--text-muted);">
-                  <span>Radial Vignette Shading</span>
-                  <span class="value-badge" id="val-postproc-vignette">0.35</span>
-                </div>
-                <input type="range" class="custom-slider" id="settings-postproc-vignette" min="0.0" max="1.0"
-                  step="0.05" value="0.35" style="width: 100%;" />
-              </div>
-
-              <div class="control-row">
-                <div class="control-label"
-                  style="display: flex; justify-content: space-between; font-size: 0.7rem; color: var(--text-muted);">
-                  <span>Chromatic Aberration</span>
-                  <span class="value-badge" id="val-postproc-chroma">0.05</span>
-                </div>
-                <input type="range" class="custom-slider" id="settings-postproc-chroma" min="0.0" max="0.8"
-                  step="0.02" value="0.05" style="width: 100%;" />
-              </div>
-
-              <div class="control-row">
-                <div class="control-label"
-                  style="display: flex; justify-content: space-between; font-size: 0.7rem; color: var(--text-muted);">
-                  <span>Quantized Toon Steps</span>
-                  <span class="value-badge" id="val-postproc-toon">4</span>
-                </div>
-                <input type="range" class="custom-slider" id="settings-postproc-toon" min="2" max="8"
-                  step="1" value="4" style="width: 100%;" />
-              </div>
-
-              <div class="scene-control-item"
-                style="display: flex; justify-content: space-between; align-items: center; background: var(--bg-card); border: 1px solid var(--border-subtle); padding: 0.35rem 0.6rem; border-radius: 8px; margin-top: 0.2rem;">
-                <div class="scene-control-label"
-                  style="display: flex; align-items: center; gap: 0.4rem; font-size: 0.7rem; color: var(--text-muted); font-weight: 600;">
-                  <span>Shader FX Overlay</span>
-                </div>
-                <select id="settings-postproc-fxmode" class="btn-secondary"
-                  style="padding: 0.15rem 0.4rem; font-size: 0.65rem; background: var(--bg-input); color: var(--text-primary); border-radius: 4px; border: 1px solid var(--border-subtle);">
-                  <option value="0">Default (Theme Auto)</option>
-                  <option value="1">Blueprint Draft Grid</option>
-                  <option value="2">CRT Cyber Scanlines</option>
-                  <option value="3">Pencil Cross-Hatch</option>
-                </select>
-              </div>
-
-              <div class="tree-search">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <circle cx="11" cy="11" r="8" />
-                  <line x1="21" y1="21" x2="16.65" y2="16.65" />
-                </svg>
-                <input type="text" id="scene-search" placeholder="Search tree.." />
-              </div>
-
-              <div class="scene-tree thin-scrollbar" id="classification-tree"
-                style="display: flex; flex-direction: column; gap: 0.35rem;">
-                <div class="empty-state-container" style="padding: 2rem 1rem; text-align: center;">
-                  <span class="empty-state-text" style="font-size: 0.73rem; color: var(--text-dim);">Load a model to
-                    view
-                    categories and storeys classification.</span>
                 </div>
               </div>
             </div>
