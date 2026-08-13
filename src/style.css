@@ -904,8 +904,33 @@ body.mode-4d::after {
   letter-spacing: 0.08em;
   color: var(--text-primary);
   flex-shrink: 0;
-  cursor: pointer;
   user-select: none;
+}
+
+/* Back to Main Menu / Close Sidebar Button */
+.btn-panel-back {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  background: var(--bg-card);
+  border: 1.5px solid var(--accent-500);
+  color: var(--accent-500);
+  border-radius: 4px;
+  padding: 0.15rem 0.45rem;
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 1px 1px 0px #000000;
+  transition: all var(--ease-fast);
+  white-space: nowrap;
+}
+
+.btn-panel-back:hover {
+  background: var(--accent-500);
+  color: #000000;
+  transform: translate(-1px, -1px);
+  box-shadow: 2px 2px 0px #000000;
 }
 
 .header-title-group {
