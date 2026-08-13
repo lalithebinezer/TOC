@@ -4622,7 +4622,7 @@ if (timelineSlider) {
 }
 
 if (timelinePlayBtn) {
-  timelinePlayBtn.addEventListener("click", () => {
+  const handleTogglePlay = () => {
     if (timelineIsPlaying) {
       stopTimelinePlayback();
     } else {
@@ -4635,7 +4635,9 @@ if (timelinePlayBtn) {
       }
       startTimelinePlayback();
     }
-  });
+  };
+  timelinePlayBtn.addEventListener("click", handleTogglePlay);
+  (window as any).toggleTimelinePlayback = handleTogglePlay;
 }
 
 if (timelineSpeedSelect) {
