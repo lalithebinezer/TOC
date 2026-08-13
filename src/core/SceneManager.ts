@@ -25,7 +25,7 @@ export class SceneManager {
     const postproduction = (world.renderer as any).postproduction;
     if (postproduction) {
       const postProcToggle = document.getElementById("settings-toggle-postproc") as HTMLInputElement | null;
-      const isEnabled = postProcToggle ? postProcToggle.checked : true;
+      const isEnabled = postProcToggle ? postProcToggle.checked : false;
       postproduction.enabled = isEnabled;
       if (postproduction.composer) {
         this.bluePenPass = new ShaderPass(BluePenShader as any);
