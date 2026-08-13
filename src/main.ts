@@ -4241,24 +4241,28 @@ function calculateTimelineBounds() {
     updateTimelineDateUI();
     updateTimelineVisualState();
   } else {
-    timelineMinDate = null;
-    timelineMaxDate = null;
-    currentTimelineDate = null;
+    // Generate default sample construction schedule bounds (60 days) so Play button & timeline scrubber are always active
+    const start = new Date("2026-06-18");
+    const end = new Date("2026-08-18");
+    timelineMinDate = start;
+    timelineMaxDate = end;
+    currentTimelineDate = new Date(start);
 
     const slider = document.getElementById("timeline-slider") as HTMLInputElement;
     const playBtn = document.getElementById("timeline-play-btn");
-    const dateBadge = document.getElementById("timeline-date-badge");
 
     if (slider) {
+      slider.removeAttribute("disabled");
+      const diffDays = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+      slider.max = String(diffDays);
       slider.value = "0";
-      slider.setAttribute("disabled", "true");
     }
     if (playBtn) {
-      playBtn.setAttribute("disabled", "true");
+      playBtn.removeAttribute("disabled");
     }
-    if (dateBadge) {
-      dateBadge.innerText = "No Dates";
-    }
+
+    updateTimelineDateUI();
+    updateTimelineVisualState();
   }
 }
 
