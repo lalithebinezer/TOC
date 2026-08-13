@@ -950,6 +950,14 @@ body.mode-4d::after {
   box-shadow: 1px 1px 0px #000000 !important;
 }
 
+.settings-cat-btn span,
+.tools-cat-btn span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
 .header-title-group {
   display: flex;
   align-items: center;
