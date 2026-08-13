@@ -1623,13 +1623,21 @@ const initBim = async () => {
 
       if (sceneManager.postproduction) {
         const postProcToggle = document.getElementById("settings-toggle-postproc") as HTMLInputElement | null;
-        const isEnabled = postProcToggle ? postProcToggle.checked : true;
-        sceneManager.postproduction.enabled = isEnabled;
+        const isEnabled = postProcToggle ? postProcToggle.checked : false;
+        try {
+          sceneManager.postproduction.enabled = isEnabled;
+        } catch (e) {
+          console.warn("Postproduction base pass lazy initialization on model load:", e);
+        }
         if (sceneManager.bluePenPass) {
           sceneManager.bluePenPass.uniforms.enabled.value = isEnabled ? 1.0 : 0.0;
         }
         if (sceneManager.postproduction.customEffects) {
-          sceneManager.postproduction.customEffects.setNeedsUpdate();
+          try {
+            sceneManager.postproduction.customEffects.setNeedsUpdate();
+          } catch (e) {
+            // Ignore customEffects update error if base pass is not ready
+          }
         }
       }
 
