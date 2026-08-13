@@ -400,7 +400,8 @@ header {
   padding: 0 1.25rem;
   height: 100%;
   box-shadow: var(--shadow-sm);
-  z-index: 20;
+  z-index: 100;
+  pointer-events: auto !important;
   transition: var(--theme-transition);
 }
 
