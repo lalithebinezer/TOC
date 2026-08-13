@@ -547,9 +547,9 @@ header {
   align-items: center;
   gap: 0.35rem;
   background: var(--bg-card);
-  border: 2px solid #000000;
+  border: 2px solid var(--accent-500);
   border-radius: 2px;
-  color: var(--text-primary);
+  color: var(--accent-500);
   cursor: pointer;
   padding: 0 0.65rem;
   height: 34px;
@@ -563,12 +563,12 @@ header {
 
 [data-theme="light"] .btn-shortcuts-toggle {
   background: #ffffff;
-  color: #000000;
+  color: var(--accent-500);
 }
 
 .btn-shortcuts-toggle:hover {
   background: var(--accent-500);
-  color: #ffffff;
+  color: var(--text-dark, #ffffff);
   transform: translate(-1px, -1px);
   box-shadow: 3px 3px 0px #000000;
 }
@@ -3458,8 +3458,8 @@ input[type="number"] {
   align-items: center;
   justify-content: space-between;
   padding: 0.9rem 1.1rem 0.8rem;
-  border-bottom: 3px solid #000;
-  background: #0d0f14;
+  border-bottom: 3px solid var(--border-subtle, #000);
+  background: var(--bg-panel-header, #0d0f14);
   flex-shrink: 0;
 }
 
@@ -3476,14 +3476,14 @@ input[type="number"] {
   font-weight: 800;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: #dc2626;
+  color: var(--accent-500, #dc2626);
 }
 
 /* Tab Bar */
 .help-tab-bar {
   display: flex;
-  border-bottom: 3px solid #000;
-  background: #07080a;
+  border-bottom: 3px solid var(--border-subtle, #000);
+  background: var(--bg-app, #07080a);
   flex-shrink: 0;
 }
 
@@ -3502,7 +3502,7 @@ input[type="number"] {
   color: var(--text-muted);
   background: transparent;
   border: none;
-  border-right: 2px solid #000;
+  border-right: 2px solid var(--border-subtle, #000);
   cursor: pointer;
   transition: background 0.1s, color 0.1s;
   display: flex;
@@ -3514,18 +3514,18 @@ input[type="number"] {
 .help-tab-btn:last-child { border-right: none; }
 
 .help-tab-btn:hover {
-  background: #1a1a2e;
+  background: var(--bg-card, #1a1a2e);
   color: var(--text-primary);
 }
 
 .help-tab-btn.active {
-  background: #dc2626;
-  color: #fff;
-  border-bottom: 3px solid #dc2626;
+  background: var(--accent-500, #dc2626);
+  color: var(--text-dark, #fff);
+  border-bottom: 3px solid var(--accent-500, #dc2626);
 }
 
 [data-theme="light"] .help-tab-btn.active {
-  background: #dc2626;
+  background: var(--accent-500, #dc2626);
   color: #fff;
 }
 
@@ -4127,5 +4127,25 @@ input[type="number"] {
 [data-theme="pencil"] .btn-sidebar-toggle:hover svg,
 [data-theme="pencil"] .btn-tool:hover svg {
   stroke: #ffffff !important;
+}
+
+/* ── Keyboard Badges & Viewpoint Chips ── */
+.tab-key-badge {
+  font-family: var(--font-mono);
+  font-size: 0.58rem;
+  font-weight: 800;
+  background: var(--bg-input, #000);
+  color: var(--accent-500, #d4af37);
+  border: 1px solid var(--border-subtle, #333);
+  border-radius: 3px;
+  padding: 0.05rem 0.3rem;
+  margin-right: 0.2rem;
+  line-height: 1;
+}
+
+.viewpoint-chip:hover {
+  border-color: var(--accent-500) !important;
+  box-shadow: 2px 2px 0px #000;
+  transform: translate(-1px, -1px);
 }
 

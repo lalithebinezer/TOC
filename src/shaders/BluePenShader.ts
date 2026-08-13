@@ -5,7 +5,7 @@ export const BluePenShader = {
     tDiffuse: { value: null as THREE.Texture | null },
     tDepth: { value: null as THREE.Texture | null },
     tNormal: { value: null as THREE.Texture | null },
-    cameraNear: { value: 0.1 },
+    cameraNear: { value: 0.01 },
     cameraFar: { value: 1000.0 },
     resolution: { value: new THREE.Vector2(1, 1) },
     paperColor: { value: new THREE.Color('#0d1516') },

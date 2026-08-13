@@ -1,0 +1,228 @@
+/**
+ * UI Manager (Separation of Concerns)
+ * Manages UI overlays, sidebar tab systems, mobile navigation, help modal, and theme switcher event bindings.
+ */
+
+export class UIManager {
+  private static instance: UIManager | null = null;
+
+  private constructor() {}
+
+  public static getInstance(): UIManager {
+    if (!UIManager.instance) {
+      UIManager.instance = new UIManager();
+    }
+    return UIManager.instance;
+  }
+
+  public init() {
+    this.setupSidebarTabSystem();
+    this.setupHelpModalController();
+    this.setupMobileNavigation();
+  }
+
+  public setupSidebarTabSystem() {
+    const switchSidebarTab = (tabBarId: string, tabName: string) => {
+      const tabBar = document.getElementById(tabBarId);
+      if (!tabBar) return;
+
+      const isLeft = tabBarId === 'left-tab-bar';
+      const sidebar = document.querySelector(isLeft ? '.left-sidebar' : '.right-sidebar');
+      if (!sidebar) return;
+
+      const currentActiveBtn = tabBar.querySelector('.sidebar-tab-btn.active, .tab-btn.active');
+      const currentActiveTab = currentActiveBtn?.getAttribute('data-tab');
+
+      if (currentActiveTab === tabName && sidebar.classList.contains('open')) {
+        sidebar.classList.remove('open');
+        currentActiveBtn?.classList.remove('active');
+
+        const otherSidebar = document.querySelector(isLeft ? '.right-sidebar' : '.left-sidebar');
+        if (!otherSidebar?.classList.contains('open')) {
+          document.getElementById('sidebar-backdrop')?.classList.remove('active');
+        }
+        return;
+      }
+
+      sidebar.classList.add('open');
+      document.getElementById('sidebar-backdrop')?.classList.add('active');
+
+      tabBar.querySelectorAll('.sidebar-tab-btn, .tab-btn').forEach((btn) => {
+        btn.classList.toggle('active', btn.getAttribute('data-tab') === tabName);
+      });
+
+      const parentEl = sidebar;
+      parentEl.querySelectorAll('.tab-content-panel').forEach((panel) => {
+        const panelId = isLeft ? `tab-left-${tabName}` : `tab-right-${tabName}`;
+        panel.classList.toggle('active', panel.id === panelId);
+      });
+    };
+
+    (window as any).switchSidebarTab = switchSidebarTab;
+
+    document.querySelectorAll('.sidebar-tab-btn, .tab-btn').forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        const target = e.currentTarget as HTMLElement;
+        const tabBar = target.closest('.sidebar-tab-bar');
+        const tabName = target.getAttribute('data-tab');
+        if (tabBar && tabName) {
+          switchSidebarTab(tabBar.id, tabName);
+        }
+      });
+    });
+
+    const closeAllSidebars = () => {
+      document.querySelector('.left-sidebar')?.classList.remove('open');
+      document.querySelector('.right-sidebar')?.classList.remove('open');
+      document.getElementById('sidebar-backdrop')?.classList.remove('active');
+      document.querySelectorAll('.sidebar-tab-btn, .tab-btn').forEach((b) => b.classList.remove('active'));
+    };
+    (window as any).closeAllSidebars = closeAllSidebars;
+
+    document.getElementById('btn-toggle-left')?.addEventListener('click', () => {
+      const leftSidebar = document.querySelector('.left-sidebar');
+      if (leftSidebar?.classList.contains('open')) {
+        closeAllSidebars();
+      } else {
+        switchSidebarTab('left-tab-bar', 'files');
+      }
+    });
+
+    document.getElementById('btn-toggle-right')?.addEventListener('click', () => {
+      const rightSidebar = document.querySelector('.right-sidebar');
+      if (rightSidebar?.classList.contains('open')) {
+        closeAllSidebars();
+      } else {
+        switchSidebarTab('right-tab-bar', 'scene');
+      }
+    });
+
+    document.getElementById('sidebar-backdrop')?.addEventListener('click', closeAllSidebars);
+  }
+
+  public setupHelpModalController() {
+    const helpModal = document.getElementById("shortcuts-modal");
+    const btnShortcutsToggle = document.getElementById("btn-shortcuts-toggle");
+    const btnShortcutsClose  = document.getElementById("btn-shortcuts-close");
+    const btnHelpNext        = document.getElementById("btn-help-next") as HTMLButtonElement | null;
+    const btnHelpPrev        = document.getElementById("btn-help-prev") as HTMLButtonElement | null;
+    const btnHelpDone        = document.getElementById("btn-help-done") as HTMLButtonElement | null;
+    const helpDontShow       = document.getElementById("help-dont-show-again") as HTMLInputElement | null;
+
+    const HELP_TABS = ["welcome", "tools", "shortcuts", "navigate"] as const;
+    type HelpTab = typeof HELP_TABS[number];
+    let helpCurrentTab: HelpTab = "welcome";
+
+    const switchHelpTab = (tab: HelpTab) => {
+      helpCurrentTab = tab;
+      document.querySelectorAll(".help-tab-btn").forEach((btn) => {
+        const isActive = (btn as HTMLElement).getAttribute("data-help-tab") === tab;
+        btn.classList.toggle("active", isActive);
+      });
+
+      document.querySelectorAll(".help-tab-panel").forEach((panel) => {
+        panel.classList.toggle("active", panel.id === `help-tab-${tab}`);
+      });
+
+      const idx = HELP_TABS.indexOf(tab);
+      if (btnHelpPrev) btnHelpPrev.classList.toggle("hidden", idx === 0);
+      if (btnHelpNext) btnHelpNext.classList.toggle("hidden", idx === HELP_TABS.length - 1);
+      if (btnHelpDone) btnHelpDone.classList.toggle("hidden", idx !== HELP_TABS.length - 1);
+    };
+
+    const openHelpModal = (startTab: HelpTab = "welcome") => {
+      if (!helpModal) return;
+      helpModal.classList.remove("hidden");
+      switchHelpTab(startTab);
+    };
+
+    const closeHelpModal = () => {
+      if (!helpModal) return;
+      helpModal.classList.add("hidden");
+      if (helpDontShow?.checked) {
+        localStorage.setItem("bim-help-dont-show", "1");
+      }
+    };
+
+    const toggleShortcutsModal = (forceOpen?: boolean) => {
+      if (!helpModal) return;
+      const isHidden = helpModal.classList.contains("hidden");
+      if (forceOpen === true || (forceOpen === undefined && isHidden)) {
+        openHelpModal("welcome");
+      } else {
+        closeHelpModal();
+      }
+    };
+    (window as any).toggleShortcutsModal = toggleShortcutsModal;
+
+    btnShortcutsToggle?.addEventListener("click", () => openHelpModal("welcome"));
+    btnShortcutsClose?.addEventListener("click", closeHelpModal);
+
+    helpModal?.addEventListener("click", (e) => {
+      if (e.target === helpModal) closeHelpModal();
+    });
+
+    document.querySelectorAll(".help-tab-btn").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        const tab = (e.currentTarget as HTMLElement).getAttribute("data-help-tab") as HelpTab | null;
+        if (tab) switchHelpTab(tab);
+      });
+    });
+
+    btnHelpNext?.addEventListener("click", () => {
+      const idx = HELP_TABS.indexOf(helpCurrentTab);
+      if (idx < HELP_TABS.length - 1) switchHelpTab(HELP_TABS[idx + 1]);
+    });
+
+    btnHelpPrev?.addEventListener("click", () => {
+      const idx = HELP_TABS.indexOf(helpCurrentTab);
+      if (idx > 0) switchHelpTab(HELP_TABS[idx - 1]);
+    });
+
+    btnHelpDone?.addEventListener("click", closeHelpModal);
+  }
+
+  public setupMobileNavigation() {
+    const mobileNavBtns = document.querySelectorAll<HTMLButtonElement>(".mobile-nav-btn");
+    mobileNavBtns.forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const targetTab = btn.getAttribute("data-mobile-tab");
+        if (!targetTab) return;
+
+        const leftSidebar = document.querySelector(".left-sidebar");
+        const rightSidebar = document.querySelector(".right-sidebar");
+        const isLeftOpen = leftSidebar?.classList.contains("open");
+        const isRightOpen = rightSidebar?.classList.contains("open");
+        const isBtnActive = btn.classList.contains("active");
+
+        const closeAll = (window as any).closeAllSidebars;
+
+        if (isBtnActive && (isLeftOpen || isRightOpen)) {
+          if (typeof closeAll === "function") closeAll();
+          return;
+        }
+
+        mobileNavBtns.forEach((b) => b.classList.remove("active"));
+        btn.classList.add("active");
+
+        if (targetTab === "files" || targetTab === "finder" || targetTab === "sched") {
+          rightSidebar?.classList.remove("open");
+          leftSidebar?.classList.add("open");
+
+          const actualTab = targetTab === "sched" ? "schedule" : targetTab;
+          const tabBtn = document.querySelector<HTMLButtonElement>(`#left-tab-bar [data-tab="${actualTab}"]`);
+          if (tabBtn) tabBtn.click();
+        } else if (targetTab === "scene" || targetTab === "tools") {
+          leftSidebar?.classList.remove("open");
+          rightSidebar?.classList.add("open");
+
+          const tabBtn = document.querySelector<HTMLButtonElement>(`#right-tab-bar [data-tab="${targetTab}"]`);
+          if (tabBtn) tabBtn.click();
+        }
+
+        const backdrop = document.getElementById("sidebar-backdrop");
+        if (backdrop) backdrop.classList.add("active");
+      });
+    });
+  }
+}

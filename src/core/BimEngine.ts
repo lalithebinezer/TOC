@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import * as OBC from "@thatopen/components";
 import * as OBF from "@thatopen/components-front";
+import CameraControls from "camera-controls";
 
 export class BimEngine {
   private static instance: BimEngine;
@@ -39,17 +40,22 @@ export class BimEngine {
       (this.world.renderer as any).showLogo = false;
 
       this.world.camera = new OBC.OrthoPerspectiveCamera(this.components);
+      this.world.camera.currentWorld = this.world;
       if (this.world.camera.controls) {
         const controls = this.world.camera.controls as any;
         controls.enabled = true;
+        controls.dollyToCursor = true;
+        controls.dollySpeed = 1.2;
+        controls.zoomSpeed = 1.2;
         if (controls.mouseButtons) {
-          controls.mouseButtons.left = 1;
-          controls.mouseButtons.right = 2;
-          controls.mouseButtons.wheel = 3;
+          controls.mouseButtons.left = CameraControls.ACTION.ROTATE;
+          controls.mouseButtons.right = CameraControls.ACTION.TRUCK;
+          controls.mouseButtons.middle = CameraControls.ACTION.DOLLY;
+          controls.mouseButtons.wheel = CameraControls.ACTION.DOLLY;
         }
         if (controls.touches) {
-          controls.touches.one = 1;
-          controls.touches.two = 3;
+          controls.touches.one = CameraControls.ACTION.TOUCH_ROTATE;
+          controls.touches.two = CameraControls.ACTION.TOUCH_DOLLY_TRUCK;
         }
       }
       (this.world.camera as any).set("Orbit");
@@ -83,13 +89,5 @@ export class BimEngine {
         model.useCamera(camera.three);
       }
     });
-
-    this.container.addEventListener("wheel", (e: WheelEvent) => {
-      e.preventDefault();
-      if (this.world.camera && this.world.camera.controls) {
-        const zoomFactor = e.deltaY > 0 ? 1.15 : 0.85;
-        this.world.camera.controls.dollyTo(this.world.camera.controls.distance * zoomFactor, true);
-      }
-    }, { passive: false });
   }
 }

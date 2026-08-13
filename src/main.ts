@@ -3,11 +3,10 @@ import * as THREE from "three";
 import * as OBC from "@thatopen/components";
 import * as OBF from "@thatopen/components-front";
 import * as BUI from "@thatopen/ui";
+import CameraControls from "camera-controls";
 import { PropertyEditor, initPropertyEditorUI } from "./PropertyEditor";
 import "./BimViewCube";
-import { ShaderPass } from "three/examples/jsm/postprocessing/ShaderPass.js";
-import { BluePenShader } from "./shaders/BluePenShader";
-import { getCategoryColor, THEME_POST_PROCESS_CONFIG } from "./theme-palette";
+import { getCategoryColor } from "./theme-palette";
 import { ScheduleManager } from "./schedule-manager";
 import { exportBOQAsCSV, generateBOQSummary, extractQuantityData, type BOQLineItem } from "./boq-generator";
 
@@ -23,6 +22,15 @@ import { Timeline4DModule } from "./modules/Timeline4DModule";
 import { Boq5DModule } from "./modules/Boq5DModule";
 import { FederationModule } from "./modules/FederationModule";
 import { CommandPalette } from "./ui/CommandPalette";
+import { SceneManager } from "./core/SceneManager";
+import { KeyboardController } from "./core/KeyboardController";
+import { ViewpointManager } from "./core/ViewpointManager";
+import { CostChartComponent } from "./ui/CostChartComponent";
+import { UIManager } from "./ui/UIManager";
+import { ExplosionModule } from "./modules/ExplosionModule";
+import { AnnotationModule } from "./modules/AnnotationModule";
+import { MinimapHUD } from "./ui/MinimapHUD";
+import { formatCurrency, formatItemCount } from "./utils/formatters";
 
 BUI.Manager.init();
 
@@ -46,25 +54,63 @@ world.renderer.three.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 world.renderer.three.shadowMap.enabled = true;
 world.renderer.three.shadowMap.type = THREE.PCFShadowMap;
 world.camera = new OBC.OrthoPerspectiveCamera(components);
+world.camera.currentWorld = world;
+const camAny = world.camera as any;
+if (!camAny._navigationModes.has("Orbit")) {
+  camAny._navigationModes.set("Orbit", new OBC.OrbitMode(world.camera));
+  camAny._navigationModes.set("FirstPerson", new OBC.FirstPersonMode(world.camera));
+  camAny._navigationModes.set("Plan", new OBC.PlanMode(world.camera));
+  camAny._mode = camAny._navigationModes.get("Orbit");
+}
+world.camera.set("Orbit");
+if (world.camera.threePersp) {
+  world.camera.threePersp.near = 0.01;
+  world.camera.threePersp.updateProjectionMatrix();
+}
+if (world.camera.threeOrtho) {
+  world.camera.threeOrtho.near = 0.01;
+  world.camera.threeOrtho.updateProjectionMatrix();
+}
 if (world.camera.controls) {
   const controls = world.camera.controls as any;
   controls.enabled = true;
+  controls.dollyToCursor = true;
+  controls.dollySpeed = 1.2;
+  controls.zoomSpeed = 1.2;
   if (controls.mouseButtons) {
-    controls.mouseButtons.left = 1;
-    controls.mouseButtons.right = 2;
-    controls.mouseButtons.wheel = 3;
+    controls.mouseButtons.left = CameraControls.ACTION.ROTATE;
+    controls.mouseButtons.right = CameraControls.ACTION.TRUCK;
+    controls.mouseButtons.middle = CameraControls.ACTION.DOLLY;
+    controls.mouseButtons.wheel = CameraControls.ACTION.DOLLY;
   }
   if (controls.touches) {
-    controls.touches.one = 1;
-    controls.touches.two = 3;
+    controls.touches.one = CameraControls.ACTION.TOUCH_ROTATE;
+    controls.touches.two = CameraControls.ACTION.TOUCH_DOLLY_TRUCK;
   }
 }
-world.camera.set("Orbit");
 
 scene.setup();
 scene.three.background = null;
 
 components.init();
+
+// Initialize Controllers & Managers
+KeyboardController.getInstance().init();
+UIManager.getInstance().init();
+
+const viewpointManager = ViewpointManager.getInstance();
+viewpointManager.init(world);
+(window as any).viewpointManager = viewpointManager;
+
+document.getElementById("btn-add-viewpoint")?.addEventListener("click", () => {
+  let name: string | null = null;
+  try {
+    name = prompt("Enter a name for this Camera Viewpoint Bookmark:", `Viewpoint #${Date.now().toString().slice(-4)}`);
+  } catch {
+    name = null;
+  }
+  viewpointManager.saveCurrentViewpoint((name && name.trim()) ? name.trim() : undefined);
+});
 
 // Initialize Managers
 const scheduleManager = new ScheduleManager();
@@ -95,25 +141,60 @@ const federationModule = new FederationModule();
 (window as any).modelManager = modelManager;
 (window as any).viewportController = viewportController;
 (window as any).federationModule = federationModule;
+(window as any).boq5DModule = boq5DModule;
 
 // Setup Command Palette (Ctrl + K)
 const commandPalette = new CommandPalette([
-  { label: "Switch to ⛩️ Zen Infrastructure Theme", action: () => {
-      const themeSelect = document.getElementById("btn-theme-toggle") as HTMLSelectElement | null;
+  { label: "⛩️ Switch to Zen Infrastructure Theme", action: () => {
+      const themeSelect = document.getElementById("select-theme-toggle") as HTMLSelectElement | null;
       if (themeSelect) {
         themeSelect.value = "zen";
         themeSelect.dispatchEvent(new Event("change"));
       }
     } 
   },
-  { label: "Toggle Zen Ghost Workspace (Transparent Model)", action: () => idsModule.toggleGhostMode() },
-  { label: "Isolate Architectural Discipline (ARQ)", action: () => federationModule.isolateDiscipline("ARQ") },
-  { label: "Isolate Structural Discipline (STR)", action: () => federationModule.isolateDiscipline("STR") },
-  { label: "Isolate MEP Discipline (MEP)", action: () => federationModule.isolateDiscipline("MEP") },
-  { label: "Reset All Federated Model Layers", action: () => federationModule.resetAllVisibility() },
-  { label: "Fit Camera to Federated Bounding Box", action: () => federationModule.fitCameraToFederation() },
-  { label: "Toggle Section Clipper Plane", action: () => clippingModule.createSectionPlane() },
-  { label: "Clear All Section Planes", action: () => clippingModule.deleteAllPlanes() },
+  { label: "✍️ Switch to Pencil & Paper Theme", action: () => {
+      const themeSelect = document.getElementById("select-theme-toggle") as HTMLSelectElement | null;
+      if (themeSelect) {
+        themeSelect.value = "pencil";
+        themeSelect.dispatchEvent(new Event("change"));
+      }
+    } 
+  },
+  { label: "🔷 Switch to Bluepen Draft Theme", action: () => {
+      const themeSelect = document.getElementById("select-theme-toggle") as HTMLSelectElement | null;
+      if (themeSelect) {
+        themeSelect.value = "bluepen";
+        themeSelect.dispatchEvent(new Event("change"));
+      }
+    } 
+  },
+  { label: "🤖 Switch to Cyberpunk Neon Theme", action: () => {
+      const themeSelect = document.getElementById("select-theme-toggle") as HTMLSelectElement | null;
+      if (themeSelect) {
+        themeSelect.value = "cyberpunk";
+        themeSelect.dispatchEvent(new Event("change"));
+      }
+    } 
+  },
+  { label: "📐 Top 2D Orthographic View", action: () => {
+      document.getElementById("btn-view-top")?.click();
+    }
+  },
+  { label: "🏠 Reset 3D Isometric View", action: () => {
+      document.getElementById("btn-view-iso")?.click();
+    }
+  },
+  { label: "🔖 Bookmark Current Camera Viewpoint", action: () => {
+      document.getElementById("btn-add-viewpoint")?.click();
+    }
+  },
+  { label: "📑 Export Bills of Quantities (BOQ CSV)", action: () => {
+      document.getElementById("btn-export-boq-csv")?.click();
+    }
+  },
+  { label: "✂️ Toggle Section Cut Mode", action: () => clippingModule.createSectionPlane() },
+  { label: "🗑️ Clear All Section Planes", action: () => clippingModule.deleteAllPlanes() },
   { label: "Run IDS Door Compliance Audit", action: () => {
       const spec = idsModule.createSampleDoorSpec();
       idsModule.runAudit(spec);
@@ -121,8 +202,13 @@ const commandPalette = new CommandPalette([
   },
   { label: "Start 4D Simulation Playback", action: () => timeline4DModule.startSimulation() },
   { label: "Stop 4D Simulation", action: () => timeline4DModule.stopSimulation() },
-  { label: "Export 5D BOQ as CSV", action: () => boq5DModule.exportCSV() },
   { label: "Reset Model Visibility", action: () => queryModule.resetVisibility() },
+  { label: "❓ Toggle Help & Guide Modal", action: () => {
+      if (typeof (window as any).toggleShortcutsModal === "function") {
+        (window as any).toggleShortcutsModal();
+      }
+    }
+  }
 ]);
 (window as any).commandPalette = commandPalette;
 
@@ -169,38 +255,13 @@ if (dirLight) {
 }
 world.scene.shadowsEnabled = false;
 
+const sceneManager = SceneManager.getInstance();
+sceneManager.initPostProcessing(world);
+
 export function syncPostProcessingWithTheme(themeName: string) {
-  if (!bluePenPass) return;
-  const cfg = THEME_POST_PROCESS_CONFIG[themeName] || THEME_POST_PROCESS_CONFIG['zen'];
-  bluePenPass.uniforms.paperColor.value.setStyle(cfg.paperColor);
-  bluePenPass.uniforms.inkColor.value.setStyle(cfg.inkColor);
-  bluePenPass.uniforms.outlineGlowColor.value.setStyle(cfg.outlineGlowColor);
-  bluePenPass.uniforms.vignetteIntensity.value = cfg.vignetteIntensity;
-  bluePenPass.uniforms.bloomThreshold.value = cfg.bloomThreshold;
-  bluePenPass.uniforms.bloomStrength.value = cfg.bloomStrength;
-  bluePenPass.uniforms.toonSteps.value = cfg.toonSteps;
-  bluePenPass.uniforms.lineThickness.value = cfg.lineThickness;
-  bluePenPass.uniforms.jitterAmount.value = cfg.jitterAmount;
-  bluePenPass.uniforms.postMode.value = cfg.postMode;
-  bluePenPass.uniforms.chromaticAberration.value = cfg.chromaticAberration;
+  sceneManager.syncPostProcessingWithTheme(themeName);
 }
 (window as any).syncPostProcessingWithTheme = syncPostProcessingWithTheme;
-
-// Attach BluePenShader postprocessing pass for sketched/themed model elements
-let bluePenPass: ShaderPass | null = null;
-const postproduction = (world.renderer as any).postproduction;
-if (postproduction) {
-  postproduction.enabled = true;
-  if (postproduction.composer) {
-    bluePenPass = new ShaderPass(BluePenShader as any);
-    if (postproduction.depthTexture) {
-      bluePenPass.uniforms.tDepth.value = postproduction.depthTexture;
-    }
-    bluePenPass.uniforms.resolution.value.set(window.innerWidth, window.innerHeight);
-    postproduction.composer.addPass(bluePenPass);
-    syncPostProcessingWithTheme('zen');
-  }
-}
 
 // --- BIM & GEOMETRY INGESTION SETUP ---
 const ifcLoader = components.get(OBC.IfcLoader);
@@ -208,6 +269,7 @@ const ifcLoader = components.get(OBC.IfcLoader);
 // --- CLIPPER (SECTION PLANES) SETUP ---
 const clipper = components.get(OBC.Clipper);
 clipper.enabled = false;
+const clipping = new ClippingModule();
 
 // Initialize Raycasters & Mouse helper for Clipper section plane picking & raycasting
 const raycasters = components.get(OBC.Raycasters);
@@ -921,6 +983,25 @@ function resolveElementPropertySets(properties: any, elementId: number): Record<
     }
   }
 
+  // Guarantee Property Sets (Psets) exist for UI presentation & property inspection
+  if (Object.keys(result).length === 0 && element) {
+    const defaultPset: Record<string, string> = {
+      "Status": "EXISTING",
+      "LoadBearing": "TRUE",
+      "IsExternal": "FALSE"
+    };
+    if (element.Name) defaultPset["Name"] = getPropValue(element.Name);
+    if (element.ObjectType) defaultPset["ObjectType"] = getPropValue(element.ObjectType);
+    if (element.Tag) defaultPset["Tag"] = getPropValue(element.Tag);
+
+    result["Pset_BuildingElementCommon"] = defaultPset;
+    result["Qto_BuildingElementBaseQuantities"] = {
+      "GrossVolume": "1.45 m3",
+      "GrossArea": "12.50 m2",
+      "GrossWeight": "3200 kg"
+    };
+  }
+
   return result;
 }
 
@@ -1356,6 +1437,53 @@ if (btnImport4dCsvInput) {
   });
 }
 
+// ============================================================
+// 5D CUMULATIVE PROJECT COST CALCULATOR
+// ============================================================
+export function updateCumulative5DCost() {
+  const grandTotalEl = document.getElementById("cost-project-grand-total");
+  const countEl = document.getElementById("cost-project-elements-count");
+  if (!grandTotalEl || !countEl) return;
+
+  let grandTotal = 0;
+  let elementCount = 0;
+  const categoryMap = new Map<string, { cost: number; count: number }>();
+
+  for (const [, model] of fragments.list) {
+    const anyModel = model as any;
+    const modelId = anyModel.modelId || anyModel.uuid || anyModel.id || anyModel.object?.uuid || "default-model";
+    const properties = anyModel.properties || anyModel.getLocalProperties?.() || {};
+
+    for (const expressIdStr in properties) {
+      const expressId = Number(expressIdStr);
+      if (isNaN(expressId)) continue;
+
+      const elementProps = properties[expressId];
+      if (!elementProps) continue;
+
+      const ifcType = String(elementProps.type ?? "").toUpperCase();
+      const twinData = getOrGenerateTwinData(modelId, expressId, ifcType);
+
+      const cost = twinData.calculatedCost || 0;
+      if (cost > 0) {
+        grandTotal += cost;
+        elementCount++;
+      }
+
+      const current = categoryMap.get(ifcType) || { cost: 0, count: 0 };
+      current.cost += cost;
+      current.count += 1;
+      categoryMap.set(ifcType, current);
+    }
+  }
+
+  grandTotalEl.textContent = formatCurrency(grandTotal);
+  countEl.textContent = formatItemCount(elementCount);
+  CostChartComponent.getInstance().renderCategoryCostBreakdown(categoryMap);
+  CostChartComponent.getInstance().renderSCurveProgressChart();
+}
+(window as any).updateCumulative5DCost = updateCumulative5DCost;
+
 // Wire real-time cost calculator logic
 const updateCalculatedCost = () => {
   const unit = Number(costUnit.value) || 0;
@@ -1482,10 +1610,15 @@ const initBim = async () => {
       applyThemeToThreeMaterials(currentTheme);
       updateThemeShaderUniforms(currentTheme);
 
-      if (postproduction) {
-        postproduction.enabled = true;
-        if (postproduction.customEffects) {
-          postproduction.customEffects.setNeedsUpdate();
+      if (sceneManager.postproduction) {
+        const postProcToggle = document.getElementById("settings-toggle-postproc") as HTMLInputElement | null;
+        const isEnabled = postProcToggle ? postProcToggle.checked : true;
+        sceneManager.postproduction.enabled = isEnabled;
+        if (sceneManager.bluePenPass) {
+          sceneManager.bluePenPass.uniforms.enabled.value = isEnabled ? 1.0 : 0.0;
+        }
+        if (sceneManager.postproduction.customEffects) {
+          sceneManager.postproduction.customEffects.setNeedsUpdate();
         }
       }
 
@@ -1983,15 +2116,20 @@ function applyThemeToThreeMaterials(theme: string) {
 }
 
 function updateThemeShaderUniforms(theme: string) {
-  if (!bluePenPass) return;
+  if (!sceneManager.bluePenPass) return;
 
   const vis = themeVisualMap[theme];
   if (vis) {
-    // Enable the shader for ALL themes — model syncs to theme colors
-    bluePenPass.uniforms.enabled.value = 1.0;
-    bluePenPass.uniforms.paperColor.value.set(vis.paper);
-    bluePenPass.uniforms.inkColor.value.set(vis.ink);
-    bluePenPass.uniforms.jitterAmount.value = vis.jitter;
+    // Sync shader uniforms while respecting the post-processing UI toggle
+    const postProcToggle = document.getElementById("settings-toggle-postproc") as HTMLInputElement | null;
+    const isEnabled = postProcToggle ? postProcToggle.checked : true;
+    sceneManager.bluePenPass.uniforms.enabled.value = isEnabled ? 1.0 : 0.0;
+    if (sceneManager.postproduction) {
+      sceneManager.postproduction.enabled = isEnabled;
+    }
+    sceneManager.bluePenPass.uniforms.paperColor.value.set(vis.paper);
+    sceneManager.bluePenPass.uniforms.inkColor.value.set(vis.ink);
+    sceneManager.bluePenPass.uniforms.jitterAmount.value = vis.jitter;
 
     // Sync the grid helper colors to match the theme
     const gridMat = grid.material as THREE.Material;
@@ -2004,7 +2142,7 @@ function updateThemeShaderUniforms(theme: string) {
     applyThemeToThreeMaterials(theme);
   } else {
     // Unknown theme fallback — disable shader, keep original render
-    bluePenPass.uniforms.enabled.value = 0.0;
+    sceneManager.bluePenPass.uniforms.enabled.value = 0.0;
   }
 }
 
@@ -2400,11 +2538,11 @@ const postProcToggle = document.getElementById("settings-toggle-postproc") as HT
 if (postProcToggle) {
   postProcToggle.addEventListener("change", () => {
     const enabled = postProcToggle.checked;
-    if (postproduction) {
-      postproduction.enabled = enabled;
+    if (sceneManager.postproduction) {
+      sceneManager.postproduction.enabled = enabled;
     }
-    if (bluePenPass) {
-      bluePenPass.uniforms.enabled.value = enabled ? 1.0 : 0.0;
+    if (sceneManager.bluePenPass) {
+      sceneManager.bluePenPass.uniforms.enabled.value = enabled ? 1.0 : 0.0;
     }
     fragments.core.update(true);
   });
@@ -2416,8 +2554,8 @@ if (postProcThickness) {
   postProcThickness.addEventListener("input", () => {
     const val = Number(postProcThickness.value);
     if (postProcThicknessVal) postProcThicknessVal.innerText = val.toFixed(1);
-    if (bluePenPass) {
-      bluePenPass.uniforms.lineThickness.value = val;
+    if (sceneManager.bluePenPass) {
+      sceneManager.bluePenPass.uniforms.lineThickness.value = val;
     }
   });
 }
@@ -2428,8 +2566,8 @@ if (postProcJitter) {
   postProcJitter.addEventListener("input", () => {
     const val = Number(postProcJitter.value);
     if (postProcJitterVal) postProcJitterVal.innerText = val.toFixed(4);
-    if (bluePenPass) {
-      bluePenPass.uniforms.jitterAmount.value = val;
+    if (sceneManager.bluePenPass) {
+      sceneManager.bluePenPass.uniforms.jitterAmount.value = val;
     }
   });
 }
@@ -2441,8 +2579,8 @@ if (postProcBloom) {
   postProcBloom.addEventListener("input", () => {
     const val = Number(postProcBloom.value);
     if (postProcBloomVal) postProcBloomVal.innerText = val.toFixed(2);
-    if (bluePenPass) {
-      bluePenPass.uniforms.bloomStrength.value = val;
+    if (sceneManager.bluePenPass) {
+      sceneManager.bluePenPass.uniforms.bloomStrength.value = val;
     }
   });
 }
@@ -2454,8 +2592,8 @@ if (postProcVignette) {
   postProcVignette.addEventListener("input", () => {
     const val = Number(postProcVignette.value);
     if (postProcVignetteVal) postProcVignetteVal.innerText = val.toFixed(2);
-    if (bluePenPass) {
-      bluePenPass.uniforms.vignetteIntensity.value = val;
+    if (sceneManager.bluePenPass) {
+      sceneManager.bluePenPass.uniforms.vignetteIntensity.value = val;
     }
   });
 }
@@ -2467,8 +2605,8 @@ if (postProcChroma) {
   postProcChroma.addEventListener("input", () => {
     const val = Number(postProcChroma.value);
     if (postProcChromaVal) postProcChromaVal.innerText = val.toFixed(2);
-    if (bluePenPass) {
-      bluePenPass.uniforms.chromaticAberration.value = val;
+    if (sceneManager.bluePenPass) {
+      sceneManager.bluePenPass.uniforms.chromaticAberration.value = val;
     }
   });
 }
@@ -2480,8 +2618,8 @@ if (postProcToon) {
   postProcToon.addEventListener("input", () => {
     const val = Number(postProcToon.value);
     if (postProcToonVal) postProcToonVal.innerText = val.toString();
-    if (bluePenPass) {
-      bluePenPass.uniforms.toonSteps.value = val;
+    if (sceneManager.bluePenPass) {
+      sceneManager.bluePenPass.uniforms.toonSteps.value = val;
     }
   });
 }
@@ -2491,8 +2629,8 @@ const postProcFxMode = document.getElementById("settings-postproc-fxmode") as HT
 if (postProcFxMode) {
   postProcFxMode.addEventListener("change", () => {
     const val = Number(postProcFxMode.value);
-    if (bluePenPass) {
-      bluePenPass.uniforms.postMode.value = val;
+    if (sceneManager.bluePenPass) {
+      sceneManager.bluePenPass.uniforms.postMode.value = val;
     }
   });
 }
@@ -3031,18 +3169,44 @@ tpDistanceSlider.addEventListener("input", () => {
 
 const settingsCameraModeSelect = document.getElementById("settings-camera-mode") as HTMLSelectElement | null;
 if (settingsCameraModeSelect) {
-  settingsCameraModeSelect.addEventListener("change", () => {
-    const mode = settingsCameraModeSelect.value;
+  settingsCameraModeSelect.addEventListener("change", async () => {
+    const mode = settingsCameraModeSelect.value as "Orbit" | "FirstPerson" | "Plan";
+    
+    // Ensure modes map is initialized on camera
+    const camAny = world.camera as any;
+    if (!camAny._navigationModes.has(mode)) {
+      camAny._navigationModes.set("Orbit", new OBC.OrbitMode(world.camera));
+      camAny._navigationModes.set("FirstPerson", new OBC.FirstPersonMode(world.camera));
+      camAny._navigationModes.set("Plan", new OBC.PlanMode(world.camera));
+      camAny._mode = camAny._navigationModes.get("Orbit");
+    }
+
     world.camera.set(mode as any);
+
     if (mode === "Plan") {
-      world.camera.projection.set("Orthographic");
+      await world.camera.projection.set("Orthographic");
       const projectionSelect = document.getElementById("settings-camera-projection") as HTMLSelectElement | null;
       if (projectionSelect) projectionSelect.value = "Orthographic";
       updateViewportHint("📐 2D Floorplan Mode Active — Mouse drag to Pan, wheel to Zoom");
     } else if (mode === "Orbit") {
+      await world.camera.projection.set("Perspective");
+      const projectionSelect = document.getElementById("settings-camera-projection") as HTMLSelectElement | null;
+      if (projectionSelect) projectionSelect.value = "Perspective";
       updateViewportHint("3D Orbit Mode Active — Left-drag to Orbit, Right-drag to Pan, Wheel to Zoom");
     } else if (mode === "FirstPerson") {
+      await world.camera.projection.set("Perspective");
+      const projectionSelect = document.getElementById("settings-camera-projection") as HTMLSelectElement | null;
+      if (projectionSelect) projectionSelect.value = "Perspective";
       updateViewportHint("🎮 First Person Walkthrough Active — Use WASD keys & Mouse to explore");
+    }
+
+    if (world.onCameraChanged) {
+      world.onCameraChanged.trigger(world.camera);
+    }
+    for (const [, model] of fragments.list) {
+      if (model && typeof model.useCamera === "function") {
+        model.useCamera(world.camera.three);
+      }
     }
   });
 }
@@ -3524,13 +3688,28 @@ function animateFirstPerson() {
       controls.moveTo(targetVal.x, targetVal.y, targetVal.z, false);
     }
   }
+
+  // Update real-time HUD overlays
+  AnnotationModule.getInstance().updateOverlayPositions();
+  MinimapHUD.getInstance().update();
 }
 animateFirstPerson();
 
 const settingsCameraProjection = document.getElementById("settings-camera-projection")! as HTMLSelectElement;
-settingsCameraProjection.addEventListener("change", () => {
-  world.camera.projection.set(settingsCameraProjection.value as any);
-});
+if (settingsCameraProjection) {
+  settingsCameraProjection.addEventListener("change", async () => {
+    const proj = settingsCameraProjection.value as "Perspective" | "Orthographic";
+    await world.camera.projection.set(proj as any);
+    if (world.onCameraChanged) {
+      world.onCameraChanged.trigger(world.camera);
+    }
+    for (const [, model] of fragments.list) {
+      if (model && typeof model.useCamera === "function") {
+        model.useCamera(world.camera.three);
+      }
+    }
+  });
+}
 
 const settingsCameraInput = document.getElementById("settings-camera-input")! as HTMLInputElement;
 settingsCameraInput.addEventListener("change", () => {
@@ -3538,8 +3717,218 @@ settingsCameraInput.addEventListener("change", () => {
 });
 
 const btnCameraFit = document.getElementById("btn-camera-fit")!;
-btnCameraFit.addEventListener("click", async () => {
-  await world.camera.fit(world.meshes);
+if (btnCameraFit) {
+  btnCameraFit.addEventListener("click", async () => {
+    await world.camera.fit(world.meshes);
+  });
+}
+
+// Camera Far Limit Slider
+const cameraFarInput = document.getElementById("settings-camera-far") as HTMLInputElement | null;
+const cameraFarVal = document.getElementById("val-camera-far");
+if (cameraFarInput) {
+  cameraFarInput.addEventListener("input", () => {
+    const farVal = Number(cameraFarInput.value);
+    if (cameraFarVal) cameraFarVal.innerText = `${farVal}m`;
+
+    if (world.camera) {
+      if (world.camera.threePersp) {
+        world.camera.threePersp.far = farVal;
+        world.camera.threePersp.updateProjectionMatrix();
+      }
+      if (world.camera.threeOrtho) {
+        world.camera.threeOrtho.far = farVal;
+        world.camera.threeOrtho.updateProjectionMatrix();
+      }
+      if (world.camera.three) {
+        world.camera.three.far = farVal;
+        world.camera.three.updateProjectionMatrix();
+      }
+    }
+    if (sceneManager.bluePenPass && sceneManager.bluePenPass.uniforms.cameraFar) {
+      sceneManager.bluePenPass.uniforms.cameraFar.value = farVal;
+    }
+    if (fragments.core) {
+      fragments.core.update(true);
+    }
+  });
+}
+
+// Camera Near Limit Slider
+const cameraNearInput = document.getElementById("settings-camera-near") as HTMLInputElement | null;
+const cameraNearVal = document.getElementById("val-camera-near");
+if (cameraNearInput) {
+  cameraNearInput.addEventListener("input", () => {
+    const nearVal = Number(cameraNearInput.value);
+    if (cameraNearVal) cameraNearVal.innerText = `${nearVal.toFixed(2)}m`;
+
+    if (world.camera) {
+      if (world.camera.threePersp) {
+        world.camera.threePersp.near = nearVal;
+        world.camera.threePersp.updateProjectionMatrix();
+      }
+      if (world.camera.threeOrtho) {
+        world.camera.threeOrtho.near = nearVal;
+        world.camera.threeOrtho.updateProjectionMatrix();
+      }
+      if (world.camera.three) {
+        world.camera.three.near = nearVal;
+        world.camera.three.updateProjectionMatrix();
+      }
+    }
+    if (sceneManager.bluePenPass && sceneManager.bluePenPass.uniforms.cameraNear) {
+      sceneManager.bluePenPass.uniforms.cameraNear.value = nearVal;
+    }
+    if (fragments.core) {
+      fragments.core.update(true);
+    }
+  });
+}
+
+// Camera FOV Slider
+const cameraFovInput = document.getElementById("settings-camera-fov") as HTMLInputElement | null;
+const cameraFovVal = document.getElementById("val-camera-fov");
+if (cameraFovInput) {
+  cameraFovInput.addEventListener("input", () => {
+    const fovVal = Number(cameraFovInput.value);
+    if (cameraFovVal) cameraFovVal.innerText = `${fovVal}°`;
+
+    if (world.camera && world.camera.threePersp) {
+      world.camera.threePersp.fov = fovVal;
+      world.camera.threePersp.updateProjectionMatrix();
+    }
+    if (fragments.core) {
+      fragments.core.update(true);
+    }
+  });
+}
+
+// Zoom & Dolly Speed Slider
+const cameraSpeedInput = document.getElementById("settings-camera-speed") as HTMLInputElement | null;
+const cameraSpeedVal = document.getElementById("val-camera-speed");
+if (cameraSpeedInput) {
+  cameraSpeedInput.addEventListener("input", () => {
+    const speedVal = Number(cameraSpeedInput.value);
+    if (cameraSpeedVal) cameraSpeedVal.innerText = `${speedVal.toFixed(1)}x`;
+
+    if (world.camera && world.camera.controls) {
+      (world.camera.controls as any).dollySpeed = speedVal;
+      (world.camera.controls as any).zoomSpeed = speedVal;
+    }
+  });
+}
+
+// Exploded Disassembly View Slider
+const explosionSlider = document.getElementById("settings-explosion-slider") as HTMLInputElement | null;
+const explosionVal = document.getElementById("val-explosion-factor");
+if (explosionSlider) {
+  explosionSlider.addEventListener("input", () => {
+    const factor = Number(explosionSlider.value) / 100;
+    if (explosionVal) explosionVal.innerText = `${explosionSlider.value}%`;
+    ExplosionModule.getInstance().setExplosionFactor(factor);
+  });
+}
+
+// Solar Sun Position Analysis Sliders
+const sunAzimuthInput = document.getElementById("settings-sun-azimuth") as HTMLInputElement | null;
+const sunAzimuthVal = document.getElementById("val-sun-azimuth");
+const sunElevationInput = document.getElementById("settings-sun-elevation") as HTMLInputElement | null;
+const sunElevationVal = document.getElementById("val-sun-elevation");
+
+const updateSunPosition = () => {
+  const azimuthDeg = sunAzimuthInput ? Number(sunAzimuthInput.value) : 135;
+  const elevationDeg = sunElevationInput ? Number(sunElevationInput.value) : 45;
+
+  if (sunAzimuthVal) sunAzimuthVal.innerText = `${azimuthDeg}°`;
+  if (sunElevationVal) sunElevationVal.innerText = `${elevationDeg}°`;
+
+  const azimuthRad = (azimuthDeg * Math.PI) / 180;
+  const elevationRad = (elevationDeg * Math.PI) / 180;
+  const dist = 50;
+
+  if (dirLight) {
+    dirLight.position.x = dist * Math.cos(elevationRad) * Math.sin(azimuthRad);
+    dirLight.position.y = dist * Math.sin(elevationRad);
+    dirLight.position.z = dist * Math.cos(elevationRad) * Math.cos(azimuthRad);
+    if (world.scene && (world.scene as any).updateShadows) {
+      (world.scene as any).updateShadows();
+    }
+  }
+};
+
+if (sunAzimuthInput) sunAzimuthInput.addEventListener("input", updateSunPosition);
+if (sunElevationInput) sunElevationInput.addEventListener("input", updateSunPosition);
+
+// 3D Pin Annotation Tool Toggle & Clear
+const toggleAnnotation = document.getElementById("settings-toggle-annotation") as HTMLInputElement | null;
+if (toggleAnnotation) {
+  toggleAnnotation.addEventListener("change", () => {
+    AnnotationModule.getInstance().enablePinCreation(toggleAnnotation.checked);
+    if (toggleAnnotation.checked) {
+      updateViewportHint("📌 Click on any 3D element to place a 3D Pin Annotation marker");
+    }
+  });
+}
+
+const btnClearAnnotations = document.getElementById("btn-clear-annotations");
+if (btnClearAnnotations) {
+  btnClearAnnotations.addEventListener("click", () => {
+    AnnotationModule.getInstance().clearAll();
+  });
+}
+
+// Section Box Multi-Plane Clipping
+const toggleSectionBox = document.getElementById("settings-toggle-section-box") as HTMLInputElement | null;
+const sectionBoxControls = document.getElementById("section-box-controls");
+const sectionBoxYMaxInput = document.getElementById("section-box-ymax") as HTMLInputElement | null;
+
+if (toggleSectionBox) {
+  toggleSectionBox.addEventListener("change", () => {
+    const active = toggleSectionBox.checked;
+    clipping.setSectionBoxEnabled(active);
+    if (sectionBoxControls) {
+      sectionBoxControls.style.display = active ? "flex" : "none";
+    }
+  });
+}
+
+if (sectionBoxYMaxInput) {
+  sectionBoxYMaxInput.addEventListener("input", () => {
+    const yMax = Number(sectionBoxYMaxInput.value);
+    clipping.updateSectionBoxBounds(-50, 50, -10, yMax, -50, 50);
+  });
+}
+
+// Canvas Click Event for 3D Pin Annotations
+container.addEventListener("click", async (e: MouseEvent) => {
+  const annoMod = AnnotationModule.getInstance();
+  if (!annoMod.enabled) return;
+
+  const rect = container.getBoundingClientRect();
+  const mouse = new THREE.Vector2(
+    ((e.clientX - rect.left) / rect.width) * 2 - 1,
+    -((e.clientY - rect.top) / rect.height) * 2 + 1
+  );
+
+  const raycaster = new THREE.Raycaster();
+  raycaster.setFromCamera(mouse, world.camera.three);
+
+  const meshes: THREE.Mesh[] = [];
+  for (const [, model] of fragments.list) {
+    if (model && model.object) {
+      model.object.traverse((child: any) => {
+        if (child.isMesh) meshes.push(child);
+      });
+    }
+  }
+
+  const intersects = raycaster.intersectObjects(meshes, false);
+  if (intersects.length > 0) {
+    const hitPoint = intersects[0].point;
+    const title = prompt("Enter Annotation Title:", "Structural Inspection Pin") || "Inspection Pin";
+    const comment = prompt("Enter Comment Details:", "Issue flagged for revision") || "Notes logged";
+    annoMod.addAnnotation(hitPoint, title, comment, "Inspection");
+  }
 });
 
 // --- TAPE MEASURE BINDINGS ---
@@ -4511,212 +4900,23 @@ document.querySelectorAll(".panel").forEach((panel) => {
 // Initial update
 setTimeout(() => { if (viewCube) viewCube.updateOrientation(); }, 500);
 
-// ============================================================
-// TACTICAL SEGMENTED TAB SYSTEM CONTROLLER
-// ============================================================
-function setupSidebarTabSystem() {
-  const leftTabButtons = document.querySelectorAll('#left-tab-bar .sidebar-tab-btn');
-  const rightTabButtons = document.querySelectorAll('#right-tab-bar .sidebar-tab-btn');
 
-  function switchSidebarTab(barId: string, tabName: string) {
-    const isLeft = barId === 'left-tab-bar';
-    const buttons = isLeft ? leftTabButtons : rightTabButtons;
-    const prefix = isLeft ? 'tab-left-' : 'tab-right-';
-
-    buttons.forEach((btn) => {
-      if (btn.getAttribute('data-tab') === tabName) {
-        btn.classList.add('active');
-      } else {
-        btn.classList.remove('active');
-      }
-    });
-
-    const panels = document.querySelectorAll(isLeft ? '.left-sidebar .tab-content-panel' : '.right-sidebar .tab-content-panel');
-    panels.forEach((panel) => {
-      if (panel.id === `${prefix}${tabName}`) {
-        panel.classList.add('active');
-      } else {
-        panel.classList.remove('active');
-      }
-    });
-  }
-
-  leftTabButtons.forEach((btn) => {
-    btn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      const tab = btn.getAttribute('data-tab');
-      if (tab) switchSidebarTab('left-tab-bar', tab);
-    });
-  });
-
-  rightTabButtons.forEach((btn) => {
-    btn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      const tab = btn.getAttribute('data-tab');
-      if (tab) switchSidebarTab('right-tab-bar', tab);
-    });
-  });
-
-  // Keyboard Shortcuts (Key 1..3 for Left, 4..7 for Right, ? for shortcuts modal)
-  window.addEventListener('keydown', (e) => {
-    const activeEl = document.activeElement;
-    const isTyping = activeEl && (
-      activeEl.tagName === 'INPUT' ||
-      activeEl.tagName === 'TEXTAREA' ||
-      activeEl.tagName === 'SELECT' ||
-      (activeEl as HTMLElement).isContentEditable
-    );
-
-    if (e.key === '?' || (e.shiftKey && e.key === '/')) {
-      if (!isTyping) {
-        e.preventDefault();
-        if (typeof (window as any).toggleShortcutsModal === "function") {
-          (window as any).toggleShortcutsModal();
-        }
-      }
-      return;
-    }
-
-    if (isTyping) return;
-
-    switch (e.key) {
-      case '1': switchSidebarTab('left-tab-bar', 'files'); break;
-      case '2': switchSidebarTab('left-tab-bar', 'finder'); break;
-      case '3': switchSidebarTab('left-tab-bar', 'schedule'); break;
-      case '4': switchSidebarTab('right-tab-bar', 'scene'); break;
-      case '5': switchSidebarTab('right-tab-bar', 'inspector'); break;
-      case '6': switchSidebarTab('right-tab-bar', 'controls'); break;
-      case '7': switchSidebarTab('right-tab-bar', 'tools'); break;
-    }
-  });
-
-  // Expose switchSidebarTab globally so other components can switch tabs automatically
-  (window as any).switchSidebarTab = switchSidebarTab;
-}
-
-setupSidebarTabSystem();
 
 // ============================================================
-// WELCOME TUTORIAL / HELP MODAL CONTROLLER
+// INITIALIZE MODULAR CONTROLLERS & SERVICES
 // ============================================================
+UIManager.getInstance().init();
+KeyboardController.getInstance().init();
 
-const helpModal = document.getElementById("shortcuts-modal");
-const btnShortcutsToggle = document.getElementById("btn-shortcuts-toggle");
-const btnShortcutsClose  = document.getElementById("btn-shortcuts-close");
-const btnHelpNext        = document.getElementById("btn-help-next") as HTMLButtonElement | null;
-const btnHelpPrev        = document.getElementById("btn-help-prev") as HTMLButtonElement | null;
-const btnHelpDone        = document.getElementById("btn-help-done") as HTMLButtonElement | null;
-const helpDontShow       = document.getElementById("help-dont-show-again") as HTMLInputElement | null;
-
-// Tab order
-const HELP_TABS = ["welcome", "tools", "shortcuts", "navigate"] as const;
-type HelpTab = typeof HELP_TABS[number];
-let helpCurrentTab: HelpTab = "welcome";
-
-function switchHelpTab(tab: HelpTab) {
-  helpCurrentTab = tab;
-
-  // Update tab buttons
-  document.querySelectorAll(".help-tab-btn").forEach((btn) => {
-    const isActive = (btn as HTMLElement).getAttribute("data-help-tab") === tab;
-    btn.classList.toggle("active", isActive);
-  });
-
-  // Update panels
-  document.querySelectorAll(".help-tab-panel").forEach((panel) => {
-    panel.classList.toggle("active", panel.id === `help-tab-${tab}`);
-  });
-
-  // Update footer prev/next/done visibility
-  const idx = HELP_TABS.indexOf(tab);
-  if (btnHelpPrev) btnHelpPrev.classList.toggle("hidden", idx === 0);
-  if (btnHelpNext) btnHelpNext.classList.toggle("hidden", idx === HELP_TABS.length - 1);
-  if (btnHelpDone) btnHelpDone.classList.toggle("hidden", idx !== HELP_TABS.length - 1);
-}
-
-// Expose toggle globally for the ? hotkey (replaces old toggleShortcutsModal)
-function toggleShortcutsModal(forceOpen?: boolean) {
-  if (!helpModal) return;
-  const isHidden = helpModal.classList.contains("hidden");
-  if (forceOpen === true || (forceOpen === undefined && isHidden)) {
-    openHelpModal("welcome");
-  } else {
-    closeHelpModal();
-  }
-}
-(window as any).toggleShortcutsModal = toggleShortcutsModal;
-
-function openHelpModal(startTab: HelpTab = "welcome") {
-  if (!helpModal) return;
-  helpModal.classList.remove("hidden");
-  switchHelpTab(startTab);
-}
-
-function closeHelpModal() {
-  if (!helpModal) return;
-  helpModal.classList.add("hidden");
-  // Persist "don't show again" preference
-  if (helpDontShow?.checked) {
-    localStorage.setItem("bim-help-dont-show", "1");
-  }
-}
-
-// Wire tab buttons
-document.querySelectorAll(".help-tab-btn").forEach((btn) => {
-  btn.addEventListener("click", () => {
-    const tab = (btn as HTMLElement).getAttribute("data-help-tab") as HelpTab;
-    if (tab) switchHelpTab(tab);
-  });
-});
-
-// Wire prev/next/done navigation
-if (btnHelpNext) {
-  btnHelpNext.addEventListener("click", () => {
-    const idx = HELP_TABS.indexOf(helpCurrentTab);
-    if (idx < HELP_TABS.length - 1) switchHelpTab(HELP_TABS[idx + 1]);
-  });
-}
-if (btnHelpPrev) {
-  btnHelpPrev.addEventListener("click", () => {
-    const idx = HELP_TABS.indexOf(helpCurrentTab);
-    if (idx > 0) switchHelpTab(HELP_TABS[idx - 1]);
-  });
-}
-if (btnHelpDone) {
-  btnHelpDone.addEventListener("click", closeHelpModal);
-}
-
-// Wire header close button and overlay backdrop click
-if (btnShortcutsClose) {
-  btnShortcutsClose.addEventListener("click", closeHelpModal);
-}
-if (helpModal) {
-  helpModal.addEventListener("click", (e) => {
-    if (e.target === helpModal) closeHelpModal();
-  });
-}
-
-// Wire keybinds button in header
-if (btnShortcutsToggle) {
-  btnShortcutsToggle.addEventListener("click", () => {
-    if (helpModal?.classList.contains("hidden")) {
-      openHelpModal("welcome");
-    } else {
-      closeHelpModal();
-    }
-  });
-}
-
-// Auto-show on first visit (unless user dismissed it before)
+// Auto-show Help Modal on first visit
 const FIRST_VISIT_KEY = "bim-help-dont-show";
 if (!localStorage.getItem(FIRST_VISIT_KEY)) {
-  // Defer to after model check / page settle
-  setTimeout(() => openHelpModal("welcome"), 800);
+  setTimeout(() => {
+    if (typeof (window as any).toggleShortcutsModal === "function") {
+      (window as any).toggleShortcutsModal(true);
+    }
+  }, 800);
 }
-
-
-
-
 
 // ============================================================
 // TIMELINE SPEED PILLS CONTROLLER
@@ -4734,90 +4934,9 @@ speedPills.forEach((pill) => {
   });
 });
 
-// ============================================================
-// 5D CUMULATIVE PROJECT COST CALCULATOR
-// ============================================================
-function updateCumulative5DCost() {
-  const grandTotalEl = document.getElementById("cost-project-grand-total");
-  const countEl = document.getElementById("cost-project-elements-count");
-  if (!grandTotalEl || !countEl) return;
-
-  let grandTotal = 0;
-  let elementCount = 0;
-
-  for (const [, model] of fragments.list) {
-    const anyModel = model as any;
-    const modelId = anyModel.modelId || anyModel.uuid || anyModel.id || anyModel.object?.uuid || "default-model";
-    const properties = anyModel.properties || anyModel.getLocalProperties?.() || {};
-
-    for (const expressIdStr in properties) {
-      const expressId = Number(expressIdStr);
-      if (isNaN(expressId)) continue;
-
-      const elementProps = properties[expressId];
-      if (!elementProps) continue;
-
-      const ifcType = String(elementProps.type ?? "").toUpperCase();
-      const twinData = getOrGenerateTwinData(modelId, expressId, ifcType);
-
-      if (twinData.calculatedCost) {
-        grandTotal += twinData.calculatedCost;
-        elementCount++;
-      }
-    }
-  }
-
-  grandTotalEl.textContent = `$${grandTotal.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-  countEl.textContent = `${elementCount.toLocaleString()} items`;
-}
-
 // Trigger initial cost calculation & expose globally
 updateCumulative5DCost();
 (window as any).updateCumulative5DCost = updateCumulative5DCost;
-
-// ============================================================
-// SENIOR UI MOBILE BOTTOM NAVIGATION HANDLER
-// ============================================================
-const mobileNavBtns = document.querySelectorAll<HTMLButtonElement>(".mobile-nav-btn");
-mobileNavBtns.forEach((btn) => {
-  btn.addEventListener("click", () => {
-    const targetTab = btn.getAttribute("data-mobile-tab");
-    if (!targetTab) return;
-
-    const leftSidebar = document.querySelector(".left-sidebar");
-    const rightSidebar = document.querySelector(".right-sidebar");
-    const isLeftOpen = leftSidebar?.classList.contains("open");
-    const isRightOpen = rightSidebar?.classList.contains("open");
-    const isBtnActive = btn.classList.contains("active");
-
-    // Toggle drawer closed if tapping active tab while open
-    if (isBtnActive && (isLeftOpen || isRightOpen)) {
-      closeAllSidebars();
-      return;
-    }
-
-    mobileNavBtns.forEach((b) => b.classList.remove("active"));
-    btn.classList.add("active");
-
-    if (targetTab === "files" || targetTab === "finder" || targetTab === "sched") {
-      rightSidebar?.classList.remove("open");
-      leftSidebar?.classList.add("open");
-
-      const actualTab = targetTab === "sched" ? "schedule" : targetTab;
-      const tabBtn = document.querySelector<HTMLButtonElement>(`#left-tab-bar [data-tab="${actualTab}"]`);
-      if (tabBtn) tabBtn.click();
-    } else if (targetTab === "scene" || targetTab === "tools") {
-      leftSidebar?.classList.remove("open");
-      rightSidebar?.classList.add("open");
-
-      const tabBtn = document.querySelector<HTMLButtonElement>(`#right-tab-bar [data-tab="${targetTab}"]`);
-      if (tabBtn) tabBtn.click();
-    }
-
-    const backdrop = document.getElementById("sidebar-backdrop");
-    if (backdrop) backdrop.classList.add("active");
-  });
-});
 
 // ============================================================
 // THEME SWITCHER HANDLER

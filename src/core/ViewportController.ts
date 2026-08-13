@@ -22,7 +22,15 @@ export class ViewportController {
 
   public setCameraMode(mode: "Orbit" | "FirstPerson" | "Plan") {
     if (this.engine.world.camera) {
-      (this.engine.world.camera as any).set(mode as any);
+      const cam = this.engine.world.camera as OBC.OrthoPerspectiveCamera;
+      const camAny = cam as any;
+      if (!camAny._navigationModes.has(mode)) {
+        camAny._navigationModes.set("Orbit", new OBC.OrbitMode(cam));
+        camAny._navigationModes.set("FirstPerson", new OBC.FirstPersonMode(cam));
+        camAny._navigationModes.set("Plan", new OBC.PlanMode(cam));
+        camAny._mode = camAny._navigationModes.get("Orbit");
+      }
+      cam.set(mode as any);
     }
   }
 

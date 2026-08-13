@@ -143,7 +143,7 @@
           <button class="sidebar-tab-btn" data-tab="finder" title="Items Finder (Key 2)">
             <span class="tab-key-badge">2</span>
             <span>FINDER</span>
-            <span class="sidebar-tab-badge" id="badge-finder-count">0</span>
+            <span class="sidebar-tab-badge" id="badge-finder-count">3</span>
           </button>
           <button class="sidebar-tab-btn" data-tab="schedule" data-4d title="4D Construction Schedule (Key 3)">
             <span class="tab-key-badge">3</span>
@@ -301,15 +301,36 @@
             </div>
             <div class="panel-body thin-scrollbar">
               <div class="scene-controls-grid">
-                <div class="scene-control-item">
-                  <div class="scene-control-label">
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                      <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
-                      <circle cx="12" cy="13" r="4" />
-                    </svg>
-                    <span>Camera far</span>
+                <div class="control-row" style="grid-column: span 2;">
+                  <div class="control-label" style="display: flex; justify-content: space-between; font-size: 0.7rem; color: var(--text-muted);">
+                    <span>Camera Far Limit</span>
+                    <span class="value-badge" id="val-camera-far">3000m</span>
                   </div>
-                  <button class="pill-value font-purple" id="val-camera-far">3000m</button>
+                  <input type="range" class="custom-slider" id="settings-camera-far" min="100" max="10000" step="100" value="3000" style="width: 100%;" />
+                </div>
+
+                <div class="control-row" style="grid-column: span 2;">
+                  <div class="control-label" style="display: flex; justify-content: space-between; font-size: 0.7rem; color: var(--text-muted);">
+                    <span>Camera Near Limit</span>
+                    <span class="value-badge" id="val-camera-near">0.01m</span>
+                  </div>
+                  <input type="range" class="custom-slider" id="settings-camera-near" min="0.01" max="10.0" step="0.05" value="0.01" style="width: 100%;" />
+                </div>
+
+                <div class="control-row" style="grid-column: span 2;">
+                  <div class="control-label" style="display: flex; justify-content: space-between; font-size: 0.7rem; color: var(--text-muted);">
+                    <span>Field of View (FOV)</span>
+                    <span class="value-badge" id="val-camera-fov">60°</span>
+                  </div>
+                  <input type="range" class="custom-slider" id="settings-camera-fov" min="30" max="120" step="1" value="60" style="width: 100%;" />
+                </div>
+
+                <div class="control-row" style="grid-column: span 2;">
+                  <div class="control-label" style="display: flex; justify-content: space-between; font-size: 0.7rem; color: var(--text-muted);">
+                    <span>Zoom & Dolly Speed</span>
+                    <span class="value-badge" id="val-camera-speed">1.2x</span>
+                  </div>
+                  <input type="range" class="custom-slider" id="settings-camera-speed" min="0.2" max="3.0" step="0.1" value="1.2" style="width: 100%;" />
                 </div>
                 <div class="scene-control-item" style="grid-column: span 2;">
                   <div class="scene-control-label">
@@ -454,12 +475,44 @@
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                       <polyline points="3 6 5 6 21 6" />
                       <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                      <line x1="10" y1="11" x2="10" y2="17" />
-                      <line x1="14" y1="11" x2="14" y2="17" />
                     </svg>
                     Clear Offline Cache
                   </button>
                 </div>
+              </div>
+
+              <!-- Camera Viewpoints Bookmarks -->
+              <div class="section-subtitle"
+                style="font-size: 0.68rem; margin-top: 0.5rem; text-transform: uppercase; color: var(--text-dim); font-weight: 700; border-top: 1px solid var(--border-subtle); padding-top: 0.4rem; display: flex; justify-content: space-between; align-items: center;">
+                <span>Camera Viewpoints</span>
+                <button class="btn-secondary" id="btn-add-viewpoint" style="padding: 0.1rem 0.4rem; font-size: 0.62rem; cursor: pointer; color: var(--accent-500); border-color: var(--accent-500);">+ Bookmark View</button>
+              </div>
+              <div id="viewpoint-bookmarks-list" style="margin-bottom: 0.6rem;"></div>
+
+              <!-- Exploded Disassembly View -->
+              <div class="control-row">
+                <div class="control-label" style="display: flex; justify-content: space-between; font-size: 0.7rem; color: var(--text-muted);">
+                  <span>Exploded Disassembly View</span>
+                  <span class="value-badge" id="val-explosion-factor">0%</span>
+                </div>
+                <input type="range" class="custom-slider" id="settings-explosion-slider" min="0" max="100" step="1" value="0" style="width: 100%;" />
+              </div>
+
+              <!-- Solar Sun Position Analysis -->
+              <div class="control-row">
+                <div class="control-label" style="display: flex; justify-content: space-between; font-size: 0.7rem; color: var(--text-muted);">
+                  <span>Solar Sun Azimuth</span>
+                  <span class="value-badge" id="val-sun-azimuth">135°</span>
+                </div>
+                <input type="range" class="custom-slider" id="settings-sun-azimuth" min="0" max="360" step="5" value="135" style="width: 100%;" />
+              </div>
+
+              <div class="control-row">
+                <div class="control-label" style="display: flex; justify-content: space-between; font-size: 0.7rem; color: var(--text-muted);">
+                  <span>Solar Sun Elevation</span>
+                  <span class="value-badge" id="val-sun-elevation">45°</span>
+                </div>
+                <input type="range" class="custom-slider" id="settings-sun-elevation" min="5" max="90" step="1" value="45" style="width: 100%;" />
               </div>
 
               <!-- Lighting Controls -->
@@ -671,6 +724,9 @@
                   </svg>
                   Validate IDS 4D/5D Data Readiness
                 </button>
+
+                <div class="section-subtitle" style="margin-top: 0.4rem;">5D Category Cost Breakdown</div>
+                <div id="cost-breakdown-chart-container" style="width: 100%; margin-bottom: 0.6rem;"></div>
 
                 <div class="form-inputs-group">
                   <div class="form-input-box">
@@ -955,14 +1011,49 @@
                   <span class="toggle-slider"></span>
                 </label>
               </div>
-              <button class="btn-secondary" id="btn-clear-measurements"
-                style="width: 100%; border-color: #dc2626; color: #dc2626; display: flex; align-items: center; justify-content: center; gap: 0.4rem; font-size: 0.72rem; padding: 0.45rem; font-weight: 800;">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <polyline points="3 6 5 6 21 6" />
-                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                </svg>
-                Delete All Measurements
+              <!-- 3D Pin Annotations & Markers -->
+              <div class="scene-control-item"
+                style="display: flex; justify-content: space-between; align-items: center; background: var(--bg-card); border: 2px solid #000000; padding: 0.5rem 0.65rem; border-radius: 2px; box-shadow: 2px 2px 0px #000000;">
+                <div class="scene-control-label"
+                  style="display: flex; align-items: center; gap: 0.4rem; font-size: 0.72rem; color: var(--text-primary); font-weight: 800;">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+                    <circle cx="12" cy="10" r="3" />
+                  </svg>
+                  <span>3D Pin Annotation Tool</span>
+                </div>
+                <label class="toggle-switch" for="settings-toggle-annotation">
+                  <input type="checkbox" id="settings-toggle-annotation" />
+                  <span class="toggle-slider"></span>
+                </label>
+              </div>
+              <button class="btn-secondary" id="btn-clear-annotations"
+                style="width: 100%; border-color: var(--accent-500); color: var(--accent-500); display: flex; align-items: center; justify-content: center; gap: 0.4rem; font-size: 0.72rem; padding: 0.45rem; font-weight: 800;">
+                Clear 3D Pin Markers
               </button>
+
+              <!-- Section Box Multi-Plane Clipping -->
+              <div class="scene-control-item"
+                style="display: flex; justify-content: space-between; align-items: center; background: var(--bg-card); border: 2px solid #000000; padding: 0.5rem 0.65rem; border-radius: 2px; box-shadow: 2px 2px 0px #000000; margin-top: 0.4rem;">
+                <div class="scene-control-label"
+                  style="display: flex; align-items: center; gap: 0.4rem; font-size: 0.72rem; color: var(--text-primary); font-weight: 800;">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
+                  </svg>
+                  <span>6-Axis Section Box</span>
+                </div>
+                <label class="toggle-switch" for="settings-toggle-section-box">
+                  <input type="checkbox" id="settings-toggle-section-box" />
+                  <span class="toggle-slider"></span>
+                </label>
+              </div>
+
+              <div id="section-box-controls" style="display: none; flex-direction: column; gap: 0.4rem; background: var(--bg-card); padding: 0.5rem; border-radius: 6px; border: 1px solid var(--border-subtle);">
+                <div style="display: flex; justify-content: space-between; font-size: 0.68rem; color: var(--text-muted);">
+                  <span>Height Slicing (Y-Min / Y-Max)</span>
+                </div>
+                <input type="range" class="custom-slider" id="section-box-ymax" min="-20" max="80" step="1" value="50" style="width: 100%;" />
+              </div>
 
               <div class="section-subtitle"
                 style="font-size: 0.68rem; margin-top: 0.4rem; text-transform: uppercase; color: var(--text-dim); font-weight: 700;">
@@ -1090,6 +1181,46 @@
           </div>
         </div>
       </div>
+
+      <!-- Senior UI Mobile Bottom Navigation Bar -->
+      <nav class="mobile-bottom-nav" id="mobile-bottom-nav">
+        <button class="mobile-nav-btn active" data-mobile-tab="files" title="Project Files">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+          </svg>
+          <span>FILES</span>
+        </button>
+        <button class="mobile-nav-btn" data-mobile-tab="finder" title="Items Finder">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="11" cy="11" r="8"/>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+          </svg>
+          <span>FINDER</span>
+        </button>
+        <button class="mobile-nav-btn" data-mobile-tab="sched" title="4D Schedule">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+            <line x1="16" y1="2" x2="16" y2="6"/>
+            <line x1="8" y1="2" x2="8" y2="6"/>
+            <line x1="3" y1="10" x2="21" y2="10"/>
+          </svg>
+          <span>4D/5D</span>
+        </button>
+        <button class="mobile-nav-btn" data-mobile-tab="scene" title="Scene & Inspector">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polygon points="12 2 2 7 12 12 22 7 12 2"/>
+            <polyline points="2 17 12 22 22 17"/>
+            <polyline points="2 12 12 17 22 12"/>
+          </svg>
+          <span>SCENE</span>
+        </button>
+        <button class="mobile-nav-btn" data-mobile-tab="tools" title="Tools & BCF">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
+          </svg>
+          <span>TOOLS</span>
+        </button>
+      </nav>
 
       <!-- Bottom Floating Toolbar -->
       <div class="bottom-toolbar">
