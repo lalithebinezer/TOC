@@ -5,6 +5,7 @@
 
 export class UIManager {
   private static instance: UIManager | null = null;
+  private initialized = false;
 
   private constructor() {}
 
@@ -16,6 +17,9 @@ export class UIManager {
   }
 
   public init() {
+    if (this.initialized) return;
+    this.initialized = true;
+
     this.setupSidebarTabSystem();
     this.setupSettingsCategorySystem();
     this.setupHelpModalController();
@@ -128,9 +132,12 @@ export class UIManager {
       document.querySelector('.left-sidebar')?.classList.remove('open');
       document.querySelector('.right-sidebar')?.classList.remove('open');
       document.getElementById('sidebar-backdrop')?.classList.remove('active');
-      document.querySelectorAll('.sidebar-tab-btn, .tab-btn').forEach((b) => b.classList.remove('active'));
     };
     (window as any).closeAllSidebars = closeAllSidebars;
+
+    document.querySelectorAll('.btn-panel-back').forEach((btn) => {
+      btn.addEventListener('click', closeAllSidebars);
+    });
 
     document.getElementById('btn-toggle-left')?.addEventListener('click', () => {
       const leftSidebar = document.querySelector('.left-sidebar');

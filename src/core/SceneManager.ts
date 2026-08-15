@@ -1,6 +1,6 @@
 import { ShaderPass } from "three/examples/jsm/postprocessing/ShaderPass.js";
 import { BluePenShader } from "../shaders/BluePenShader";
-import { THEME_POST_PROCESS_CONFIG } from "../theme-palette";
+import { THEME_POST_PROCESS_CONFIG } from "../theme/ThemePalette";
 
 export class SceneManager {
   private static instance: SceneManager | null = null;

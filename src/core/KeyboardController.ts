@@ -5,6 +5,7 @@
 
 export class KeyboardController {
   private static instance: KeyboardController | null = null;
+  private initialized = false;
 
   private constructor() {}
 
@@ -16,6 +17,9 @@ export class KeyboardController {
   }
 
   public init() {
+    if (this.initialized) return;
+    this.initialized = true;
+
     window.addEventListener('keydown', (e: KeyboardEvent) => {
       const activeEl = document.activeElement;
       const isTyping = activeEl && (

@@ -1,5 +1,5 @@
 import { BimEngine } from "../core/BimEngine";
-import { extractQuantityData, generateBOQSummary, exportBOQAsCSV, type BOQSummary } from "../boq-generator";
+import { extractQuantityData, generateBOQSummary, exportBOQAsCSV, type BOQSummary } from "./BoqGenerator";
 
 export class Boq5DModule {
   private engine: BimEngine;

@@ -1,5 +1,5 @@
 import { BimEngine } from "../core/BimEngine";
-import { ScheduleManager } from "../schedule-manager";
+import { ScheduleManager } from "./ScheduleManager";
 
 export class Timeline4DModule {
   private engine: BimEngine;

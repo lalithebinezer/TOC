@@ -16,9 +16,10 @@ export class BimEngine {
   public hider: OBC.Hider;
 
   private constructor(existingComponents?: OBC.Components, existingWorld?: OBC.World) {
-    this.container = document.getElementById("container")!;
-    if (!this.container) {
-      throw new Error("Container element #container not found");
+    if (typeof document !== "undefined") {
+      this.container = document.getElementById("container") || document.createElement("div");
+    } else {
+      this.container = {} as HTMLElement;
     }
 
     this.components = existingComponents || new OBC.Components();
@@ -30,7 +31,7 @@ export class BimEngine {
       OBF.PostproductionRenderer
     >();
 
-    if (!existingWorld) {
+    if (!existingWorld && typeof document !== "undefined") {
       const scene = new OBC.ShadowedScene(this.components);
       this.world.scene = scene;
 
@@ -84,10 +85,14 @@ export class BimEngine {
   }
 
   private setupListeners() {
-    this.world.onCameraChanged.add((camera: any) => {
-      for (const [, model] of this.fragments.list) {
-        model.useCamera(camera.three);
-      }
-    });
+    if (this.world && this.world.onCameraChanged) {
+      this.world.onCameraChanged.add((camera: any) => {
+        for (const [, model] of this.fragments.list) {
+          if (model && typeof model.useCamera === "function") {
+            model.useCamera(camera.three);
+          }
+        }
+      });
+    }
   }
 }

@@ -7,7 +7,9 @@ export class MinimapHUD {
   private canvasEl: HTMLCanvasElement | null = null;
   private ctx: CanvasRenderingContext2D | null = null;
   private containerEl: HTMLElement | null = null;
+  private elevationBadgeEl: HTMLElement | null = null;
   private visible: boolean = true;
+  private scanAngle: number = 0;
 
   private constructor() {
     this.engine = BimEngine.getInstance();
@@ -23,38 +25,36 @@ export class MinimapHUD {
 
   private setupDOM() {
     this.containerEl = document.getElementById("minimap-hud-container");
+    this.canvasEl = document.getElementById("minimap-hud-canvas") as HTMLCanvasElement;
+    this.elevationBadgeEl = document.getElementById("radar-elevation-badge");
+
     if (!this.containerEl) {
       this.containerEl = document.createElement("div");
       this.containerEl.id = "minimap-hud-container";
-      this.containerEl.style.cssText = `
-        position: absolute;
-        bottom: 70px;
-        right: 20px;
-        width: 140px;
-        height: 140px;
-        background: var(--bg-card, rgba(15, 23, 42, 0.85));
-        border: 1px solid var(--border-color, rgba(255, 255, 255, 0.15));
-        border-radius: 12px;
-        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
-        backdrop-filter: blur(8px);
-        z-index: 12;
-        overflow: hidden;
-        pointer-events: auto;
-      `;
+      this.containerEl.className = "minimap-hud-container";
 
       this.canvasEl = document.createElement("canvas");
-      this.canvasEl.width = 140;
-      this.canvasEl.height = 140;
+      this.canvasEl.id = "minimap-hud-canvas";
+      this.canvasEl.width = 130;
+      this.canvasEl.height = 130;
       this.containerEl.appendChild(this.canvasEl);
-      this.ctx = this.canvasEl.getContext("2d");
 
-      // Label header
       const label = document.createElement("div");
-      label.style.cssText = "position: absolute; top: 4px; left: 8px; font-size: 0.6rem; font-weight: 700; color: var(--text-dim, #94a3b8); text-transform: uppercase;";
-      label.innerText = "MINIMAP";
+      label.style.cssText = "position: absolute; top: 5px; left: 8px; font-size: 0.55rem; font-weight: 800; color: var(--accent-500); text-transform: uppercase; letter-spacing: 0.05em; display: flex; align-items: center; gap: 0.3rem;";
+      label.innerHTML = '<span style="display: inline-block; width: 5px; height: 5px; border-radius: 50%; background: var(--color-success); box-shadow: 0 0 6px var(--color-success);"></span><span>RADAR HUD</span>';
       this.containerEl.appendChild(label);
 
-      document.getElementById("container")?.appendChild(this.containerEl);
+      this.elevationBadgeEl = document.createElement("div");
+      this.elevationBadgeEl.id = "radar-elevation-badge";
+      this.elevationBadgeEl.style.cssText = "position: absolute; bottom: 4px; right: 6px; font-family: var(--font-mono); font-size: 0.52rem; font-weight: 800; color: var(--text-muted); pointer-events: none;";
+      this.elevationBadgeEl.innerText = "ELV: +0.0m";
+      this.containerEl.appendChild(this.elevationBadgeEl);
+
+      document.getElementById("app")?.appendChild(this.containerEl);
+    }
+
+    if (this.canvasEl) {
+      this.ctx = this.canvasEl.getContext("2d");
     }
   }
 
@@ -75,23 +75,80 @@ export class MinimapHUD {
 
     ctx.clearRect(0, 0, w, h);
 
-    // Background grid
-    ctx.strokeStyle = "rgba(255, 255, 255, 0.05)";
+    // Dynamic scan line effect
+    this.scanAngle += 0.03;
+    if (this.scanAngle > Math.PI * 2) this.scanAngle = 0;
+
+    // 1. Draw Polar Radar Grid & Crosshairs
+    ctx.save();
+    ctx.translate(center, center);
+
+    // Outer circle
+    ctx.strokeStyle = "rgba(0, 229, 255, 0.35)";
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.arc(0, 0, 56, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // Inner range circles
+    ctx.strokeStyle = "rgba(0, 229, 255, 0.15)";
     ctx.lineWidth = 1;
-    for (let x = 0; x < w; x += 20) {
-      ctx.beginPath();
-      ctx.moveTo(x, 0);
-      ctx.lineTo(x, h);
-      ctx.stroke();
-    }
-    for (let y = 0; y < h; y += 20) {
-      ctx.beginPath();
-      ctx.moveTo(0, y);
-      ctx.lineTo(w, y);
-      ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(0, 0, 38, 0, Math.PI * 2);
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.arc(0, 0, 20, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // Crosshair axes
+    ctx.strokeStyle = "rgba(0, 229, 255, 0.2)";
+    ctx.setLineDash([2, 2]);
+    ctx.beginPath();
+    ctx.moveTo(-56, 0);
+    ctx.lineTo(56, 0);
+    ctx.moveTo(0, -56);
+    ctx.lineTo(0, 56);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // North Indicator
+    ctx.fillStyle = "#38bdf8";
+    ctx.font = "bold 8px var(--font-mono, monospace)";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText("N", 0, -48);
+
+    // Rotating Radar Sweep Ray
+    const sweepGradient = ctx.createRadialGradient(0, 0, 0, 0, 0, 56);
+    sweepGradient.addColorStop(0, "rgba(56, 189, 248, 0.25)");
+    sweepGradient.addColorStop(1, "rgba(56, 189, 248, 0)");
+    ctx.fillStyle = sweepGradient;
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.arc(0, 0, 56, this.scanAngle - 0.4, this.scanAngle);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.restore();
+
+    // 2. Get Camera & Model coordinates
+    const camPos = new THREE.Vector3();
+    const cam = this.engine.world.camera;
+    if (!cam) return;
+
+    if (cam.controls) {
+      cam.controls.getPosition(camPos);
+    } else if (cam.three) {
+      cam.three.getWorldPosition(camPos);
     }
 
-    // Get model bounding box footprint
+    if (this.elevationBadgeEl) {
+      const elv = camPos.y >= 0 ? `+${camPos.y.toFixed(1)}m` : `${camPos.y.toFixed(1)}m`;
+      this.elevationBadgeEl.innerText = `ELV: ${elv}`;
+    }
+
+    // 3. Get Model Bounding Box Footprint
     const bbox = new THREE.Box3();
     let hasModel = false;
     for (const [, model] of this.engine.fragments.list) {
@@ -101,58 +158,80 @@ export class MinimapHUD {
       }
     }
 
-    const camPos = new THREE.Vector3();
-    const cam = this.engine.world.camera;
-    if (!cam || !cam.controls) return;
-    cam.controls.getPosition(camPos);
-
     const dir = new THREE.Vector3();
     cam.three.getWorldDirection(dir);
     const angle = Math.atan2(dir.x, dir.z);
 
-    // Draw model footprint box
+    // 4. Draw Model Footprint on Radar (Scaled to fit within radar screen)
     if (hasModel && !bbox.isEmpty()) {
       const modelCenter = new THREE.Vector3();
       bbox.getCenter(modelCenter);
       const size = new THREE.Vector3();
       bbox.getSize(size);
 
-      const scale = 80 / Math.max(size.x, size.z, 10);
+      const maxDim = Math.max(size.x, size.z, 15);
+      const scale = 70 / maxDim; // Fit nicely into radar boundary
       const relX = (modelCenter.x - camPos.x) * scale;
       const relZ = (modelCenter.z - camPos.z) * scale;
 
+      // Clamp footprint within display area
+      const clampedRelX = Math.max(-30, Math.min(30, relX));
+      const clampedRelZ = Math.max(-30, Math.min(30, relZ));
+
       ctx.save();
-      ctx.translate(center + relX, center + relZ);
-      ctx.strokeStyle = "rgba(59, 130, 246, 0.5)";
-      ctx.fillStyle = "rgba(59, 130, 246, 0.1)";
+      ctx.translate(center + clampedRelX, center + clampedRelZ);
+
+      // Model Box Fill & Outline
+      const boxW = Math.max(8, size.x * scale);
+      const boxH = Math.max(8, size.z * scale);
+
+      ctx.fillStyle = "rgba(59, 130, 246, 0.25)";
+      ctx.strokeStyle = "#38bdf8";
       ctx.lineWidth = 1.5;
-      ctx.fillRect(-size.x * scale / 2, -size.z * scale / 2, size.x * scale, size.z * scale);
-      ctx.strokeRect(-size.x * scale / 2, -size.z * scale / 2, size.x * scale, size.z * scale);
+      ctx.fillRect(-boxW / 2, -boxH / 2, boxW, boxH);
+      ctx.strokeRect(-boxW / 2, -boxH / 2, boxW, boxH);
+
+      // Center cross on model
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.4)";
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(-3, 0);
+      ctx.lineTo(3, 0);
+      ctx.moveTo(0, -3);
+      ctx.lineTo(0, 3);
+      ctx.stroke();
+
       ctx.restore();
     }
 
-    // Draw camera position indicator (Player Dot & Vision Cone)
+    // 5. Draw Camera / Player Position & Vision Cone
     ctx.save();
     ctx.translate(center, center);
 
     // Vision frustum cone
-    ctx.fillStyle = "rgba(234, 179, 8, 0.15)";
+    ctx.fillStyle = "rgba(242, 202, 80, 0.22)";
+    ctx.strokeStyle = "rgba(242, 202, 80, 0.6)";
+    ctx.lineWidth = 1;
     ctx.beginPath();
     ctx.moveTo(0, 0);
-    ctx.arc(0, 0, 35, -angle - Math.PI / 2 - 0.4, -angle - Math.PI / 2 + 0.4);
+    ctx.arc(0, 0, 32, -angle - Math.PI / 2 - 0.38, -angle - Math.PI / 2 + 0.38);
     ctx.closePath();
     ctx.fill();
+    ctx.stroke();
 
-    // Direction arrow
+    // Direction arrow pointer
     ctx.rotate(-angle);
-    ctx.fillStyle = "#eab308";
+    ctx.fillStyle = "#f59e0b";
+    ctx.strokeStyle = "#000000";
+    ctx.lineWidth = 1;
     ctx.beginPath();
-    ctx.moveTo(0, -8);
+    ctx.moveTo(0, -9);
     ctx.lineTo(6, 6);
     ctx.lineTo(0, 3);
     ctx.lineTo(-6, 6);
     ctx.closePath();
     ctx.fill();
+    ctx.stroke();
 
     ctx.restore();
   }

@@ -22,6 +22,7 @@ export class StorageCache {
   }
 
   public async init(): Promise<void> {
+    if (typeof indexedDB === "undefined") return;
     if (this.db) return;
 
     return new Promise((resolve) => {

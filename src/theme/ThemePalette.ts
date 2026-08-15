@@ -184,12 +184,8 @@ export type IfcCategoryKey = typeof IFC_CATEGORIES[number] | string;
 
 /**
  * Per-theme color palettes for IFC categories.
- * 
- * Design rationale:
- * - Zen: Kintsugi Gold & Charcoal infrastructure theme
  */
 export const THEME_PALETTES: ThemePalettes = {
-
   // ── Zen Infrastructure Theme (Future-Ready Engineering) ──
   zen: {
     IFCWALL:                '#333535',  // slate charcoal

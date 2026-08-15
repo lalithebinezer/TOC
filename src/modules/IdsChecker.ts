@@ -61,9 +61,9 @@ export class IDSChecker {
         }
         for (const mId in fail) {
           failCount += fail[mId].size;
-          if (fail[mId].size > 0) {
-            failingCategories.push(`IFCWALL (${fail[mId].size} missing Qto_WallBaseQuantities)`);
-          }
+        }
+        if (failCount > 0) {
+          failingCategories.push(`IFCWALL (${failCount} missing Qto_WallBaseQuantities)`);
         }
       } catch (err) {
         console.warn("IDS spec test warning:", err);

@@ -6,8 +6,11 @@
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>BIM Viewer — Lalith Ebinezer</title>
-  <meta name="description"
-    content="Enterprise BIM Viewer with IFC model loading, 3D navigation, digital twin data, and section cutting tools." />
+  <meta name="description" content="Enterprise BIM Viewer with IFC model loading, 3D navigation, digital twin data, and section cutting tools." />
+  <link rel="manifest" href="manifest.json" />
+  <meta name="theme-color" content="#d4af37" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link
@@ -59,7 +62,24 @@
 
         <!-- Header Controls -->
         <div class="header-controls">
-          <button class="btn-4d-mode interactive-gold" id="btn-4d-mode" title="Toggle 4D Construction Simulation Mode" onclick="if(typeof window.toggle4DMode==='function') window.toggle4DMode();">
+          <button class="btn-shortcuts-toggle" id="btn-open-command-palette" title="Search Everything (Ctrl+K)" style="background: var(--bg-card); color: var(--text-primary); border-color: var(--border-strong); display: flex; align-items: center; gap: 0.35rem; font-weight: 800;">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <span>SEARCH</span>
+            <kbd style="font-size: 0.55rem; background: var(--bg-input); border: 1px solid var(--border-subtle); padding: 0.05rem 0.25rem; border-radius: 2px; margin-left: 0.1rem;">⌘K</kbd>
+          </button>
+          <div class="saved-views-ribbon-wrapper" style="position: relative;">
+            <button class="btn-shortcuts-toggle" id="btn-ribbon-saved-views" title="Custom Views & 3D Clustering Bookmarks (Autodesk Tandem Style)" style="background: var(--bg-card); color: var(--text-primary); border-color: var(--border-strong); display: flex; align-items: center; gap: 0.35rem; font-weight: 800;">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--accent-500)" stroke-width="2.5"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+              <span>VIEWS</span>
+              <span id="saved-views-count-badge" style="font-size: 0.55rem; background: var(--accent-500); color: #000000; font-weight: 900; padding: 0.05rem 0.25rem; border-radius: 2px;">4</span>
+            </button>
+
+            <!-- Flyout Dropdown for Saved Custom Views -->
+            <div class="saved-views-flyout hidden" id="menu-saved-views" style="position: absolute; top: calc(100% + 6px); right: 0; width: 340px; background: var(--bg-surface); border: 2px solid #000000; box-shadow: 4px 4px 0px #000000; border-radius: 2px; z-index: 10000; overflow: hidden;">
+              <div id="saved-views-dropdown-content"></div>
+            </div>
+          </div>
+          <button class="btn-4d-mode interactive-gold" id="btn-4d-mode" title="Toggle 4D Construction Simulation Mode">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
               <circle cx="12" cy="12" r="10" />
               <polyline points="12 6 12 12 16 14" />
@@ -98,10 +118,43 @@
 
       <!-- Floating Viewport Hint Overlay Bar -->
       <div class="viewport-hint-bar" id="viewport-hint-bar">
-        <span class="hint-icon">💡</span>
+        <span class="hint-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M9 18h6M10 22h4M12 2a7 7 0 0 0-7 7c0 2.5 1.2 4.7 3 6v1a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2v-1c1.8-1.3 3-3.5 3-6a7 7 0 0 0-7-7z"/></svg></span>
         <span class="hint-text" id="viewport-hint-text">Double-click any 3D element to inspect properties • Drag to
           Orbit view</span>
         <button class="btn-hint-close" id="btn-hint-dismiss" title="Dismiss hint">×</button>
+      </div>
+
+      <!-- Floating Viewport Breadcrumbs Hierarchy -->
+      <div id="bim-breadcrumbs-bar" class="bim-breadcrumbs-bar">
+        <span id="breadcrumb-project" style="color: var(--text-primary); cursor: pointer; display: inline-flex; align-items: center; gap: 0.25rem;" title="Show Entire Model"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3 21h18M5 21V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16M9 9h1M9 13h1M9 17h1M14 9h1M14 13h1M14 17h1"/></svg> Model</span>
+        <span style="color: var(--text-muted); font-size: 0.58rem;">➔</span>
+        <span id="breadcrumb-storey" style="color: var(--accent-500); cursor: pointer;" title="Isolate Active Storey">Level 0</span>
+        <span style="color: var(--text-muted); font-size: 0.58rem;">➔</span>
+        <span id="breadcrumb-element" style="color: var(--text-primary); max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Element</span>
+      </div>
+
+      <!-- Metric Scale Ruler HUD (Positioned in Bottom-Right HUD Cluster) -->
+      <div id="viewport-scale-bar" class="viewport-scale-bar">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <span>0</span>
+          <span id="scale-bar-label">5.0 m</span>
+        </div>
+        <div style="width: 80px; height: 4px; background: var(--border-strong); border-radius: 1px; position: relative;">
+          <div style="position: absolute; left: 0; top: -2px; width: 2px; height: 8px; background: var(--border-strong);"></div>
+          <div style="position: absolute; right: 0; top: -2px; width: 2px; height: 8px; background: var(--border-strong);"></div>
+        </div>
+      </div>
+
+      <!-- Tactical Radar Minimap HUD -->
+      <div id="minimap-hud-container" class="minimap-hud-container">
+        <canvas id="minimap-hud-canvas" width="130" height="130"></canvas>
+        <div style="position: absolute; top: 5px; left: 8px; font-size: 0.55rem; font-weight: 800; color: var(--accent-500); text-transform: uppercase; letter-spacing: 0.05em; display: flex; align-items: center; gap: 0.3rem;">
+          <span style="display: inline-block; width: 5px; height: 5px; border-radius: 50%; background: var(--color-success); box-shadow: 0 0 6px var(--color-success);"></span>
+          <span>RADAR HUD</span>
+        </div>
+        <div id="radar-elevation-badge" style="position: absolute; bottom: 4px; right: 6px; font-family: var(--font-mono); font-size: 0.52rem; font-weight: 800; color: var(--text-muted); pointer-events: none;">
+          ELV: +0.0m
+        </div>
       </div>
 
       <!-- Floating Canvas Quick Camera Controls Toolbar -->
@@ -128,6 +181,20 @@
             <polyline points="2 12 12 17 22 12" />
           </svg>
           <span>Iso 3D</span>
+        </button>
+        <button class="btn-quick-view" id="btn-quick-explode" title="Toggle 3D Exploded Disassembly View (0% / 60%)" style="border-color: var(--accent-500);">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M4 14h6m4 0h6M14 4v6m0 4v6"/>
+            <circle cx="12" cy="12" r="2"/>
+          </svg>
+          <span id="quick-explode-text">Explode</span>
+        </button>
+        <button class="btn-quick-view" id="btn-view-snapshot" title="Export 4K Technical Drawing Sheet (.png)" style="border-color: var(--accent-500);">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+            <circle cx="12" cy="13" r="4"/>
+          </svg>
+          <span>4K Sheet</span>
         </button>
       </div>
 
@@ -510,10 +577,21 @@
                   </div>
                 </div>
 
-                <!-- Exploded Disassembly View -->
-                <div class="control-row" style="margin-top: 0.65rem;">
+                <!-- Exploded Disassembly View & Clustering Method -->
+                <div class="control-row" style="margin-top: 0.65rem; display: flex; flex-direction: column; gap: 0.35rem;">
                   <div class="control-label" style="display: flex; justify-content: space-between; font-size: 0.7rem; color: var(--text-muted);">
-                    <span>Exploded Disassembly View</span>
+                    <span>Disassembly Clustering</span>
+                    <span class="value-badge" id="badge-explosion-mode">CATEGORIES</span>
+                  </div>
+                  <select class="custom-select" id="select-explosion-mode" style="width: 100%; font-size: 0.72rem; padding: 0.35rem 0.5rem; background: var(--bg-card); color: var(--text-primary); border: 2px solid #000000; border-radius: 2px; box-shadow: 2px 2px 0px #000000; font-family: var(--font-body); font-weight: 700; cursor: pointer;">
+                    <option value="category-cluster" selected>Category Clusters (Sorted)</option>
+                    <option value="asset-dense-cluster">Asset & Equipment Matrix (Tandem)</option>
+                    <option value="radial">Radial 3D Spatial</option>
+                    <option value="storey-cluster">Storey Level Stack</option>
+                  </select>
+
+                  <div class="control-label" style="display: flex; justify-content: space-between; font-size: 0.7rem; color: var(--text-muted); margin-top: 0.3rem;">
+                    <span>Disassembly Factor</span>
                     <span class="value-badge" id="val-explosion-factor">0%</span>
                   </div>
                   <input type="range" class="custom-slider" id="settings-explosion-slider" min="0" max="100" step="1" value="0" style="width: 100%;" />
@@ -688,6 +766,27 @@
                   </div>
                 </div>
 
+                <!-- Live Dimensions & Bounding Box -->
+                <div class="section-subtitle">Physical Dimensions (Bounding Box)</div>
+                <div class="property-table" id="prop-dimensions-table" style="background: var(--bg-card); border: 1.5px solid var(--border-strong); padding: 0.35rem; border-radius: 2px;">
+                  <div class="prop-row">
+                    <span class="prop-label">Length (X)</span>
+                    <span class="prop-val font-mono" id="prop-dim-length">-</span>
+                  </div>
+                  <div class="prop-row">
+                    <span class="prop-label">Width (Z)</span>
+                    <span class="prop-val font-mono" id="prop-dim-width">-</span>
+                  </div>
+                  <div class="prop-row">
+                    <span class="prop-label">Height (Y)</span>
+                    <span class="prop-val font-mono" id="prop-dim-height">-</span>
+                  </div>
+                  <div class="prop-row">
+                    <span class="prop-label">Est. Volume</span>
+                    <span class="prop-val font-mono color-cyan" id="prop-dim-volume">-</span>
+                  </div>
+                </div>
+
                 <button class="btn-secondary btn-export-prompt" id="btn-export-prompt"
                   style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 0.4rem; padding: 0.35rem; font-size: 0.72rem; color: var(--accent-300); border-color: var(--border-accent);">
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -700,18 +799,49 @@
                   Copy Structured AI Prompt
                 </button>
 
+                <!-- Multi-Selection Batch Operations Card -->
+                <div id="multi-selection-batch-card" style="display: none; background: var(--bg-hover); border: 2px solid var(--accent-500); border-radius: 2px; padding: 0.55rem; flex-direction: column; gap: 0.4rem; box-shadow: var(--shadow-sm);">
+                  <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1.5px solid var(--border-strong); padding-bottom: 0.25rem;">
+                    <span style="font-size: 0.72rem; font-weight: 800; color: var(--accent-500); display: flex; align-items: center; gap: 0.3rem;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg> Multi-Element Batch (<span id="batch-selected-count">1</span>)</span>
+                    <button type="button" id="btn-batch-clear" style="background: none; border: none; font-size: 0.62rem; font-weight: 800; color: var(--color-danger, #ef4444); cursor: pointer;">Clear Selection</button>
+                  </div>
+                  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.25rem; font-size: 0.62rem; font-family: var(--font-mono); font-weight: 700;">
+                    <div>Volume: <strong id="batch-total-volume">0.00 m³</strong></div>
+                    <div>Est. Cost: <strong id="batch-total-cost" style="color: #10b981;">$0.00</strong></div>
+                  </div>
+                  <div style="display: flex; gap: 0.25rem;">
+                    <button type="button" id="btn-batch-isolate" style="flex: 1; background: var(--accent-500); color: var(--text-dark, #ffffff); border: 1px solid var(--border-strong); padding: 0.25rem; font-size: 0.62rem; font-weight: 800; border-radius: 2px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 0.25rem;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg> Isolate Batch</button>
+                    <button type="button" id="btn-batch-xray" style="background: var(--bg-card); color: var(--text-primary); border: 1px solid var(--border-strong); padding: 0.25rem 0.4rem; font-size: 0.62rem; font-weight: 800; border-radius: 2px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 0.25rem;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M9 3H5a2 2 0 0 0-2 2v4m0 6v4a2 2 0 0 0 2 2h4m6 0h4a2 2 0 0 0 2-2v-4m0-6V5a2 2 0 0 0-2-2h-4"/><circle cx="12" cy="12" r="3"/></svg> X-Ray</button>
+                  </div>
+                </div>
+
                 <div class="section-subtitle">5D Cost Estimating</div>
                 <div class="total-cost-card"
-                  style="margin-bottom: 0.5rem; padding: 0.5rem 0.65rem; background: var(--bg-card); border: 2px solid #000000; border-radius: 2px; box-shadow: 2px 2px 0px #000000; display: flex; flex-direction: column; gap: 0.2rem;">
+                  style="margin-bottom: 0.5rem; padding: 0.5rem 0.65rem; background: var(--bg-card); border: 2px solid var(--border-strong); border-radius: 2px; box-shadow: var(--shadow-sm); display: flex; flex-direction: column; gap: 0.35rem;">
                   <div
                     style="font-family: var(--font-mono); font-size: 0.62rem; font-weight: 800; text-transform: uppercase; color: var(--text-muted); display: flex; justify-content: space-between; align-items: center;">
                     <span>Cumulative 5D Project Budget</span>
                     <span id="cost-project-elements-count"
-                      style="font-size: 0.58rem; background: #000000; color: #ffffff; padding: 0.05rem 0.3rem; border-radius: 2px;">0
-                      items</span>
+                      style="font-size: 0.58rem; background: var(--border-strong); color: #ffffff; padding: 0.05rem 0.3rem; border-radius: 2px;">0 items</span>
                   </div>
                   <div style="font-family: var(--font-mono); font-size: 1.15rem; font-weight: 900; color: #10b981;"
                     id="cost-project-grand-total">$0.00</div>
+
+                  <!-- Visual Stacked Trade Budget Distribution Bar -->
+                  <div style="display: flex; flex-direction: column; gap: 0.2rem; margin-top: 0.15rem;">
+                    <div style="display: flex; height: 8px; border-radius: 2px; overflow: hidden; border: 1px solid var(--border-strong);">
+                      <div id="bar-trade-concrete" title="Structural Concrete: 42%" style="width: 42%; background: #3b82f6;"></div>
+                      <div id="bar-trade-steel" title="Structural Steel: 28%" style="width: 28%; background: #f59e0b;"></div>
+                      <div id="bar-trade-mep" title="MEP & Services: 18%" style="width: 18%; background: #10b981;"></div>
+                      <div id="bar-trade-finishes" title="Finishes & Facade: 12%" style="width: 12%; background: #a855f7;"></div>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; font-size: 0.54rem; font-weight: 700; color: var(--text-muted); flex-wrap: wrap;">
+                      <span style="display: flex; align-items: center; gap: 0.15rem;"><span style="width: 6px; height: 6px; background: #3b82f6; border-radius: 50%;"></span>Concrete</span>
+                      <span style="display: flex; align-items: center; gap: 0.15rem;"><span style="width: 6px; height: 6px; background: #f59e0b; border-radius: 50%;"></span>Steel</span>
+                      <span style="display: flex; align-items: center; gap: 0.15rem;"><span style="width: 6px; height: 6px; background: #10b981; border-radius: 50%;"></span>MEP</span>
+                      <span style="display: flex; align-items: center; gap: 0.15rem;"><span style="width: 6px; height: 6px; background: #a855f7; border-radius: 50%;"></span>Finishes</span>
+                    </div>
+                  </div>
                 </div>
 
                 <button class="btn-secondary" id="btn-export-boq-csv"
@@ -1052,13 +1182,120 @@
                   </label>
                 </div>
 
+                <!-- 3D PIN DROP CREATION FORM (Expands when toggle is ON) -->
+                <div id="pin-annotation-options" style="display: none; flex-direction: column; gap: 0.55rem; background: var(--bg-card); border: 2px solid var(--border-strong); border-radius: 2px; padding: 0.65rem; box-shadow: var(--shadow-sm, 2px 2px 0px #000);">
+                  <div style="font-size: 0.68rem; font-weight: 800; text-transform: uppercase; color: var(--text-primary); letter-spacing: 0.05em; display: flex; justify-content: space-between; align-items: center;">
+                    <span>📌 Drop New Pin</span>
+                    <span style="font-size: 0.6rem; background: var(--accent-500); color: var(--text-dark, #ffffff); padding: 0.1rem 0.35rem; border-radius: 2px; font-weight: 800;">READY</span>
+                  </div>
+
+                  <div style="display: flex; flex-direction: column; gap: 0.2rem;">
+                    <label style="font-size: 0.62rem; font-weight: 800; color: var(--text-muted); text-transform: uppercase;">Category</label>
+                    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.25rem;" id="pin-category-pills">
+                      <button type="button" class="btn-pin-cat active" data-cat="Inspection" style="background: #3b82f6; color: #ffffff; border: 1.5px solid var(--border-strong); border-radius: 2px; font-size: 0.58rem; font-weight: 800; padding: 0.25rem 0.1rem; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 0.2rem;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg> Inspect</button>
+                      <button type="button" class="btn-pin-cat" data-cat="Defect" style="background: var(--bg-input); color: var(--text-primary); border: 1.5px solid var(--border-strong); border-radius: 2px; font-size: 0.58rem; font-weight: 800; padding: 0.25rem 0.1rem; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 0.2rem;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> Defect</button>
+                      <button type="button" class="btn-pin-cat" data-cat="Safety" style="background: var(--bg-input); color: var(--text-primary); border: 1.5px solid var(--border-strong); border-radius: 2px; font-size: 0.58rem; font-weight: 800; padding: 0.25rem 0.1rem; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 0.2rem;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polygon points="7.86 2 16.14 2 22 7.86 22 16.14 16.14 22 7.86 22 2 16.14 2 7.86 7.86 2"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> Safety</button>
+                      <button type="button" class="btn-pin-cat" data-cat="RFI" style="background: var(--bg-input); color: var(--text-primary); border: 1.5px solid var(--border-strong); border-radius: 2px; font-size: 0.58rem; font-weight: 800; padding: 0.25rem 0.1rem; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 0.2rem;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> RFI</button>
+                      <button type="button" class="btn-pin-cat" data-cat="Sign-off" style="background: var(--bg-input); color: var(--text-primary); border: 1.5px solid var(--border-strong); border-radius: 2px; font-size: 0.58rem; font-weight: 800; padding: 0.25rem 0.1rem; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 0.2rem;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> Sign-off</button>
+                    </div>
+                  </div>
+
+                  <div style="display: flex; flex-direction: column; gap: 0.2rem;">
+                    <label style="font-size: 0.62rem; font-weight: 800; color: var(--text-muted); text-transform: uppercase;">Title</label>
+                    <input type="text" id="pin-title-input" value="Inspection Pin" placeholder="e.g., Column rebar check" style="background: var(--bg-input); border: 1.5px solid var(--border-strong); color: var(--text-primary); padding: 0.3rem 0.45rem; font-size: 0.68rem; border-radius: 2px; font-family: var(--font-body); font-weight: 700;" />
+                  </div>
+
+                  <div style="display: flex; flex-direction: column; gap: 0.2rem;">
+                    <label style="font-size: 0.62rem; font-weight: 800; color: var(--text-muted); text-transform: uppercase;">Note / Comment</label>
+                    <textarea id="pin-comment-input" rows="2" placeholder="Enter notes..." style="background: var(--bg-input); border: 1.5px solid var(--border-strong); color: var(--text-primary); padding: 0.3rem 0.45rem; font-size: 0.68rem; border-radius: 2px; font-family: var(--font-body); font-weight: 600; resize: vertical;">Visual inspection required before next pour.</textarea>
+                  </div>
+
+                  <div style="font-size: 0.62rem; color: var(--text-muted); font-weight: 700; line-height: 1.3; background: var(--bg-input); padding: 0.3rem; border: 1px dashed var(--border-subtle); border-radius: 2px; display: flex; align-items: center; gap: 0.3rem;">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 2a7 7 0 0 0-7 7c0 5.25 7 13 7 13s7-7.75 7-13a7 7 0 0 0-7-7z"/><circle cx="12" cy="9" r="2.5"/></svg>
+                    <span><strong>How to place:</strong> Click anywhere on the 3D model surface, or use the button below.</span>
+                  </div>
+
+                  <button type="button" id="btn-drop-pin-here" style="background: var(--accent-500); color: var(--text-dark, #ffffff); border: 2px solid var(--border-strong); border-radius: 2px; padding: 0.4rem; font-size: 0.7rem; font-weight: 800; cursor: pointer; box-shadow: var(--shadow-sm, 2px 2px 0px #000); display: flex; align-items: center; justify-content: center; gap: 0.35rem;">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 2a7 7 0 0 0-7 7c0 5.25 7 13 7 13s7-7.75 7-13a7 7 0 0 0-7-7z"/><circle cx="12" cy="9" r="2.5"/></svg>
+                    <span>Tag Pin to Selected Element</span>
+                  </button>
+                </div>
+
+                <!-- ALWAYS VISIBLE: Selected Pin Details & Active Pins Manager -->
+                <div id="active-pins-sidebar-section" style="display: flex; flex-direction: column; gap: 0.45rem; background: var(--bg-card); border: 2px solid var(--border-strong); border-radius: 2px; padding: 0.6rem; box-shadow: var(--shadow-sm, 2px 2px 0px #000);">
+                  <!-- Selected Pin Details Card in Sidebar -->
+                  <div id="selected-pin-details-sidebar" style="display: none; flex-direction: column; gap: 0.45rem; background: var(--bg-hover); border: 2px solid var(--accent-500); border-radius: 2px; padding: 0.55rem;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1.5px solid var(--border-strong); padding-bottom: 0.3rem;">
+                      <div style="display: flex; align-items: center; gap: 0.35rem; font-weight: 800; font-size: 0.72rem;">
+                        <span id="sidebar-pin-number-badge" style="background: #3b82f6; color: #fff; width: 18px; height: 18px; border-radius: 50%; border: 1px solid var(--border-strong); display: inline-flex; align-items: center; justify-content: center; font-size: 0.62rem; font-weight: 900;">1</span>
+                        <span id="sidebar-pin-title-display" style="color: var(--text-primary);">Pin Details</span>
+                      </div>
+                      <span id="sidebar-pin-category-tag" style="font-size: 0.58rem; font-weight: 800; text-transform: uppercase; background: #3b82f6; color: #fff; padding: 0.1rem 0.35rem; border-radius: 2px;">INSPECT</span>
+                    </div>
+
+                    <!-- Snapshot Thumbnail -->
+                    <div id="sidebar-pin-thumbnail-container" style="display: none; width: 100%; height: 95px; border: 1.5px solid var(--border-strong); border-radius: 2px; overflow: hidden; background: #000;">
+                      <img id="sidebar-pin-thumbnail-img" src="" alt="Snapshot" style="width: 100%; height: 100%; object-fit: cover;" />
+                    </div>
+
+                    <div id="sidebar-pin-element-info" style="font-size: 0.65rem; font-weight: 700; color: var(--accent-500); background: var(--bg-input); padding: 0.25rem 0.4rem; border: 1px solid var(--border-subtle); border-radius: 2px; display: flex; justify-content: space-between; align-items: center;">
+                      <span id="sidebar-pin-element-name" style="display: flex; align-items: center; gap: 0.25rem;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg> IfcElement #186559</span>
+                      <button type="button" id="btn-sidebar-inspect-element" style="background: var(--accent-500); color: var(--text-dark, #ffffff); border: none; border-radius: 2px; font-size: 0.58rem; font-weight: 800; padding: 0.15rem 0.35rem; cursor: pointer;">Inspect</button>
+                    </div>
+
+                    <div style="display: flex; flex-direction: column; gap: 0.15rem;">
+                      <label style="font-size: 0.58rem; font-weight: 800; color: var(--text-muted); text-transform: uppercase;">Edit Note</label>
+                      <textarea id="sidebar-pin-comment-edit" rows="2" style="background: var(--bg-input); border: 1.5px solid var(--border-strong); color: var(--text-primary); padding: 0.25rem 0.4rem; font-size: 0.65rem; border-radius: 2px; font-family: var(--font-body); font-weight: 600; resize: vertical;"></textarea>
+                    </div>
+
+                    <div style="display: flex; gap: 0.25rem; flex-wrap: wrap;">
+                      <button type="button" id="btn-sidebar-save-pin" style="flex: 1; background: var(--accent-500); color: var(--text-dark, #ffffff); border: 1.5px solid var(--border-strong); border-radius: 2px; padding: 0.3rem; font-size: 0.65rem; font-weight: 800; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 0.25rem;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Save</button>
+                      <button type="button" id="btn-sidebar-focus-pin" style="background: var(--bg-card); color: var(--text-primary); border: 1.5px solid var(--border-strong); border-radius: 2px; padding: 0.3rem 0.45rem; font-size: 0.65rem; font-weight: 800; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 0.25rem;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg> Focus</button>
+                      <button type="button" id="btn-sidebar-xray-pin" style="background: var(--bg-card); color: var(--text-primary); border: 1.5px solid var(--border-strong); border-radius: 2px; padding: 0.3rem 0.45rem; font-size: 0.65rem; font-weight: 800; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 0.25rem;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M9 3H5a2 2 0 0 0-2 2v4m0 6v4a2 2 0 0 0 2 2h4m6 0h4a2 2 0 0 0 2-2v-4m0-6V5a2 2 0 0 0-2-2h-4"/><circle cx="12" cy="12" r="3"/></svg> X-Ray</button>
+                      <button type="button" id="btn-sidebar-delete-pin" style="background: var(--bg-card); color: var(--color-danger, #ef4444); border: 1.5px solid var(--border-strong); border-radius: 2px; padding: 0.3rem 0.45rem; font-size: 0.65rem; font-weight: 800; cursor: pointer; display: flex; align-items: center; justify-content: center;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
+                    </div>
+                  </div>
+
+                  <!-- Category Filter Bar -->
+                  <div style="display: flex; flex-direction: column; gap: 0.2rem;">
+                    <div style="font-size: 0.58rem; font-weight: 800; color: var(--text-muted); text-transform: uppercase;">Filter Pins by Category</div>
+                    <div id="pin-filter-chips" style="display: flex; gap: 0.2rem; flex-wrap: wrap;">
+                      <button type="button" class="btn-filter-chip active" data-filter="All" style="background: var(--accent-500); color: var(--text-dark, #ffffff); border: 1px solid var(--border-strong); border-radius: 2px; font-size: 0.58rem; font-weight: 800; padding: 0.15rem 0.35rem; cursor: pointer;">All</button>
+                      <button type="button" class="btn-filter-chip" data-filter="Inspection" style="background: var(--bg-input); color: var(--text-primary); border: 1px solid var(--border-strong); border-radius: 2px; font-size: 0.58rem; font-weight: 800; padding: 0.15rem 0.35rem; cursor: pointer; display: flex; align-items: center; gap: 0.2rem;"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg> Inspect</button>
+                      <button type="button" class="btn-filter-chip" data-filter="Defect" style="background: var(--bg-input); color: var(--text-primary); border: 1px solid var(--border-strong); border-radius: 2px; font-size: 0.58rem; font-weight: 800; padding: 0.15rem 0.35rem; cursor: pointer; display: flex; align-items: center; gap: 0.2rem;"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> Defect</button>
+                      <button type="button" class="btn-filter-chip" data-filter="Safety" style="background: var(--bg-input); color: var(--text-primary); border: 1px solid var(--border-strong); border-radius: 2px; font-size: 0.58rem; font-weight: 800; padding: 0.15rem 0.35rem; cursor: pointer; display: flex; align-items: center; gap: 0.2rem;"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polygon points="7.86 2 16.14 2 22 7.86 22 16.14 16.14 22 7.86 22 2 16.14 2 7.86 7.86 2"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> Safety</button>
+                      <button type="button" class="btn-filter-chip" data-filter="RFI" style="background: var(--bg-input); color: var(--text-primary); border: 1px solid var(--border-strong); border-radius: 2px; font-size: 0.58rem; font-weight: 800; padding: 0.15rem 0.35rem; cursor: pointer; display: flex; align-items: center; gap: 0.2rem;"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> RFI</button>
+                      <button type="button" class="btn-filter-chip" data-filter="Sign-off" style="background: var(--bg-input); color: var(--text-primary); border: 1px solid var(--border-strong); border-radius: 2px; font-size: 0.58rem; font-weight: 800; padding: 0.15rem 0.35rem; cursor: pointer; display: flex; align-items: center; gap: 0.2rem;"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> Sign-off</button>
+                    </div>
+                  </div>
+
+                  <!-- Placed Pins List -->
+                  <div style="display: flex; flex-direction: column; gap: 0.25rem;">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                      <div style="font-size: 0.64rem; font-weight: 800; color: var(--text-primary); text-transform: uppercase; letter-spacing: 0.04em;">3D Pins (<span id="pins-count">0</span>)</div>
+                      <span style="font-size: 0.58rem; color: var(--text-muted);">Click to Select</span>
+                    </div>
+                    <div id="pin-annotations-list" style="display: flex; flex-direction: column; gap: 0.3rem; max-height: 160px; overflow-y: auto; border: 1.5px solid var(--border-strong); background: var(--bg-input); padding: 0.35rem; border-radius: 2px;">
+                      <div style="font-size: 0.6rem; color: var(--text-muted); font-style: italic;">No pins placed yet.</div>
+                    </div>
+                  </div>
+
+                  <div style="display: flex; gap: 0.25rem; margin-top: 0.15rem; flex-wrap: wrap;">
+                    <button class="btn-secondary" id="btn-start-pin-tour" style="flex: 1; min-width: 80px; border-color: var(--accent-500); color: var(--accent-500); display: flex; align-items: center; justify-content: center; gap: 0.25rem; font-size: 0.65rem; padding: 0.35rem; font-weight: 800;">
+                      <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="5 3 19 12 5 21 5 3"/></svg> Play Tour
+                    </button>
+                    <button class="btn-secondary" id="btn-export-pins" style="flex: 1; min-width: 90px; border-color: var(--border-strong); color: var(--text-primary); display: flex; align-items: center; justify-content: center; gap: 0.25rem; font-size: 0.65rem; padding: 0.35rem; font-weight: 800;">
+                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> BCF/JSON
+                    </button>
+                    <button class="btn-secondary" id="btn-clear-annotations" style="border-color: var(--color-danger, #ef4444); color: var(--color-danger, #dc2626); display: flex; align-items: center; justify-content: center; font-size: 0.65rem; padding: 0.35rem 0.45rem; font-weight: 800;">
+                      Clear
+                    </button>
+                  </div>
+                </div>
+
                 <button class="btn-secondary" id="btn-clear-measurements" style="width: 100%; border-color: var(--color-warning); color: var(--color-warning); display: flex; align-items: center; justify-content: center; gap: 0.4rem; font-size: 0.72rem; padding: 0.45rem; font-weight: 800; margin-bottom: 0.35rem;">
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
                   Clear Tape Measurements
-                </button>
-
-                <button class="btn-secondary" id="btn-clear-annotations" style="width: 100%; border-color: var(--accent-500); color: var(--accent-500); display: flex; align-items: center; justify-content: center; gap: 0.4rem; font-size: 0.72rem; padding: 0.45rem; font-weight: 800;">
-                  Clear 3D Pin Markers
                 </button>
               </div>
 
@@ -1145,7 +1382,7 @@
 
         <div class="timeline-controls-row">
           <div class="timeline-left-controls">
-            <button class="btn-timeline-ctrl" id="timeline-play-btn" onclick="if(typeof window.toggleTimelinePlayback==='function') window.toggleTimelinePlayback();">
+            <button class="btn-timeline-ctrl" id="timeline-play-btn">
               <span class="ctrl-icon">▶</span>
               <span>Play Simulation</span>
             </button>
@@ -1166,12 +1403,12 @@
             </div>
 
             <button class="btn-timeline-csv" id="btn-export-4d-csv"
-              title="Download Auto-Generated 4D Schedule CSV Template">
-              📥 CSV Template
+              title="Download Auto-Generated 4D Schedule CSV Template" style="display: inline-flex; align-items: center; justify-content: center; gap: 0.3rem;">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> CSV Template
             </button>
 
-            <label class="btn-timeline-csv" title="Upload Custom 4D Schedule CSV with Adjusted Dates" style="cursor: pointer;">
-              📤 Import CSV
+            <label class="btn-timeline-csv" title="Upload Custom 4D Schedule CSV with Adjusted Dates" style="cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 0.3rem;">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg> Import CSV
               <input type="file" id="btn-import-4d-csv-input" accept=".csv" style="display: none;" />
             </label>
           </div>
@@ -1455,126 +1692,116 @@
               <p class="welcome-tagline">Real-time 3D/4D/5D construction twin viewer. Load IFC models, inspect elements,
                 simulate construction timelines, and estimate project costs all in the browser.</p>
             </div>
-            <div class="help-section-title">QUICK START -- 5 CORE STEPS</div>
+            <div class="help-section-title">QUICK START -- 6 CORE STEPS</div>
             <div class="step-list">
               <div class="step-item">
                 <div class="step-num">01</div>
                 <div class="step-body">
                   <div class="step-name">Load a Model</div>
-                  <div class="step-desc">Click <strong>Load Sample</strong> in the Files panel (Key <kbd>1</kbd>) or
-                    upload your own <code>.ifc</code> or <code>.frag</code> file. The model loads with full element
-                    classification and twin data.</div>
+                  <div class="step-desc">Click <strong>Load Sample</strong> in the Files panel (Key <kbd>1</kbd>) or upload your own <code>.ifc</code> or <code>.frag</code> file. The model loads with full element classification and twin data.</div>
                 </div>
               </div>
               <div class="step-item">
                 <div class="step-num">02</div>
                 <div class="step-body">
-                  <div class="step-name">Inspect Elements</div>
-                  <div class="step-desc"><strong>Double-click</strong> any 3D element to open the Properties panel (Key
-                    <kbd>5</kbd>). See IFC type, name, storey, category, 4D task dates, and live 5D cost fields.</div>
+                  <div class="step-name">Inspect Elements &amp; Properties</div>
+                  <div class="step-desc"><strong>Double-click</strong> any 3D element to open the Properties panel (Key <kbd>5</kbd>). See IFC type, name, storey, category, 4D task dates, and live 5D cost fields.</div>
                 </div>
               </div>
               <div class="step-item">
                 <div class="step-num">03</div>
                 <div class="step-body">
-                  <div class="step-name">Navigate the Model</div>
-                  <div class="step-desc"><strong>Orbit</strong> by dragging, <strong>Zoom</strong> with scroll,
-                    <strong>Pan</strong> with right-click drag. Switch to <strong>First Person</strong> mode (Key
-                    <kbd>6</kbd>) to walk through the building with stair-climbing physics.</div>
+                  <div class="step-name">Navigate &amp; 3D ViewCube</div>
+                  <div class="step-desc"><strong>Orbit</strong> by dragging, <strong>Zoom</strong> with scroll, <strong>Pan</strong> with right-click. Click any face on the <strong>3D ViewCube</strong> (top-right) to snap to standard elevations or switch to <strong>First Person</strong> (<kbd>6</kbd>).</div>
                 </div>
               </div>
               <div class="step-item">
                 <div class="step-num">04</div>
                 <div class="step-body">
                   <div class="step-name">Simulate 4D Construction</div>
-                  <div class="step-desc">Press <strong>ACTIVATE 4D</strong> in the header. Drag the timeline scrubber to
-                    simulate the build sequence. Use speed pills 1x 2x 5x 10x to control playback rate.</div>
+                  <div class="step-desc">Press <strong>ACTIVATE 4D</strong> in the header. Drag the timeline scrubber to simulate the build sequence. Use speed pills 1x 2x 5x 10x to control playback rate.</div>
                 </div>
               </div>
               <div class="step-item">
                 <div class="step-num">05</div>
                 <div class="step-body">
                   <div class="step-name">Estimate 5D Project Cost</div>
-                  <div class="step-desc">Select an element, open <kbd>5</kbd> INSPECT panel, enter <strong>Unit
-                      Cost</strong> and <strong>Quantity</strong>. The calculated cost and project grand total update
-                    live across all elements.</div>
+                  <div class="step-desc">Select an element, open <kbd>5</kbd> INSPECT panel, enter <strong>Unit Cost</strong> and <strong>Quantity</strong>. The calculated cost and project grand total update live across all elements.</div>
+                </div>
+              </div>
+              <div class="step-item">
+                <div class="step-num">06</div>
+                <div class="step-body">
+                  <div class="step-name">3D Pins, Field Issues &amp; BCF Export</div>
+                  <div class="step-desc">Switch to <kbd>7</kbd> TOOLS -> Measure / Pins. Drop pins directly on building surfaces, record defect/safety notes with auto-snapshots, and export buildingSMART <strong>BCF/JSON</strong> reports.</div>
                 </div>
               </div>
             </div>
           </div>
           <div class="help-tab-panel" id="help-tab-tools">
-            <div class="help-section-title">SPECIALIZED TOOLS</div>
+            <div class="help-section-title">SPECIALIZED TOOLS &amp; ANALYSIS</div>
             <div class="tool-grid">
               <div class="tool-card">
-                <div class="tool-icon">&#x1F4D0;</div>
+                <div class="tool-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 2a7 7 0 0 0-7 7c0 5.25 7 13 7 13s7-7.75 7-13a7 7 0 0 0-7-7z"/><circle cx="12" cy="9" r="2.5"/></svg></div>
+                <div class="tool-info">
+                  <div class="tool-name">3D Pin Annotations &amp; Field Issues</div>
+                  <div class="tool-desc">Drop 3D pins directly onto model surfaces. Categorize into <strong>Inspect, Defect, Safety, RFI, Sign-off</strong>. Features auto-viewport snapshots, element tagging, category filtering, and <strong>BCF/JSON export</strong>.</div>
+                </div>
+              </div>
+              <div class="tool-card">
+                <div class="tool-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg></div>
+                <div class="tool-info">
+                  <div class="tool-name">Solar Sun Study &amp; Dynamic Shadows</div>
+                  <div class="tool-desc">Adjust <strong>Sun Azimuth (0°-360°)</strong> and <strong>Sun Elevation (0°-90°)</strong> in Key <kbd>4</kbd> SCENE panel to simulate solar shading and cast dynamic PCF shadows across the BIM geometry.</div>
+                </div>
+              </div>
+              <div class="tool-card">
+                <div class="tool-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="4 14 10 14 10 20"/><polyline points="20 10 14 10 14 4"/><line x1="14" y1="10" x2="21" y2="3"/><line x1="3" y1="21" x2="10" y2="14"/></svg></div>
+                <div class="tool-info">
+                  <div class="tool-name">Model Explosion Analysis</div>
+                  <div class="tool-desc">Drag the <strong>Explosion Slider</strong> in Key <kbd>7</kbd> TOOLS panel to smoothly disassemble building storeys, structural slabs, and MEP assemblies along their centroids.</div>
+                </div>
+              </div>
+              <div class="tool-card">
+                <div class="tool-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M9 3H5a2 2 0 0 0-2 2v4m0 6v4a2 2 0 0 0 2 2h4m6 0h4a2 2 0 0 0 2-2v-4m0-6V5a2 2 0 0 0-2-2h-4"/><circle cx="12" cy="12" r="3"/></svg></div>
+                <div class="tool-info">
+                  <div class="tool-name">X-Ray &amp; Element Ghosting</div>
+                  <div class="tool-desc">Click <strong>X-Ray</strong> in the pin inspector to turn surrounding geometry semi-transparent (20% opacity) while highlighting the tagged IFC element in full color.</div>
+                </div>
+              </div>
+              <div class="tool-card">
+                <div class="tool-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M2 20h20M5 20V8l7-5 7 5v12"/></svg></div>
                 <div class="tool-info">
                   <div class="tool-name">Tape Measure</div>
-                  <div class="tool-desc">Enable in the <strong>7 TOOLS</strong> tab. Click two points in the 3D viewport
-                    to measure real-world distance. Results appear as 3D annotations on the model.</div>
+                  <div class="tool-desc">Enable in Key <kbd>7</kbd> TOOLS tab. Click two points in the 3D viewport to measure real-world distance. Results appear as 3D laser annotations on the model.</div>
                 </div>
               </div>
               <div class="tool-card">
-                <div class="tool-icon">&#x2702;&#xFE0F;</div>
+                <div class="tool-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
                 <div class="tool-info">
-                  <div class="tool-name">Section Cut</div>
-                  <div class="tool-desc">Click <strong>Section Cut</strong> in the bottom toolbar, then double-click the
-                    viewport to place a cutting plane. Reveal interior structure at any angle.</div>
+                  <div class="tool-name">4D Timeline Simulation</div>
+                  <div class="tool-desc">Activate 4D mode from the header. Elements appear, progress, and complete according to their scheduled dates. Use speed pills 1x to 10x.</div>
                 </div>
               </div>
               <div class="tool-card">
-                <div class="tool-icon">&#x1F50D;</div>
-                <div class="tool-info">
-                  <div class="tool-name">Items Finder</div>
-                  <div class="tool-desc">Key <kbd>2</kbd>. Search and filter by <strong>Category</strong> or
-                    <strong>Storey</strong>. Click any filter chip to isolate elements.</div>
-                </div>
-              </div>
-              <div class="tool-card">
-                <div class="tool-icon">&#x1F3D7;&#xFE0F;</div>
-                <div class="tool-info">
-                  <div class="tool-name">4D Timeline</div>
-                  <div class="tool-desc">Activate 4D mode from the header. Elements appear, progress, and complete
-                    according to their scheduled dates. Use speed pills 1x to 10x.</div>
-                </div>
-              </div>
-              <div class="tool-card">
-                <div class="tool-icon">&#x1F4B0;</div>
+                <div class="tool-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></div>
                 <div class="tool-info">
                   <div class="tool-name">5D Cost Estimator</div>
-                  <div class="tool-desc">Select any element in the INSPECT panel. Set Unit Cost and Quantity. The
-                    calculated cost and running project grand total update live.</div>
+                  <div class="tool-desc">Select any element in the INSPECT panel. Set Unit Cost and Quantity. The calculated cost and running project grand total update live.</div>
                 </div>
               </div>
               <div class="tool-card">
-                <div class="tool-icon">&#x1F441;&#xFE0F;</div>
+                <div class="tool-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg></div>
                 <div class="tool-info">
-                  <div class="tool-name">Visibility Controls</div>
-                  <div class="tool-desc">Use <strong>Show All / Hide All</strong> in the toolbar. Select an element then
-                    use <strong>Isolate</strong> to view it alone or <strong>Hide</strong> to remove it from scene.
-                  </div>
+                  <div class="tool-name">Interactive 3D ViewCube</div>
+                  <div class="tool-desc">Snap camera to Top, Front, Right, Isometric, or corner views with smooth animation. Cardinal compass ring rotates in sync with scene orientation.</div>
                 </div>
               </div>
               <div class="tool-card">
-                <div class="tool-icon">&#x1F4F7;</div>
-                <div class="tool-info">
-                  <div class="tool-name">Quick View Toolbar</div>
-                  <div class="tool-desc"><strong>FIT</strong> fits all geometry in frame. <strong>TOP</strong> switches
-                    to 2D orthographic floor plan. <strong>ISO</strong> restores 3D perspective orbit view.</div>
-                </div>
-              </div>
-              <div class="tool-card">
-                <div class="tool-icon">&#x1F9ED;</div>
-                <div class="tool-info">
-                  <div class="tool-name">ViewCube &amp; Compass</div>
-                  <div class="tool-desc">The NavCube in the top-right corner snaps camera to any face. The compass ring
-                    shows cardinal directions N E S W around the cube.</div>
-                </div>
-              </div>
-              <div class="tool-card">
-                <div class="tool-icon">&#x1F3A8;</div>
+                <div class="tool-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 1 0 18"/></svg></div>
                 <div class="tool-info">
                   <div class="tool-name">Theme &amp; Post-Processing Engine</div>
-                  <div class="tool-desc">Select from 9 architectural themes (Zen, Cyberpunk, Pencil, Blueprint, etc.) in the header. Customize Bloom, Vignette, Chromatic Aberration, and GLSL Shader FX overlays in key <kbd>4</kbd> SCENE panel.</div>
+                  <div class="tool-desc">Select from 9 architectural themes in the header. Customize Bloom, Vignette, Chromatic Aberration, and GLSL Shader FX in Key <kbd>4</kbd> SCENE panel.</div>
                 </div>
               </div>
             </div>
@@ -1587,16 +1814,17 @@
                   <div class="shortcut-row"><kbd>1</kbd> <span>Project Files &amp; Upload</span></div>
                   <div class="shortcut-row"><kbd>2</kbd> <span>Items Finder &amp; Filter</span></div>
                   <div class="shortcut-row"><kbd>3</kbd> <span>4D Construction Schedule</span></div>
-                  <div class="shortcut-row"><kbd>4</kbd> <span>Scene Tree &amp; Display Settings</span></div>
+                  <div class="shortcut-row"><kbd>4</kbd> <span>Scene Tree &amp; Solar Sun Setup</span></div>
                   <div class="shortcut-row"><kbd>5</kbd> <span>Properties &amp; 4D/5D Inspector</span></div>
                   <div class="shortcut-row"><kbd>6</kbd> <span>Gaming Camera Controls</span></div>
-                  <div class="shortcut-row"><kbd>7</kbd> <span>Tape Measurements &amp; Tools</span></div>
+                  <div class="shortcut-row"><kbd>7</kbd> <span>3D Pins, Explosion &amp; Tools</span></div>
                   <div class="shortcut-row"><kbd>?</kbd> <span>Toggle this Help Modal</span></div>
-                  <div class="shortcut-row"><kbd>Esc</kbd> <span>Cancel / Deselect / Close</span></div>
+                  <div class="shortcut-row"><kbd>Esc</kbd> <span>Close Pin Popover / Deselect</span></div>
                 </div>
                 <div class="help-section-title" style="margin-top:1.2rem;">VIEWPORT ACTIONS</div>
                 <div class="shortcut-group">
                   <div class="shortcut-row"><kbd>Dbl Click</kbd> <span>Inspect Element Properties</span></div>
+                  <div class="shortcut-row"><kbd>Click Pin</kbd> <span>Select 3D Pin &amp; Open Notes</span></div>
                   <div class="shortcut-row"><kbd>Scroll</kbd> <span>Zoom In / Out</span></div>
                   <div class="shortcut-row"><kbd>Left Drag</kbd> <span>Orbit Camera</span></div>
                   <div class="shortcut-row"><kbd>Right Drag</kbd> <span>Pan Camera</span></div>
@@ -1628,37 +1856,28 @@
             <div class="help-section-title">CAMERA MODES</div>
             <div class="nav-mode-grid">
               <div class="nav-mode-card">
-                <div class="nav-mode-name">&#x1F310; Orbit Mode</div>
-                <div class="nav-mode-desc">Default mode. Left-click drag to orbit around a pivot point. Scroll to zoom.
-                  Right-click drag to pan. Best for inspecting models from all angles.</div>
+                <div class="nav-mode-name"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" style="vertical-align: -1px; margin-right: 3px;"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg> Orbit Mode</div>
+                <div class="nav-mode-desc">Default mode. Left-click drag to orbit around a pivot point. Scroll to zoom. Right-click drag to pan. Best for inspecting models from all angles.</div>
                 <div class="nav-mode-tip">Activate: Key <kbd>4</kbd> Navigation Mode Orbit</div>
               </div>
               <div class="nav-mode-card">
-                <div class="nav-mode-name">&#x1F6B6; First Person Mode</div>
-                <div class="nav-mode-desc">Walk through the building as if you were inside it. Use <kbd>W A S D</kbd> to
-                  move, mouse to look around. Stair-climbing is simulated on elevation changes.</div>
+                <div class="nav-mode-name"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" style="vertical-align: -1px; margin-right: 3px;"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="8" cy="12" r="2"/><circle cx="16" cy="12" r="2"/></svg> First Person Mode</div>
+                <div class="nav-mode-desc">Walk through the building as if you were inside it. Use <kbd>W A S D</kbd> to move, mouse to look around. Stair-climbing is simulated on elevation changes.</div>
                 <div class="nav-mode-tip">Activate: Key <kbd>6</kbd> Camera First Person</div>
               </div>
               <div class="nav-mode-card">
-                <div class="nav-mode-name">&#x1F4D0; Top Plan Mode</div>
-                <div class="nav-mode-desc">2D orthographic view locked top-down. Ideal for reviewing floor plans,
-                  measuring distances, and checking room layouts without perspective distortion.</div>
+                <div class="nav-mode-name"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" style="vertical-align: -1px; margin-right: 3px;"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg> Top Plan Mode</div>
+                <div class="nav-mode-desc">2D orthographic view locked top-down. Ideal for reviewing floor plans, measuring distances, and checking room layouts without perspective distortion.</div>
                 <div class="nav-mode-tip">Activate: Quick View TOP button</div>
               </div>
             </div>
             <div class="help-section-title" style="margin-top:1.4rem;">TIPS &amp; BEST PRACTICES</div>
             <div class="tip-list">
-              <div class="tip-item"><span class="tip-icon">&#x1F4A1;</span><span>Use <strong>Isolate</strong> to focus
-                  on a single element type, then use the Tape Measure for clean dimensions without clutter.</span></div>
-              <div class="tip-item"><span class="tip-icon">&#x1F4A1;</span><span>Switch to <strong>TOP Plan</strong>
-                  view before placing Section Cuts -- easier to align cutting planes on a 2D grid.</span></div>
-              <div class="tip-item"><span class="tip-icon">&#x1F4A1;</span><span>In <strong>4D mode</strong>, set
-                  playback to <strong>10x</strong> for a fast overview, then slow to <strong>1x</strong> to inspect
-                  specific construction phases.</span></div>
-              <div class="tip-item"><span class="tip-icon">&#x1F4A1;</span><span>Export your model to <code>.frag</code>
-                  format for fast reloads -- FRAG files load significantly faster than raw IFC files.</span></div>
-              <div class="tip-item"><span class="tip-icon">&#x1F4A1;</span><span>Press <kbd>?</kbd> at any time to
-                  reopen this guide. Your 4D/5D data is saved locally in the browser cache.</span></div>
+              <div class="tip-item"><span class="tip-icon"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 2a7 7 0 0 0-7 7c0 5.25 7 13 7 13s7-7.75 7-13a7 7 0 0 0-7-7z"/><circle cx="12" cy="9" r="2.5"/></svg></span><span>Use <strong>3D Pins</strong> to record field defects during site inspections and download them as a <strong>BCF/JSON</strong> report for Revit and Solibri.</span></div>
+              <div class="tip-item"><span class="tip-icon"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M9 18h6M10 22h4M12 2a7 7 0 0 0-7 7c0 2.5 1.2 4.7 3 6v1a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2v-1c1.8-1.3 3-3.5 3-6a7 7 0 0 0-7-7z"/></svg></span><span>Use <strong>Isolate</strong> or <strong>Ghosting X-Ray</strong> to focus on a single element type without clutter from surrounding slabs and walls.</span></div>
+              <div class="tip-item"><span class="tip-icon"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/></svg></span><span>Use <strong>Solar Sun Sliders</strong> in Key <kbd>4</kbd> Scene Settings to evaluate daylighting and seasonal shading conditions.</span></div>
+              <div class="tip-item"><span class="tip-icon"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></span><span>In <strong>4D mode</strong>, set playback to <strong>10x</strong> for a fast overview, then slow to <strong>1x</strong> to inspect specific construction phases.</span></div>
+              <div class="tip-item"><span class="tip-icon"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></span><span>Press <kbd>?</kbd> at any time to reopen this guide. Your 4D/5D data and pin annotations are saved locally in the browser cache.</span></div>
             </div>
           </div>
         </div>
@@ -1675,6 +1894,38 @@
         </div>
       </div>
     </div>
+
+    <!-- Command Palette Modal (Ctrl+K) -->
+    <div id="command-palette-modal" style="position: fixed; inset: 0; z-index: 100000; background: rgba(0,0,0,0.65); backdrop-filter: blur(4px); display: none; align-items: flex-start; justify-content: center; padding-top: 12vh;">
+      <div style="background: var(--bg-panel); border: 3px solid var(--border-strong); border-radius: 6px; width: 560px; max-width: 92vw; box-shadow: var(--shadow-brutal); display: flex; flex-direction: column; overflow: hidden; animation: popIn 0.15s ease-out;">
+        <div style="display: flex; align-items: center; gap: 0.6rem; padding: 0.75rem 1rem; border-bottom: 2px solid var(--border-strong); background: var(--bg-card);">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input type="text" id="command-palette-input" placeholder="Type a tool, pin issue, IFC element, or action... (↑↓ to navigate, Enter to run)" style="flex: 1; background: transparent; border: none; outline: none; font-size: 0.85rem; font-weight: 700; color: var(--text-primary); font-family: var(--font-body);" />
+          <kbd style="background: var(--bg-input); border: 1px solid var(--border-strong); font-size: 0.6rem; font-weight: 800; padding: 0.15rem 0.4rem; border-radius: 2px; color: var(--text-muted);">ESC</kbd>
+        </div>
+        <div id="command-palette-results" class="thin-scrollbar" style="max-height: 320px; overflow-y: auto; padding: 0.5rem; display: flex; flex-direction: column; gap: 0.25rem;">
+          <!-- dynamic items -->
+        </div>
+        <div style="padding: 0.45rem 0.8rem; background: var(--bg-input); border-top: 1.5px solid var(--border-subtle); display: flex; justify-content: space-between; align-items: center; font-size: 0.58rem; color: var(--text-muted); font-weight: 700;">
+          <span>Navigation: <kbd style="padding: 0.05rem 0.25rem;">↑</kbd> <kbd style="padding: 0.05rem 0.25rem;">↓</kbd> Select: <kbd style="padding: 0.05rem 0.25rem;">↵</kbd></span>
+          <span>BIM Viewer Omnibar</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Viewport Right-Click Context Menu -->
+    <div id="bim-context-menu" style="position: fixed; display: none; z-index: 99999; background: var(--bg-panel); border: 2.5px solid var(--border-strong); border-radius: 4px; padding: 0.35rem; box-shadow: var(--shadow-md); min-width: 190px; flex-direction: column; gap: 0.2rem; font-family: var(--font-body);">
+      <div id="ctx-element-title" style="font-size: 0.64rem; font-weight: 800; color: var(--accent-500); padding: 0.25rem 0.45rem; border-bottom: 1px solid var(--border-subtle); text-overflow: ellipsis; overflow: hidden; white-space: nowrap; display: flex; align-items: center; gap: 0.3rem;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg> Element #186559</div>
+      <button class="ctx-item" data-action="drop-pin" style="display: flex; align-items: center; gap: 0.45rem; width: 100%; background: none; border: none; padding: 0.35rem 0.45rem; font-size: 0.68rem; font-weight: 700; color: var(--text-primary); text-align: left; cursor: pointer; border-radius: 2px;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 2a7 7 0 0 0-7 7c0 5.25 7 13 7 13s7-7.75 7-13a7 7 0 0 0-7-7z"/><circle cx="12" cy="9" r="2.5"/></svg> Drop 3D Pin Here</button>
+      <button class="ctx-item" data-action="properties" style="display: flex; align-items: center; gap: 0.45rem; width: 100%; background: none; border: none; padding: 0.35rem 0.45rem; font-size: 0.68rem; font-weight: 700; color: var(--text-primary); text-align: left; cursor: pointer; border-radius: 2px;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg> View Properties</button>
+      <button class="ctx-item" data-action="xray" style="display: flex; align-items: center; gap: 0.45rem; width: 100%; background: none; border: none; padding: 0.35rem 0.45rem; font-size: 0.68rem; font-weight: 700; color: var(--text-primary); text-align: left; cursor: pointer; border-radius: 2px;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M9 3H5a2 2 0 0 0-2 2v4m0 6v4a2 2 0 0 0 2 2h4m6 0h4a2 2 0 0 0 2-2v-4m0-6V5a2 2 0 0 0-2-2h-4"/><circle cx="12" cy="12" r="3"/></svg> X-Ray Isolate</button>
+      <button class="ctx-item" data-action="isolate" style="display: flex; align-items: center; gap: 0.45rem; width: 100%; background: none; border: none; padding: 0.35rem 0.45rem; font-size: 0.68rem; font-weight: 700; color: var(--text-primary); text-align: left; cursor: pointer; border-radius: 2px;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg> Isolate Element</button>
+      <button class="ctx-item" data-action="focus" style="display: flex; align-items: center; gap: 0.45rem; width: 100%; background: none; border: none; padding: 0.35rem 0.45rem; font-size: 0.68rem; font-weight: 700; color: var(--text-primary); text-align: left; cursor: pointer; border-radius: 2px;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg> Focus Camera</button>
+    </div>
+
+    <!-- Toast Notification Feed -->
+    <div id="bim-toast-container" style="position: fixed; bottom: 1.5rem; right: 1.5rem; z-index: 100010; display: flex; flex-direction: column; gap: 0.5rem; pointer-events: none;"></div>
+
     <script type="module" src="/src/main.ts"></script>
 </body>
 

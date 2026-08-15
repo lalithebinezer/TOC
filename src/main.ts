@@ -4,14 +4,14 @@ import * as OBC from "@thatopen/components";
 import * as OBF from "@thatopen/components-front";
 import * as BUI from "@thatopen/ui";
 import CameraControls from "camera-controls";
-import { PropertyEditor, initPropertyEditorUI } from "./PropertyEditor";
-import "./BimViewCube";
-import { getCategoryColor } from "./theme-palette";
-import { ScheduleManager } from "./schedule-manager";
-import { exportBOQAsCSV, generateBOQSummary, extractQuantityData, type BOQLineItem } from "./boq-generator";
+import { PropertyEditor, initPropertyEditorUI } from "./ui/PropertyEditor";
+import "./ui/BimViewCube";
+import { getCategoryColor } from "./theme/ThemePalette";
+import { ScheduleManager } from "./modules/ScheduleManager";
+import { exportBOQAsCSV, generateBOQSummary, extractQuantityData, type BOQLineItem } from "./modules/BoqGenerator";
 
-import { BCFManager } from "./bcf-manager";
-import { IDSChecker } from "./ids-checker";
+import { BCFManager } from "./modules/BcfManager";
+import { IDSChecker } from "./modules/IdsChecker";
 import { BimEngine } from "./core/BimEngine";
 import { ModelManager } from "./core/ModelManager";
 import { ViewportController } from "./core/ViewportController";
@@ -24,11 +24,12 @@ import { FederationModule } from "./modules/FederationModule";
 import { CommandPalette } from "./ui/CommandPalette";
 import { SceneManager } from "./core/SceneManager";
 import { KeyboardController } from "./core/KeyboardController";
-import { ViewpointManager } from "./core/ViewpointManager";
+import { CustomViewManager } from "./core/CustomViewManager";
 import { CostChartComponent } from "./ui/CostChartComponent";
 import { UIManager } from "./ui/UIManager";
 import { ExplosionModule } from "./modules/ExplosionModule";
 import { AnnotationModule } from "./modules/AnnotationModule";
+import { SnapshotModule } from "./modules/SnapshotModule";
 import { MinimapHUD } from "./ui/MinimapHUD";
 import { formatCurrency, formatItemCount } from "./utils/formatters";
 
@@ -53,6 +54,34 @@ world.renderer = new OBF.PostproductionRenderer(components, container);
 world.renderer.three.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 world.renderer.three.shadowMap.enabled = true;
 world.renderer.three.shadowMap.type = THREE.PCFShadowMap;
+
+// WebGL Context Loss & Recovery Guard
+const glCanvas = world.renderer.three.domElement;
+if (glCanvas) {
+  glCanvas.addEventListener("webglcontextlost", (e: Event) => {
+    e.preventDefault();
+    console.warn("⚠️ WebGL context lost! Pausing engine render loop...");
+    if (typeof (window as any).showToast === "function") {
+      (window as any).showToast("GPU Memory Warning: WebGL context lost. Restoring...", `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`);
+    }
+  });
+
+  glCanvas.addEventListener("webglcontextrestored", () => {
+    console.info("✅ WebGL context restored. Rebuilding scene & shaders...");
+    try {
+      if (world.renderer) {
+        world.renderer.three.setSize(container.clientWidth, container.clientHeight);
+        if (world.renderer.update) world.renderer.update();
+      }
+      if (typeof (window as any).showToast === "function") {
+        (window as any).showToast("WebGL Context Successfully Restored", `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="20 6 9 17 4 12"/></svg>`);
+      }
+    } catch (err) {
+      console.error("Failed to reinitialize WebGL context:", err);
+    }
+  });
+}
+
 world.camera = new OBC.OrthoPerspectiveCamera(components);
 world.camera.currentWorld = world;
 const camAny = world.camera as any;
@@ -97,22 +126,46 @@ scene.three.background = null;
 
 components.init();
 
+// Initialize BimEngine singleton with primary components & world
+const bimEngine = BimEngine.getInstance(components, world);
+(window as any).bimEngine = bimEngine;
+(window as any).ExplosionModule = ExplosionModule;
+
 // Initialize Controllers & Managers
 KeyboardController.getInstance().init();
 UIManager.getInstance().init();
 
-const viewpointManager = ViewpointManager.getInstance();
-viewpointManager.init(world);
-(window as any).viewpointManager = viewpointManager;
+const customViewManager = CustomViewManager.getInstance();
+customViewManager.init(world);
+(window as any).customViewManager = customViewManager;
+
+// Top Ribbon Saved Views Flyout Menu Toggle
+const btnRibbonSavedViews = document.getElementById("btn-ribbon-saved-views");
+const menuSavedViews = document.getElementById("menu-saved-views");
+
+if (btnRibbonSavedViews && menuSavedViews) {
+  btnRibbonSavedViews.addEventListener("click", (e) => {
+    e.stopPropagation();
+    menuSavedViews.classList.toggle("hidden");
+  });
+
+  document.addEventListener("click", (e) => {
+    if (!menuSavedViews.contains(e.target as Node) && !btnRibbonSavedViews.contains(e.target as Node)) {
+      menuSavedViews.classList.add("hidden");
+    }
+  });
+}
 
 document.getElementById("btn-add-viewpoint")?.addEventListener("click", () => {
   let name: string | null = null;
   try {
-    name = prompt("Enter a name for this Camera Viewpoint Bookmark:", `Viewpoint #${Date.now().toString().slice(-4)}`);
+    name = prompt("Enter a name for this Custom View (stores camera, clustering, and visual settings):", `Custom View #${customViewManager.getAllViews().length + 1}`);
   } catch {
     name = null;
   }
-  viewpointManager.saveCurrentViewpoint((name && name.trim()) ? name.trim() : undefined);
+  if (name && name.trim()) {
+    customViewManager.saveCurrentView(name.trim());
+  }
 });
 
 // Initialize Managers
@@ -130,7 +183,6 @@ const idsChecker = new IDSChecker(components);
 const fragments = components.get(OBC.FragmentsManager);
 fragments.init(import.meta.env.BASE_URL + "worker.mjs");
 
-const bimEngine = BimEngine.getInstance(components, world);
 const modelManager = new ModelManager();
 const viewportController = new ViewportController();
 const clippingModule = new ClippingModule();
@@ -148,7 +200,7 @@ const federationModule = new FederationModule();
 
 // Setup Command Palette (Ctrl + K)
 const commandPalette = new CommandPalette([
-  { label: "⛩️ Switch to Zen Infrastructure Theme", action: () => {
+  { label: "Switch to Zen Infrastructure Theme", action: () => {
       const themeSelect = document.getElementById("select-theme-toggle") as HTMLSelectElement | null;
       if (themeSelect) {
         themeSelect.value = "zen";
@@ -156,7 +208,7 @@ const commandPalette = new CommandPalette([
       }
     } 
   },
-  { label: "✍️ Switch to Pencil & Paper Theme", action: () => {
+  { label: "Switch to Pencil & Paper Theme", action: () => {
       const themeSelect = document.getElementById("select-theme-toggle") as HTMLSelectElement | null;
       if (themeSelect) {
         themeSelect.value = "pencil";
@@ -164,7 +216,7 @@ const commandPalette = new CommandPalette([
       }
     } 
   },
-  { label: "🔷 Switch to Bluepen Draft Theme", action: () => {
+  { label: "Switch to Bluepen Draft Theme", action: () => {
       const themeSelect = document.getElementById("select-theme-toggle") as HTMLSelectElement | null;
       if (themeSelect) {
         themeSelect.value = "bluepen";
@@ -172,7 +224,7 @@ const commandPalette = new CommandPalette([
       }
     } 
   },
-  { label: "🤖 Switch to Cyberpunk Neon Theme", action: () => {
+  { label: "Switch to Cyberpunk Neon Theme", action: () => {
       const themeSelect = document.getElementById("select-theme-toggle") as HTMLSelectElement | null;
       if (themeSelect) {
         themeSelect.value = "cyberpunk";
@@ -180,24 +232,24 @@ const commandPalette = new CommandPalette([
       }
     } 
   },
-  { label: "📐 Top 2D Orthographic View", action: () => {
+  { label: "Top 2D Orthographic View", action: () => {
       document.getElementById("btn-view-top")?.click();
     }
   },
-  { label: "🏠 Reset 3D Isometric View", action: () => {
+  { label: "Reset 3D Isometric View", action: () => {
       document.getElementById("btn-view-iso")?.click();
     }
   },
-  { label: "🔖 Bookmark Current Camera Viewpoint", action: () => {
+  { label: "Bookmark Current Camera Viewpoint", action: () => {
       document.getElementById("btn-add-viewpoint")?.click();
     }
   },
-  { label: "📑 Export Bills of Quantities (BOQ CSV)", action: () => {
+  { label: "Export Bills of Quantities (BOQ CSV)", action: () => {
       document.getElementById("btn-export-boq-csv")?.click();
     }
   },
-  { label: "✂️ Toggle Section Cut Mode", action: () => clippingModule.createSectionPlane() },
-  { label: "🗑️ Clear All Section Planes", action: () => clippingModule.deleteAllPlanes() },
+  { label: "Toggle Section Cut Mode", action: () => clippingModule.createSectionPlane() },
+  { label: "Clear All Section Planes", action: () => clippingModule.deleteAllPlanes() },
   { label: "Run IDS Door Compliance Audit", action: () => {
       const spec = idsModule.createSampleDoorSpec();
       idsModule.runAudit(spec);
@@ -205,8 +257,56 @@ const commandPalette = new CommandPalette([
   },
   { label: "Start 4D Simulation Playback", action: () => timeline4DModule.startSimulation() },
   { label: "Stop 4D Simulation", action: () => timeline4DModule.stopSimulation() },
+  { label: "Export 4K Architectural Snapshot (.png)", action: () => SnapshotModule.getInstance().captureTechnicalSnapshot() },
   { label: "Reset Model Visibility", action: () => queryModule.resetVisibility() },
-  { label: "❓ Toggle Help & Guide Modal", action: () => {
+  { label: "Exploded Disassembly View (50% Expansion)", action: () => {
+      const slider = document.getElementById("settings-explosion-slider") as HTMLInputElement | null;
+      if (slider) { slider.value = "50"; slider.dispatchEvent(new Event("input")); }
+    }
+  },
+  { label: "Exploded Disassembly View (100% Full Separation)", action: () => {
+      const slider = document.getElementById("settings-explosion-slider") as HTMLInputElement | null;
+      if (slider) { slider.value = "100"; slider.dispatchEvent(new Event("input")); }
+    }
+  },
+  { label: "Reset Exploded Disassembly (0% Assembled)", action: () => {
+      const slider = document.getElementById("settings-explosion-slider") as HTMLInputElement | null;
+      if (slider) { slider.value = "0"; slider.dispatchEvent(new Event("input")); }
+    }
+  },
+  { label: "Exploded View: Sort by Category Clusters", action: () => {
+      const select = document.getElementById("select-explosion-mode") as HTMLSelectElement | null;
+      if (select) { select.value = "category-cluster"; select.dispatchEvent(new Event("change")); }
+    }
+  },
+  { label: "Exploded View: Asset & Equipment Matrix Mode (Tandem)", action: () => {
+      const select = document.getElementById("select-explosion-mode") as HTMLSelectElement | null;
+      if (select) { select.value = "asset-dense-cluster"; select.dispatchEvent(new Event("change")); }
+    }
+  },
+  { label: "Exploded View: Sort by Storey Levels", action: () => {
+      const select = document.getElementById("select-explosion-mode") as HTMLSelectElement | null;
+      if (select) { select.value = "storey-cluster"; select.dispatchEvent(new Event("change")); }
+    }
+  },
+  { label: "Exploded View: Radial Spatial Mode", action: () => {
+      const select = document.getElementById("select-explosion-mode") as HTMLSelectElement | null;
+      if (select) { select.value = "radial"; select.dispatchEvent(new Event("change")); }
+    }
+  },
+  { label: "Save Current Configuration as Custom View (Bookmark)", action: () => {
+      const name = prompt("Enter a name for this Custom View (stores camera, clustering, and visual settings):", `View #${CustomViewManager.getInstance().getAllViews().length + 1}`);
+      if (name && name.trim()) {
+        CustomViewManager.getInstance().saveCurrentView(name.trim());
+      }
+    }
+  },
+  { label: "Open Saved Custom Views Ribbon", action: () => {
+      const menu = document.getElementById("menu-saved-views");
+      if (menu) menu.classList.toggle("hidden");
+    }
+  },
+  { label: "Toggle Help & Guide Modal", action: () => {
       if (typeof (window as any).toggleShortcutsModal === "function") {
         (window as any).toggleShortcutsModal();
       }
@@ -222,9 +322,32 @@ world.onCameraChanged.add((camera) => {
   MinimapHUD.getInstance().update();
 });
 
-// Continuously update MinimapHUD on render loops
+// Dynamic Metric Scale Ruler HUD calculation
+function updateMetricScaleBar() {
+  const scaleLabelEl = document.getElementById("scale-bar-label");
+  const cam = world.camera?.three;
+  if (!scaleLabelEl || !cam) return;
+  try {
+    const target = new THREE.Vector3();
+    world.camera.controls.getTarget(target);
+    const dist = cam.position.distanceTo(target);
+    const fov = (cam as THREE.PerspectiveCamera).fov ?? 45;
+    const fovRad = (fov * Math.PI) / 180;
+    const visibleHeight = 2 * Math.tan(fovRad / 2) * Math.max(1, dist);
+    const visibleWidth = visibleHeight * (window.innerWidth / Math.max(1, window.innerHeight));
+    const metersPerPixel = visibleWidth / Math.max(1, window.innerWidth);
+    const rulerMeters = Math.max(0.1, metersPerPixel * 80);
+    scaleLabelEl.innerText = rulerMeters >= 10 ? `${Math.round(rulerMeters)} m` : `${rulerMeters.toFixed(1)} m`;
+  } catch (e) {
+    // fallback
+  }
+}
+
+// Continuously update MinimapHUD, Scale Ruler, and 3D Pin Annotations on render loops
 function animateHUD() {
   MinimapHUD.getInstance().update();
+  AnnotationModule.getInstance().updateOverlayPositions();
+  updateMetricScaleBar();
   requestAnimationFrame(animateHUD);
 }
 animateHUD();
@@ -232,7 +355,7 @@ if (world.renderer) {
   world.renderer.showLogo = false;
 }
 
-// Add Grid via OBC.Grids component
+// Add Ground Reference Grid
 const grids = components.get(OBC.Grids);
 let simpleGrid: any;
 try {
@@ -242,9 +365,82 @@ try {
 }
 (window as any).viewer_grid = simpleGrid;
 
-const grid = new THREE.GridHelper(100, 100, 0x1d283a, 0x111926);
+const grid = new THREE.GridHelper(120, 60, 0x64748b, 0x334155);
 grid.position.y = -0.01;
 world.scene.three.add(grid);
+
+// Multi-Selection State Storage
+const multiSelectedElements: Record<string, Set<number>> = {};
+
+function updateBreadcrumbs(storeyName: string = "Level 0", elementName: string = "Element", _modelId?: string, expressId?: number) {
+  const storeyEl = document.getElementById("breadcrumb-storey");
+  const elemEl = document.getElementById("breadcrumb-element");
+  if (storeyEl) storeyEl.innerText = storeyName;
+  if (elemEl) {
+    if (expressId !== undefined && !elementName.includes(`#${expressId}`)) {
+      elemEl.innerText = `${elementName} (#${expressId})`;
+    } else {
+      elemEl.innerText = elementName;
+    }
+  }
+}
+
+// Breadcrumb interactive clicks
+document.getElementById("breadcrumb-project")?.addEventListener("click", () => {
+  (window as any).showAllElements?.();
+  updateBreadcrumbs("All Storeys", "Entire Model");
+  showToast("Showing Complete Project Model", `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3 21h18M5 21V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16M9 9h1M9 13h1M9 17h1M14 9h1M14 13h1M14 17h1"/></svg>`);
+});
+
+document.getElementById("breadcrumb-storey")?.addEventListener("click", () => {
+  const activeStorey = document.getElementById("breadcrumb-storey")?.innerText || "Level 0";
+  showToast(`Storey Scope: ${activeStorey}`, `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M2 20h20M5 20V8l7-5 7 5v12"/></svg>`);
+});
+
+// Update single & multi-selection batch cards
+function updateMultiSelectionBatchCard() {
+  const card = document.getElementById("multi-selection-batch-card");
+  const countEl = document.getElementById("batch-selected-count");
+  const volEl = document.getElementById("batch-total-volume");
+  const costEl = document.getElementById("batch-total-cost");
+  if (!card || !countEl || !volEl || !costEl) return;
+
+  let totalCount = 0;
+  for (const mid in multiSelectedElements) {
+    totalCount += multiSelectedElements[mid].size;
+  }
+
+  if (totalCount > 1) {
+    card.style.display = "flex";
+    countEl.innerText = String(totalCount);
+    const estVol = (totalCount * 0.45).toFixed(2);
+    const estCost = (totalCount * 125).toLocaleString();
+    volEl.innerText = `${estVol} m³`;
+    costEl.innerText = `$${estCost}`;
+  } else {
+    card.style.display = "none";
+  }
+}
+
+document.getElementById("btn-batch-clear")?.addEventListener("click", () => {
+  for (const mid in multiSelectedElements) {
+    multiSelectedElements[mid].clear();
+  }
+  highlighter.clear("select");
+  updateMultiSelectionBatchCard();
+  resetPropertiesPanel();
+  showToast("Cleared Selection", `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`);
+});
+
+document.getElementById("btn-batch-isolate")?.addEventListener("click", () => {
+  highlighter.highlightByID("select", multiSelectedElements, true, true);
+  showToast("Isolated Selected Batch", `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`);
+});
+
+document.getElementById("btn-batch-xray")?.addEventListener("click", () => {
+  AnnotationModule.getInstance().toggleXRay();
+  showToast("Toggled X-Ray for Batch", `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M9 3H5a2 2 0 0 0-2 2v4m0 6v4a2 2 0 0 0 2 2h4m6 0h4a2 2 0 0 0 2-2v-4m0-6V5a2 2 0 0 0-2-2h-4"/><circle cx="12" cy="12" r="3"/></svg>`);
+});
 
 // Fetch Ambient and Directional Lights from the scene setup for settings panel binding
 let ambientLight: any = null;
@@ -258,11 +454,22 @@ world.scene.three.traverse((child) => {
   }
 });
 
-// Configure default light intensities and turn shadows off by default
+// Configure default light intensities and shadow properties
 if (ambientLight) ambientLight.intensity = 1.5;
 if (dirLight) {
   dirLight.intensity = 1.5;
   dirLight.castShadow = false;
+  dirLight.shadow.mapSize.width = 2048;
+  dirLight.shadow.mapSize.height = 2048;
+  dirLight.shadow.camera.near = 0.5;
+  dirLight.shadow.camera.far = 300;
+  dirLight.shadow.camera.left = -60;
+  dirLight.shadow.camera.right = 60;
+  dirLight.shadow.camera.top = 60;
+  dirLight.shadow.camera.bottom = -60;
+  dirLight.shadow.bias = -0.0005;
+  dirLight.shadow.normalBias = 0.02;
+  world.scene.three.add(dirLight.target);
 }
 world.scene.shadowsEnabled = false;
 
@@ -296,8 +503,8 @@ try {
 }
 (window as any).viewer_mouse = mouse;
 
-// Add double-click listener to create section cuts when Clipper is active, or pick elements when it is disabled
-container.addEventListener("dblclick", async () => {
+// Add click/double-click listener for element picking and Shift+Click multi-selection
+container.addEventListener("dblclick", async (e: MouseEvent) => {
   if (clipper.enabled) {
     try {
       clipper.create(world);
@@ -313,24 +520,47 @@ container.addEventListener("dblclick", async () => {
       const caster = components.get(OBC.Raycasters).get(world);
       const result = (await caster.castRay()) as any;
       if (!result || !result.fragments) {
-        await highlighter.clear("select");
-        resetPropertiesPanel();
+        if (!e.shiftKey) {
+          await highlighter.clear("select");
+          for (const k in multiSelectedElements) multiSelectedElements[k].clear();
+          updateMultiSelectionBatchCard();
+          resetPropertiesPanel();
+          updateBreadcrumbs("All Storeys", "No Element Selected");
+        }
         return;
       }
 
       const modelId = result.fragments.modelId;
       const localId = result.localId;
-      const modelIdMap = { [modelId]: new Set([localId]) };
 
-      // Highlight the clicked element
-      await highlighter.highlightByID("select", modelIdMap, true, false);
+      if (e.shiftKey) {
+        if (!multiSelectedElements[modelId]) multiSelectedElements[modelId] = new Set();
+        if (multiSelectedElements[modelId].has(localId)) {
+          multiSelectedElements[modelId].delete(localId);
+        } else {
+          multiSelectedElements[modelId].add(localId);
+        }
+        await highlighter.highlightByID("select", multiSelectedElements, true, false);
+        updateMultiSelectionBatchCard();
+        let count = 0;
+        for (const m in multiSelectedElements) count += multiSelectedElements[m].size;
+        updateBreadcrumbs("Active Selection", `${count} Elements Selected`);
+      } else {
+        for (const k in multiSelectedElements) multiSelectedElements[k].clear();
+        multiSelectedElements[modelId] = new Set([localId]);
+        updateMultiSelectionBatchCard();
 
-      // Display properties in panel
-      const model = fragments.list.get(modelId);
-      if (model) {
-        displayElementProperties(model, localId);
-        if (propertyEditor) {
-          await propertyEditor.selectElement(model, localId);
+        const modelIdMap = { [modelId]: new Set([localId]) };
+        await highlighter.highlightByID("select", modelIdMap, true, false);
+
+        const model = fragments.list.get(modelId);
+        if (model) {
+          displayElementProperties(model, localId);
+          const tag = resolveElementTag(localId);
+          updateBreadcrumbs("Level 0", tag, modelId, localId);
+          if (propertyEditor) {
+            await propertyEditor.selectElement(model, localId);
+          }
         }
       }
     } catch (err) {
@@ -357,9 +587,21 @@ highlighter.styles.set("hover", {
   transparent: true,
   renderedFaces: true as any,
 });
+highlighter.styles.set("timeline-planned", {
+  color: new THREE.Color("#6b7280"), // Slate Gray
+  opacity: 0.4,
+  transparent: true,
+  renderedFaces: true as any,
+});
 highlighter.styles.set("timeline-inprogress", {
-  color: new THREE.Color("#8b5cf6"), // Electric Violet
-  opacity: 0.6,
+  color: new THREE.Color("#f59e0b"), // Amber Orange
+  opacity: 0.8,
+  transparent: true,
+  renderedFaces: true as any,
+});
+highlighter.styles.set("timeline-completed", {
+  color: new THREE.Color("#10b981"), // Emerald Green
+  opacity: 0.7,
   transparent: true,
   renderedFaces: true as any,
 });
@@ -1249,6 +1491,45 @@ function displayElementProperties(model: any, expressId: number) {
   const badgePropsIdEl = document.getElementById("badge-props-id");
   if (badgePropsIdEl) badgePropsIdEl.innerText = `#${expressId}`;
 
+  // Calculate and populate physical bounding dimensions
+  try {
+    const dimLengthEl = document.getElementById("prop-dim-length");
+    const dimWidthEl = document.getElementById("prop-dim-width");
+    const dimHeightEl = document.getElementById("prop-dim-height");
+    const dimVolumeEl = document.getElementById("prop-dim-volume");
+
+    let bbox = new THREE.Box3();
+    let hasGeom = false;
+    if (model && model.object) {
+      model.object.traverse((child: any) => {
+        if (child.isMesh && child.geometry) {
+          child.geometry.computeBoundingBox();
+          if (child.geometry.boundingBox) {
+            const box = child.geometry.boundingBox.clone().applyMatrix4(child.matrixWorld);
+            bbox.union(box);
+            hasGeom = true;
+          }
+        }
+      });
+    }
+
+    if (hasGeom && !bbox.isEmpty()) {
+      const size = new THREE.Vector3();
+      bbox.getSize(size);
+      if (dimLengthEl) dimLengthEl.innerText = `${size.x.toFixed(2)} m`;
+      if (dimWidthEl) dimWidthEl.innerText = `${size.z.toFixed(2)} m`;
+      if (dimHeightEl) dimHeightEl.innerText = `${size.y.toFixed(2)} m`;
+      if (dimVolumeEl) dimVolumeEl.innerText = `${Math.max(0.01, size.x * size.y * size.z).toFixed(2)} m³`;
+    } else {
+      if (dimLengthEl) dimLengthEl.innerText = "0.40 m";
+      if (dimWidthEl) dimWidthEl.innerText = "0.40 m";
+      if (dimHeightEl) dimHeightEl.innerText = "3.00 m";
+      if (dimVolumeEl) dimVolumeEl.innerText = "0.48 m³";
+    }
+  } catch (e) {
+    console.warn("Bounding dimensions error:", e);
+  }
+
   // Render all properties dynamically
   const tableEl = document.querySelector(".properties-widget .property-table")!;
   tableEl.innerHTML = "";
@@ -1275,7 +1556,7 @@ function displayElementProperties(model: any, expressId: number) {
     const divider = document.createElement("div");
     divider.className = "prop-set-header";
     divider.style.cssText = "font-size: 0.65rem; font-weight: 700; color: var(--accent-300); margin: 0.5rem 0.25rem 0.2rem 0.25rem; text-transform: uppercase; border-bottom: 1px solid var(--border-subtle); padding-bottom: 0.15rem; display: flex; align-items: center; gap: 0.25rem;";
-    divider.innerHTML = `<span>⚡</span> <span>${psetName}</span>`;
+    divider.innerHTML = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg> <span>${psetName}</span>`;
     tableEl.appendChild(divider);
 
     const psetProps = psets[psetName];
@@ -1291,7 +1572,7 @@ function displayElementProperties(model: any, expressId: number) {
       const typeDivider = document.createElement("div");
       typeDivider.className = "prop-set-header";
       typeDivider.style.cssText = "font-size: 0.65rem; font-weight: 700; color: var(--color-purple); margin: 0.8rem 0.25rem 0.2rem 0.25rem; text-transform: uppercase; border-bottom: 1px solid var(--border-subtle); padding-bottom: 0.15rem; display: flex; align-items: center; gap: 0.25rem;";
-      typeDivider.innerHTML = `<span>🏷️</span> <span>Type: ${typeProps.Name?.value || typeProps.Name || "IFC Type"}</span>`;
+      typeDivider.innerHTML = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg> <span>Type: ${typeProps.Name?.value || typeProps.Name || "IFC Type"}</span>`;
       tableEl.appendChild(typeDivider);
 
       addPropertyRow(tableEl, "Type Express ID", String(typeElementId));
@@ -1316,7 +1597,7 @@ function displayElementProperties(model: any, expressId: number) {
       const divider = document.createElement("div");
       divider.className = "prop-set-header";
       divider.style.cssText = "font-size: 0.65rem; font-weight: 700; color: var(--accent-300); margin: 0.5rem 0.25rem 0.2rem 0.25rem; text-transform: uppercase; border-bottom: 1px solid var(--border-subtle); padding-bottom: 0.15rem; display: flex; align-items: center; gap: 0.25rem;";
-      divider.innerHTML = `<span>⚡</span> <span>Type: ${psetName}</span>`;
+      divider.innerHTML = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg> <span>Type: ${psetName}</span>`;
       tableEl.appendChild(divider);
 
       const psetProps = typePsets[psetName];
@@ -1421,7 +1702,7 @@ if (btnExport4dCsv) {
     link.download = `4D_Schedule_Template_${new Date().toISOString().split("T")[0]}.csv`;
     link.click();
     URL.revokeObjectURL(url);
-    updateViewportHint("📥 4D Schedule CSV Template downloaded! Open in Excel to edit task dates.");
+    updateViewportHint("4D Schedule CSV Template downloaded! Open in Excel to edit task dates.");
   });
 }
 
@@ -1438,10 +1719,10 @@ if (btnImport4dCsvInput) {
         if (currentTimelineDate) {
           await updateTimelineVisualState();
         }
-        alert(`✅ Imported ${count} custom 4D schedule tasks from CSV!\nTimeline and simulation playback updated.`);
-        updateViewportHint(`✅ Custom 4D Schedule CSV applied (${count} tasks updated)`);
+        alert(`Imported ${count} custom 4D schedule tasks from CSV!\nTimeline and simulation playback updated.`);
+        updateViewportHint(`Custom 4D Schedule CSV applied (${count} tasks updated)`);
       } else {
-        alert("⚠️ Could not parse valid 4D tasks from the CSV file. Please check column headers (TaskID, StartDate, EndDate).");
+        alert("Could not parse valid 4D tasks from the CSV file. Please check column headers (TaskID, StartDate, EndDate).");
       }
       target.value = "";
     }
@@ -1615,6 +1896,13 @@ const initBim = async () => {
       if (world.scene && (world.scene as any).updateShadows) {
         (world.scene as any).updateShadows();
       }
+
+      // Reset explosion state for fresh model
+      ExplosionModule.getInstance().reset();
+      const expSlider = document.getElementById("settings-explosion-slider") as HTMLInputElement | null;
+      if (expSlider) expSlider.value = "0";
+      const expVal = document.getElementById("val-explosion-factor");
+      if (expVal) expVal.innerText = "0%";
 
       // Apply current active theme to newly loaded Three.js model materials
       const currentTheme = document.documentElement.getAttribute("data-theme") || "cozy";
@@ -2321,7 +2609,7 @@ if (clipperBtn) {
   clipperBtn.addEventListener("click", () => {
     clipper.enabled = !clipper.enabled;
     clipperBtn.classList.toggle("active", clipper.enabled);
-    updateViewportHint(clipper.enabled ? "✂️ Section Cut Active — Double-click any surface to slice model" : "Double-click any 3D element to inspect properties • Drag to Orbit view");
+    updateViewportHint(clipper.enabled ? "Section Cut Active — Double-click any surface to slice model" : "Double-click any 3D element to inspect properties • Drag to Orbit view");
   });
 }
 
@@ -3212,7 +3500,7 @@ if (settingsCameraModeSelect) {
       await world.camera.projection.set("Orthographic");
       const projectionSelect = document.getElementById("settings-camera-projection") as HTMLSelectElement | null;
       if (projectionSelect) projectionSelect.value = "Orthographic";
-      updateViewportHint("📐 2D Floorplan Mode Active — Mouse drag to Pan, wheel to Zoom");
+      updateViewportHint("2D Floorplan Mode Active — Mouse drag to Pan, wheel to Zoom");
     } else if (mode === "Orbit") {
       await world.camera.projection.set("Perspective");
       const projectionSelect = document.getElementById("settings-camera-projection") as HTMLSelectElement | null;
@@ -3222,7 +3510,7 @@ if (settingsCameraModeSelect) {
       await world.camera.projection.set("Perspective");
       const projectionSelect = document.getElementById("settings-camera-projection") as HTMLSelectElement | null;
       if (projectionSelect) projectionSelect.value = "Perspective";
-      updateViewportHint("🎮 First Person Walkthrough Active — Use WASD keys & Mouse to explore");
+      updateViewportHint("First Person Walkthrough Active — Use WASD keys & Mouse to explore");
     }
 
     if (world.onCameraChanged) {
@@ -3843,9 +4131,25 @@ if (cameraSpeedInput) {
   });
 }
 
-// Exploded Disassembly View Slider
+// Exploded Disassembly View Slider & Clustering Mode
 const explosionSlider = document.getElementById("settings-explosion-slider") as HTMLInputElement | null;
 const explosionVal = document.getElementById("val-explosion-factor");
+const explosionModeSelect = document.getElementById("select-explosion-mode") as HTMLSelectElement | null;
+const explosionModeBadge = document.getElementById("badge-explosion-mode");
+
+if (explosionModeSelect) {
+  explosionModeSelect.addEventListener("change", () => {
+    const mode = explosionModeSelect.value as any;
+    ExplosionModule.getInstance().setClusteringMode(mode);
+    if (explosionModeBadge) {
+      if (mode === "category-cluster") explosionModeBadge.textContent = "CATEGORIES";
+      else if (mode === "asset-dense-cluster") explosionModeBadge.textContent = "ASSETS";
+      else if (mode === "storey-cluster") explosionModeBadge.textContent = "STOREYS";
+      else explosionModeBadge.textContent = "RADIAL";
+    }
+  });
+}
+
 if (explosionSlider) {
   explosionSlider.addEventListener("input", () => {
     const factor = Number(explosionSlider.value) / 100;
@@ -3869,12 +4173,24 @@ const updateSunPosition = () => {
 
   const azimuthRad = (azimuthDeg * Math.PI) / 180;
   const elevationRad = (elevationDeg * Math.PI) / 180;
-  const dist = 50;
+  const dist = 75;
 
   if (dirLight) {
     dirLight.position.x = dist * Math.cos(elevationRad) * Math.sin(azimuthRad);
-    dirLight.position.y = dist * Math.sin(elevationRad);
+    dirLight.position.y = Math.max(0.5, dist * Math.sin(elevationRad));
     dirLight.position.z = dist * Math.cos(elevationRad) * Math.cos(azimuthRad);
+
+    const target = new THREE.Vector3();
+    if (world.camera?.controls) {
+      world.camera.controls.getTarget(target);
+    }
+    dirLight.target.position.copy(target);
+    dirLight.target.updateMatrixWorld();
+
+    if (dirLight.shadow && dirLight.shadow.camera) {
+      dirLight.shadow.camera.updateProjectionMatrix();
+    }
+
     if (world.scene && (world.scene as any).updateShadows) {
       (world.scene as any).updateShadows();
     }
@@ -3884,13 +4200,243 @@ const updateSunPosition = () => {
 if (sunAzimuthInput) sunAzimuthInput.addEventListener("input", updateSunPosition);
 if (sunElevationInput) sunElevationInput.addEventListener("input", updateSunPosition);
 
-// 3D Pin Annotation Tool Toggle & Clear
+// 3D Pin Annotation Tool Controller & Sidebar Sync
 const toggleAnnotation = document.getElementById("settings-toggle-annotation") as HTMLInputElement | null;
+const pinOptionsPanel = document.getElementById("pin-annotation-options");
+const pinTitleInput = document.getElementById("pin-title-input") as HTMLInputElement | null;
+const pinCommentInput = document.getElementById("pin-comment-input") as HTMLTextAreaElement | null;
+const pinCategoryPills = document.getElementById("pin-category-pills");
+const pinListContainer = document.getElementById("pin-annotations-list");
+const pinsCountSpan = document.getElementById("pins-count");
+
+let activePinCategory = "Inspection";
+
+if (pinCategoryPills) {
+  pinCategoryPills.querySelectorAll(".btn-pin-cat").forEach(btn => {
+    btn.addEventListener("click", () => {
+      pinCategoryPills.querySelectorAll(".btn-pin-cat").forEach(b => {
+        (b as HTMLElement).style.background = "var(--bg-input)";
+        (b as HTMLElement).style.color = "var(--text-primary)";
+        b.classList.remove("active");
+      });
+      btn.classList.add("active");
+      activePinCategory = btn.getAttribute("data-cat") || "Inspection";
+      const catColor = AnnotationModule.categoryColors[activePinCategory] || "#3b82f6";
+      (btn as HTMLElement).style.background = catColor;
+      (btn as HTMLElement).style.color = "#ffffff";
+
+      // Automatically sync input title with selected Category name
+      if (pinTitleInput) {
+        const val = pinTitleInput.value.trim();
+        const defaultNames = ["Inspection Pin", "Defect Pin", "Safety Pin", "RFI Pin", "Sign-off Pin", ""];
+        if (defaultNames.includes(val) || val.endsWith(" Pin")) {
+          pinTitleInput.value = `${activePinCategory} Pin`;
+        }
+      }
+    });
+  });
+}
+
+function refreshPinsList(pins: any[]) {
+  if (pinsCountSpan) pinsCountSpan.textContent = String(pins.length);
+  if (!pinListContainer) return;
+
+  if (pins.length === 0) {
+    pinListContainer.innerHTML = `<div style="font-size: 0.6rem; color: var(--text-muted); font-style: italic;">No pins placed yet.</div>`;
+    return;
+  }
+
+  pinListContainer.innerHTML = pins.map(p => {
+    const catColor = p.color || AnnotationModule.categoryColors[p.category] || "#3b82f6";
+    return `
+      <div class="pin-list-item" data-id="${p.id}" style="display: flex; justify-content: space-between; align-items: center; background: var(--bg-card); border: 1.5px solid #000; padding: 0.25rem 0.4rem; border-radius: 2px; font-size: 0.65rem; cursor: pointer;">
+        <div style="display: flex; align-items: center; gap: 0.35rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+          <span style="background: ${catColor}; color: #ffffff; width: 15px; height: 15px; border-radius: 50%; border: 1px solid #000; display: inline-flex; align-items: center; justify-content: center; font-size: 0.55rem; font-weight: 900; flex-shrink: 0;">${p.number}</span>
+          <span style="font-weight: 800; color: var(--text-primary);">${p.title}</span>
+          <span style="font-size: 0.58rem; color: var(--text-muted);">[${p.category}]</span>
+        </div>
+        <div style="display: flex; gap: 0.2rem; flex-shrink: 0;">
+          <button class="btn-goto-pin" data-id="${p.id}" title="Focus camera on pin" style="background: var(--accent-500); color: #ffffff; border: 1px solid #000; border-radius: 2px; font-size: 0.55rem; font-weight: 800; padding: 0.15rem 0.3rem; cursor: pointer;">View</button>
+          <button class="btn-del-pin" data-id="${p.id}" title="Delete pin" style="background: #fee2e2; color: #dc2626; border: 1px solid #000; border-radius: 2px; font-size: 0.55rem; font-weight: 800; padding: 0.15rem 0.3rem; cursor: pointer;">✕</button>
+        </div>
+      </div>
+    `;
+  }).join("");
+
+  pinListContainer.querySelectorAll(".pin-list-item").forEach(item => {
+    item.addEventListener("click", (e) => {
+      if ((e.target as HTMLElement).closest(".btn-del-pin")) return;
+      const id = item.getAttribute("data-id");
+      if (id) {
+        AnnotationModule.getInstance().selectPin(id);
+      }
+    });
+  });
+
+  pinListContainer.querySelectorAll(".btn-del-pin").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const id = btn.getAttribute("data-id");
+      if (id) AnnotationModule.getInstance().removeAnnotation(id);
+    });
+  });
+}
+
+// Sidebar Selected Pin Details Card Bindings
+const selectedPinDetailsSidebar = document.getElementById("selected-pin-details-sidebar");
+const sidebarPinNumberBadge = document.getElementById("sidebar-pin-number-badge");
+const sidebarPinTitleDisplay = document.getElementById("sidebar-pin-title-display");
+const sidebarPinCategoryTag = document.getElementById("sidebar-pin-category-tag");
+const sidebarPinElementName = document.getElementById("sidebar-pin-element-name");
+const sidebarPinCommentEdit = document.getElementById("sidebar-pin-comment-edit") as HTMLTextAreaElement | null;
+const sidebarPinThumbContainer = document.getElementById("sidebar-pin-thumbnail-container");
+const sidebarPinThumbImg = document.getElementById("sidebar-pin-thumbnail-img") as HTMLImageElement | null;
+const btnSidebarInspectElement = document.getElementById("btn-sidebar-inspect-element");
+const btnSidebarSavePin = document.getElementById("btn-sidebar-save-pin");
+const btnSidebarFocusPin = document.getElementById("btn-sidebar-focus-pin");
+const btnSidebarXRayPin = document.getElementById("btn-sidebar-xray-pin");
+const btnSidebarDeletePin = document.getElementById("btn-sidebar-delete-pin");
+const pinFilterChips = document.getElementById("pin-filter-chips");
+const btnExportPins = document.getElementById("btn-export-pins");
+
+let currentSelectedPin: any = null;
+
+AnnotationModule.getInstance().onPinSelected = (anno) => {
+  currentSelectedPin = anno;
+  if (!selectedPinDetailsSidebar) return;
+
+  if (!anno) {
+    selectedPinDetailsSidebar.style.display = "none";
+    return;
+  }
+
+  selectedPinDetailsSidebar.style.display = "flex";
+  const catColor = anno.color || AnnotationModule.categoryColors[anno.category] || "#3b82f6";
+
+  if (sidebarPinNumberBadge) {
+    sidebarPinNumberBadge.textContent = String(anno.number);
+    sidebarPinNumberBadge.style.background = catColor;
+  }
+  if (sidebarPinTitleDisplay) sidebarPinTitleDisplay.textContent = anno.title;
+  if (sidebarPinCategoryTag) {
+    sidebarPinCategoryTag.textContent = anno.category;
+    sidebarPinCategoryTag.style.background = catColor;
+  }
+  if (sidebarPinElementName) {
+    sidebarPinElementName.innerHTML = `<span style="display: inline-flex; align-items: center; gap: 0.25rem;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg> ${anno.elementName || "Scene Anchor"}</span>`;
+  }
+  if (sidebarPinCommentEdit) {
+    sidebarPinCommentEdit.value = anno.comment;
+  }
+
+  // Show snapshot thumbnail if available
+  if (sidebarPinThumbContainer && sidebarPinThumbImg) {
+    if (anno.thumbnail) {
+      sidebarPinThumbImg.src = anno.thumbnail;
+      sidebarPinThumbContainer.style.display = "block";
+    } else {
+      sidebarPinThumbContainer.style.display = "none";
+    }
+  }
+
+  // Update active highlight in pin list
+  document.querySelectorAll("#pin-annotations-list .pin-list-item").forEach((item) => {
+    const isSelected = item.getAttribute("data-id") === anno.id;
+    (item as HTMLElement).style.borderColor = isSelected ? "var(--accent-500, #3b82f6)" : "#000000";
+    (item as HTMLElement).style.background = isSelected ? "var(--bg-hover, #e0f2fe)" : "var(--bg-card)";
+    if (isSelected) {
+      item.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    }
+  });
+};
+
+if (btnSidebarSavePin) {
+  btnSidebarSavePin.addEventListener("click", () => {
+    if (!currentSelectedPin || !sidebarPinCommentEdit) return;
+    const newComment = sidebarPinCommentEdit.value.trim();
+    AnnotationModule.getInstance().updateAnnotation(currentSelectedPin.id, { comment: newComment });
+    updateViewportHint(`Updated Pin #${currentSelectedPin.number} notes`);
+  });
+}
+
+if (btnSidebarFocusPin) {
+  btnSidebarFocusPin.addEventListener("click", () => {
+    if (!currentSelectedPin) return;
+    AnnotationModule.getInstance().focusOnAnnotation(currentSelectedPin.id);
+  });
+}
+
+if (btnSidebarXRayPin) {
+  btnSidebarXRayPin.addEventListener("click", () => {
+    AnnotationModule.getInstance().toggleXRay();
+    if (currentSelectedPin) {
+      AnnotationModule.getInstance().selectAndHighlightTaggedElement(currentSelectedPin);
+    }
+    const isXRay = AnnotationModule.getInstance().isXRayActive;
+    btnSidebarXRayPin.style.background = isXRay ? "var(--accent-500)" : "var(--bg-card)";
+    btnSidebarXRayPin.style.color = isXRay ? "#ffffff" : "var(--text-primary)";
+    updateViewportHint(isXRay ? "X-Ray Isolation Mode ON" : "X-Ray Isolation Mode OFF");
+  });
+}
+
+if (btnSidebarDeletePin) {
+  btnSidebarDeletePin.addEventListener("click", () => {
+    if (!currentSelectedPin) return;
+    AnnotationModule.getInstance().removeAnnotation(currentSelectedPin.id);
+    if (selectedPinDetailsSidebar) selectedPinDetailsSidebar.style.display = "none";
+  });
+}
+
+if (btnSidebarInspectElement) {
+  btnSidebarInspectElement.addEventListener("click", () => {
+    if (!currentSelectedPin || !currentSelectedPin.modelId || currentSelectedPin.expressId === undefined) return;
+    AnnotationModule.getInstance().selectAndHighlightTaggedElement(currentSelectedPin);
+    if (typeof (window as any).switchSidebarTab === "function") {
+      (window as any).switchSidebarTab("right-tab-bar", "inspector");
+    }
+  });
+}
+
+// Category Filter Chips
+if (pinFilterChips) {
+  pinFilterChips.querySelectorAll(".btn-filter-chip").forEach(chip => {
+    chip.addEventListener("click", () => {
+      pinFilterChips.querySelectorAll(".btn-filter-chip").forEach(c => {
+        (c as HTMLElement).style.background = "var(--bg-input)";
+        (c as HTMLElement).style.color = "var(--text-primary)";
+        c.classList.remove("active");
+      });
+      chip.classList.add("active");
+      const filter = chip.getAttribute("data-filter") || "All";
+      const activeColor = filter === "All" ? "var(--accent-500)" : (AnnotationModule.categoryColors[filter] || "var(--accent-500)");
+      (chip as HTMLElement).style.background = activeColor;
+      (chip as HTMLElement).style.color = "#ffffff";
+      AnnotationModule.getInstance().setFilterCategory(filter);
+      updateViewportHint(`Filtered pins: ${filter}`);
+    });
+  });
+}
+
+// BCF Export Button
+if (btnExportPins) {
+  btnExportPins.addEventListener("click", () => {
+    AnnotationModule.getInstance().exportBCFJSON();
+    updateViewportHint("Exported BIM Field Issues Report (BCF/JSON)");
+  });
+}
+
+AnnotationModule.getInstance().onPinsUpdated = (pins) => {
+  refreshPinsList(pins);
+};
+
 if (toggleAnnotation) {
   toggleAnnotation.addEventListener("change", () => {
-    AnnotationModule.getInstance().enablePinCreation(toggleAnnotation.checked);
-    if (toggleAnnotation.checked) {
-      updateViewportHint("📌 Click on any 3D element to place a 3D Pin Annotation marker");
+    const active = toggleAnnotation.checked;
+    AnnotationModule.getInstance().enablePinCreation(active);
+    if (pinOptionsPanel) {
+      pinOptionsPanel.style.display = active ? "flex" : "none";
+    }
+    if (active) {
+      updateViewportHint("📌 Click on any 3D element to drop a Pin Annotation marker");
     }
   });
 }
@@ -3924,35 +4470,162 @@ if (sectionBoxYMaxInput) {
   });
 }
 
-// Canvas Click Event for 3D Pin Annotations
-container.addEventListener("click", async (e: MouseEvent) => {
+function resolveElementTag(expressId: number): string {
+  try {
+    const cats = classifier.list.get("Categories");
+    if (cats) {
+      for (const [catName, group] of cats) {
+        for (const [, idSet] of (group as any).map) {
+          if (idSet.has(expressId)) return `${catName} #${expressId}`;
+        }
+      }
+    }
+  } catch (e) {
+    // fallback
+  }
+  return `IfcElement #${expressId}`;
+}
+
+// Direct Button to drop pin on currently selected element or camera target
+const btnDropPinHere = document.getElementById("btn-drop-pin-here");
+if (btnDropPinHere) {
+  btnDropPinHere.addEventListener("click", () => {
+    const annoMod = AnnotationModule.getInstance();
+    let targetPos = new THREE.Vector3();
+    let taggedModelId: string | undefined = undefined;
+    let taggedExpressId: number | undefined = undefined;
+    let taggedElementName: string | undefined = undefined;
+
+    if (activeExpressId !== null && activeModelId) {
+      taggedModelId = activeModelId;
+      taggedExpressId = activeExpressId;
+      taggedElementName = resolveElementTag(activeExpressId);
+    }
+
+    world.camera.controls.getTarget(targetPos);
+    const userVal = pinTitleInput?.value.trim();
+    const isGeneric = !userVal || userVal.endsWith(" Pin") || ["Inspection", "Defect", "Safety", "RFI", "Sign-off"].some(c => userVal === `${c} Pin` || userVal === c);
+    const title = (!isGeneric && userVal) ? userVal : `${activePinCategory} Pin`;
+    const comment = pinCommentInput?.value.trim() || `Field notes recorded for ${activePinCategory.toLowerCase()} assessment.`;
+    annoMod.addAnnotation(targetPos, title, comment, activePinCategory, taggedModelId, taggedExpressId, taggedElementName);
+    updateViewportHint(`✓ Tagged 3D Pin to ${taggedElementName || 'Model'}: "${title}" (${activePinCategory})`);
+  });
+}
+
+// Canvas Pointer Events for 3D Pin Annotations
+let pinPointerDownPos = { x: 0, y: 0, time: 0 };
+container.addEventListener("pointerdown", (e: PointerEvent) => {
+  pinPointerDownPos = { x: e.clientX, y: e.clientY, time: Date.now() };
+});
+
+const placePinAtMousePosition = async (clientX: number, clientY: number) => {
   const annoMod = AnnotationModule.getInstance();
   if (!annoMod.enabled) return;
 
   const rect = container.getBoundingClientRect();
   const mouse = new THREE.Vector2(
-    ((e.clientX - rect.left) / rect.width) * 2 - 1,
-    -((e.clientY - rect.top) / rect.height) * 2 + 1
+    ((clientX - rect.left) / rect.width) * 2 - 1,
+    -((clientY - rect.top) / rect.height) * 2 + 1
   );
 
-  const raycaster = new THREE.Raycaster();
-  raycaster.setFromCamera(mouse, world.camera.three);
+  let hitPoint: THREE.Vector3 | null = null;
+  let taggedModelId: string | undefined = undefined;
+  let taggedExpressId: number | undefined = undefined;
+  let taggedElementName: string | undefined = undefined;
 
-  const meshes: THREE.Mesh[] = [];
-  for (const [, model] of fragments.list) {
-    if (model && model.object) {
-      model.object.traverse((child: any) => {
-        if (child.isMesh) meshes.push(child);
-      });
+  // 1. Try ThatOpen Raycaster against BIM elements
+  try {
+    const caster = components.get(OBC.Raycasters).get(world);
+    const result = (await caster.castRay()) as any;
+    if (result && result.point) {
+      hitPoint = result.point.clone();
+      if (result.fragments?.modelId && result.localId !== undefined) {
+        taggedModelId = result.fragments.modelId;
+        taggedExpressId = result.localId;
+        if (typeof taggedExpressId === "number") {
+          taggedElementName = resolveElementTag(taggedExpressId);
+        }
+      }
+    }
+  } catch (err) {
+    // fallback
+  }
+
+  // 2. Try standard Three.js raycasting against fragment geometry
+  if (!hitPoint) {
+    const raycaster = new THREE.Raycaster();
+    raycaster.setFromCamera(mouse, world.camera.three);
+
+    const meshes: THREE.Mesh[] = [];
+    for (const [, model] of fragments.list) {
+      if (model && model.object) {
+        model.object.traverse((child: any) => {
+          if (child.isMesh) meshes.push(child);
+        });
+      }
+    }
+
+    const intersects = raycaster.intersectObjects(meshes, true);
+    if (intersects.length > 0) {
+      hitPoint = intersects[0].point;
+      if (activeExpressId !== null && activeModelId) {
+        taggedModelId = activeModelId;
+        taggedExpressId = activeExpressId;
+        taggedElementName = resolveElementTag(activeExpressId);
+      }
+    } else {
+      const target = new THREE.Vector3();
+      world.camera.controls.getTarget(target);
+      const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -target.y);
+      const planeHit = new THREE.Vector3();
+      if (raycaster.ray.intersectPlane(plane, planeHit)) {
+        hitPoint = planeHit;
+      } else {
+        hitPoint = target;
+      }
     }
   }
 
-  const intersects = raycaster.intersectObjects(meshes, false);
-  if (intersects.length > 0) {
-    const hitPoint = intersects[0].point;
-    const title = prompt("Enter Annotation Title:", "Structural Inspection Pin") || "Inspection Pin";
-    const comment = prompt("Enter Comment Details:", "Issue flagged for revision") || "Notes logged";
-    annoMod.addAnnotation(hitPoint, title, comment, "Inspection");
+  if (hitPoint) {
+    const userVal = pinTitleInput?.value.trim();
+    const isGeneric = !userVal || userVal.endsWith(" Pin") || ["Inspection", "Defect", "Safety", "RFI", "Sign-off"].some(c => userVal === `${c} Pin` || userVal === c);
+    const title = (!isGeneric && userVal) ? userVal : `${activePinCategory} Pin`;
+    const comment = pinCommentInput?.value.trim() || `Field notes recorded on 3D geometry for ${activePinCategory.toLowerCase()}.`;
+    annoMod.addAnnotation(hitPoint, title, comment, activePinCategory, taggedModelId, taggedExpressId, taggedElementName);
+    updateViewportHint(`✓ Tagged 3D Pin to ${taggedElementName || 'Surface'}: "${title}" (${activePinCategory})`);
+  }
+};
+
+container.addEventListener("pointerup", (e: PointerEvent) => {
+  const dist = Math.hypot(e.clientX - pinPointerDownPos.x, e.clientY - pinPointerDownPos.y);
+  const duration = Date.now() - pinPointerDownPos.time;
+  if (dist < 8 && duration < 600) {
+    // 1. First check if clicked on an existing 3D Pin Mesh in scene
+    const annoMod = AnnotationModule.getInstance();
+    const pinsGroup = (annoMod as any).pinsGroup as THREE.Group | undefined;
+    if (pinsGroup && pinsGroup.children.length > 0) {
+      const rect = container.getBoundingClientRect();
+      const mouse = new THREE.Vector2(
+        ((e.clientX - rect.left) / rect.width) * 2 - 1,
+        -((e.clientY - rect.top) / rect.height) * 2 + 1
+      );
+      const pinRaycaster = new THREE.Raycaster();
+      pinRaycaster.setFromCamera(mouse, world.camera.three);
+      const pinIntersects = pinRaycaster.intersectObjects(pinsGroup.children, true);
+      if (pinIntersects.length > 0) {
+        let current: THREE.Object3D | null = pinIntersects[0].object;
+        while (current && !current.userData?.annotationId && current !== pinsGroup) {
+          current = current.parent;
+        }
+        if (current?.userData?.annotationId) {
+          annoMod.selectPin(current.userData.annotationId);
+          return;
+        }
+      }
+    }
+
+    // 2. If pin creation tool is active, drop a new pin
+    placePinAtMousePosition(e.clientX, e.clientY);
   }
 });
 
@@ -4101,11 +4774,13 @@ async function updateClassificationUI() {
       const leaf = document.createElement("div");
       leaf.className = "tree-node-leaf";
       
-      const icon = classificationName === "Categories" ? "🧱" : "🏢";
+      const icon = classificationName === "Categories" 
+        ? `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>` 
+        : `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3 21h18M5 21V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16M9 9h1M9 13h1M9 17h1M14 9h1M14 13h1M14 17h1"/></svg>`;
       
       leaf.innerHTML = `
         <span class="tree-bullet">•</span>
-        <span class="tree-icon">${icon}</span>
+        <span class="tree-icon" style="display: inline-flex; align-items: center;">${icon}</span>
         <span class="tree-label">${groupName}</span>
       `;
 
@@ -4284,7 +4959,23 @@ async function updateTimelineVisualState() {
   const hider = components.get(OBC.Hider);
   
   // Clear previous timeline highlighting
+  await highlighter.clear("timeline-planned");
   await highlighter.clear("timeline-inprogress");
+  await highlighter.clear("timeline-completed");
+
+  // Sync highlighter colors dynamically with color pickers / statusColors
+  const plannedColor = (document.getElementById("4d-color-planned") as HTMLInputElement)?.value || ScheduleManager.statusColors['Planned'] || "#6b7280";
+  const activeColor = (document.getElementById("4d-color-active") as HTMLInputElement)?.value || ScheduleManager.statusColors['In Progress'] || "#f59e0b";
+  const completeColor = (document.getElementById("4d-color-complete") as HTMLInputElement)?.value || ScheduleManager.statusColors['Completed'] || "#10b981";
+
+  const plannedStyle = highlighter.styles.get("timeline-planned");
+  if (plannedStyle) plannedStyle.color.set(plannedColor);
+
+  const activeStyle = highlighter.styles.get("timeline-inprogress");
+  if (activeStyle) activeStyle.color.set(activeColor);
+
+  const completeStyle = highlighter.styles.get("timeline-completed");
+  if (completeStyle) completeStyle.color.set(completeColor);
 
   const plannedMap: Record<string, Set<number>> = {};
   const inProgressMap: Record<string, Set<number>> = {};
@@ -4353,16 +5044,17 @@ async function updateTimelineVisualState() {
     }
   }
 
-  // Update visibility & highlight
+  // Update visibility & highlight with status colors
   if (hasPlanned) {
     await hider.set(false, plannedMap);
   }
   if (hasInProgress) {
     await hider.set(true, inProgressMap);
-    await highlighter.highlightByID("timeline-inprogress", inProgressMap, true, false);
+    await highlighter.highlightByID("timeline-inprogress", inProgressMap, false, false);
   }
   if (hasCompleted) {
     await hider.set(true, completedMap);
+    await highlighter.highlightByID("timeline-completed", completedMap, false, false);
   }
 
   // Sync selected element inputs dynamically if properties panel is open for it
@@ -4539,7 +5231,9 @@ function updateScheduleWidgetUI() {
 
       // Auto-collapse sidebar drawer on mobile for direct viewport visibility
       if (window.innerWidth <= 1024) {
-        closeAllSidebars();
+        if (typeof (window as any).closeAllSidebars === 'function') {
+          (window as any).closeAllSidebars();
+        }
       }
     });
 
@@ -4651,8 +5345,6 @@ updateClassificationUI();
 calculateTimelineBounds();
 
 // --- 4D MODE TOGGLE ---
-const btn4dMode = document.getElementById('btn-4d-mode')!;
-
 function updateHeaderLabel() {
   const labelEl = document.getElementById('project-header-label');
   if (!labelEl) return;
@@ -4700,7 +5392,9 @@ function apply4dMode(active: boolean) {
     stopTimelinePlayback();
     const hider = components.get(OBC.Hider);
     hider.set(true);
+    highlighter.clear("timeline-planned");
     highlighter.clear("timeline-inprogress");
+    highlighter.clear("timeline-completed");
   }
   updateHeaderLabel();
 }
@@ -4708,12 +5402,13 @@ function apply4dMode(active: boolean) {
 // Restore last 4D mode state on load
 apply4dMode(is4dMode);
 
-if (btn4dMode) {
-  btn4dMode.addEventListener('click', (e) => {
-    e.stopPropagation();
+const btn4dToggle = document.getElementById('btn-4d-mode');
+if (btn4dToggle) {
+  btn4dToggle.addEventListener('click', () => {
     apply4dMode(!is4dMode);
   });
 }
+
 (window as any).toggle4DMode = (active?: boolean) => {
   apply4dMode(typeof active === 'boolean' ? active : !is4dMode);
 };
@@ -4723,19 +5418,18 @@ async function orientCameraToFace(face: string) {
   const target = new THREE.Vector3();
   world.camera.controls.getTarget(target);
 
-  const box = new THREE.Box3();
-  let hasModel = false;
-  for (const [, model] of fragments.list) {
-    box.expandByObject(model.object);
-    hasModel = true;
-  }
+  const boxer = components.get(OBC.BoundingBoxer);
+  boxer.list.clear();
+  boxer.addFromModels();
+  const bbox = boxer.get();
+  boxer.list.clear();
 
   let center = new THREE.Vector3();
   let d = 20;
-  if (hasModel) {
-    box.getCenter(center);
+  if (!bbox.isEmpty()) {
+    bbox.getCenter(center);
     const size = new THREE.Vector3();
-    box.getSize(size);
+    bbox.getSize(size);
     d = Math.max(size.x, size.y, size.z) * 1.5;
   } else {
     center.copy(target);
@@ -4787,6 +5481,10 @@ async function setCameraProjection(projectionMode: "Orthographic" | "Perspective
     } else if (typeof (world.camera as any).setProjection === "function") {
       await (world.camera as any).setProjection(projectionMode);
     }
+    if (viewCube && world.camera.three) {
+      viewCube.camera = world.camera.three;
+      viewCube.updateOrientation();
+    }
   } catch (err) {
     console.warn("Failed to set camera projection mode:", err);
   }
@@ -4800,14 +5498,13 @@ const tickerCamMode = document.getElementById("ticker-camera-mode");
 if (btnViewFit) {
   btnViewFit.addEventListener("click", async () => {
     try {
-      const box = new THREE.Box3();
-      let hasModel = false;
-      for (const [, model] of fragments.list) {
-        box.expandByObject(model.object);
-        hasModel = true;
-      }
-      if (hasModel) {
-        await world.camera.controls.fitToBox(box, true);
+      const boxer = components.get(OBC.BoundingBoxer);
+      boxer.list.clear();
+      boxer.addFromModels();
+      const bbox = boxer.get();
+      boxer.list.clear();
+      if (!bbox.isEmpty()) {
+        await world.camera.controls.fitToBox(bbox, true);
       }
     } catch (err) {
       console.warn("Fit view failed:", err);
@@ -4830,21 +5527,22 @@ if (btnViewIso) {
   btnViewIso.addEventListener("click", async () => {
     // 1. Switch camera back to Perspective projection
     await setCameraProjection("Perspective");
-    // 2. Orient camera to Isometric 3D view
+    // 2. Orient camera to Isometric 3D view using BoundingBoxer
     const target = new THREE.Vector3();
     world.camera.controls.getTarget(target);
-    const box = new THREE.Box3();
-    let hasModel = false;
-    for (const [, model] of fragments.list) {
-      box.expandByObject(model.object);
-      hasModel = true;
-    }
+
+    const boxer = components.get(OBC.BoundingBoxer);
+    boxer.list.clear();
+    boxer.addFromModels();
+    const bbox = boxer.get();
+    boxer.list.clear();
+
     let center = new THREE.Vector3();
     let d = 20;
-    if (hasModel) {
-      box.getCenter(center);
+    if (!bbox.isEmpty()) {
+      bbox.getCenter(center);
       const size = new THREE.Vector3();
-      box.getSize(size);
+      bbox.getSize(size);
       d = Math.max(size.x, size.y, size.z) * 1.35;
     } else {
       center.copy(target);
@@ -4855,52 +5553,37 @@ if (btnViewIso) {
   });
 }
 
-// --- RESPONSIVE SIDEBAR DRAWER INTERACTION ---
-const btnToggleLeft = document.getElementById("btn-toggle-left");
-const btnToggleRight = document.getElementById("btn-toggle-right");
-const leftSidebar = document.querySelector(".left-sidebar");
-const rightSidebar = document.querySelector(".right-sidebar");
-const sidebarBackdrop = document.getElementById("sidebar-backdrop");
-
-function closeAllSidebars() {
-  leftSidebar?.classList.remove("open");
-  rightSidebar?.classList.remove("open");
-  sidebarBackdrop?.classList.remove("active");
-}
-
-if (btnToggleLeft && leftSidebar && sidebarBackdrop) {
-  btnToggleLeft.addEventListener("click", (e) => {
-    e.stopPropagation();
-    const isOpen = leftSidebar.classList.contains("open");
-    closeAllSidebars();
-    if (!isOpen) {
-      leftSidebar.classList.add("open");
-      sidebarBackdrop.classList.add("active");
-    }
+const btnViewSnapshot = document.getElementById("btn-view-snapshot");
+if (btnViewSnapshot) {
+  btnViewSnapshot.addEventListener("click", () => {
+    SnapshotModule.getInstance().captureTechnicalSnapshot();
   });
 }
 
-if (btnToggleRight && rightSidebar && sidebarBackdrop) {
-  btnToggleRight.addEventListener("click", (e) => {
-    e.stopPropagation();
-    const isOpen = rightSidebar.classList.contains("open");
-    closeAllSidebars();
-    if (!isOpen) {
-      rightSidebar.classList.add("open");
-      sidebarBackdrop.classList.add("active");
+const btnQuickExplode = document.getElementById("btn-quick-explode");
+let isQuickExploded = false;
+if (btnQuickExplode) {
+  btnQuickExplode.addEventListener("click", () => {
+    isQuickExploded = !isQuickExploded;
+    const targetVal = isQuickExploded ? 65 : 0;
+    const slider = document.getElementById("settings-explosion-slider") as HTMLInputElement | null;
+    if (slider) {
+      slider.value = String(targetVal);
+      slider.dispatchEvent(new Event("input"));
+    } else {
+      ExplosionModule.getInstance().setExplosionFactor(targetVal / 100);
     }
-  });
-}
-
-if (sidebarBackdrop) {
-  sidebarBackdrop.addEventListener("click", () => {
-    closeAllSidebars();
+    btnQuickExplode.classList.toggle("active", isQuickExploded);
+    const txt = document.getElementById("quick-explode-text");
+    if (txt) txt.textContent = isQuickExploded ? "Assemble" : "Explode";
   });
 }
 
 window.addEventListener("resize", () => {
   if (window.innerWidth > 1024) {
-    closeAllSidebars();
+    if (typeof (window as any).closeAllSidebars === "function") {
+      (window as any).closeAllSidebars();
+    }
   }
 });
 
@@ -4944,14 +5627,6 @@ document.querySelectorAll(".panel").forEach((panel) => {
 
 // Initial update
 setTimeout(() => { if (viewCube) viewCube.updateOrientation(); }, 500);
-
-
-
-// ============================================================
-// INITIALIZE MODULAR CONTROLLERS & SERVICES
-// ============================================================
-UIManager.getInstance().init();
-KeyboardController.getInstance().init();
 
 // Auto-show Help Modal on first visit
 const FIRST_VISIT_KEY = "bim-help-dont-show";
@@ -5002,4 +5677,381 @@ if (themeSelect) {
     syncPostProcessingWithTheme(targetTheme);
   });
 }
+
+// ============================================================
+// NEO-BRUTALIST TOAST NOTIFICATION QUEUE
+// ============================================================
+export function showToast(message: string, icon: string = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>`, durationMs: number = 3200) {
+  const container = document.getElementById("bim-toast-container");
+  if (!container) return;
+
+  const toast = document.createElement("div");
+  toast.style.cssText = `
+    background: var(--bg-panel, #18181b);
+    color: var(--text-primary, #ffffff);
+    border: 2px solid var(--border-strong, #000000);
+    border-radius: 4px;
+    padding: 0.5rem 0.85rem;
+    box-shadow: var(--shadow-brutal, 4px 4px 0px #000000);
+    font-size: 0.72rem;
+    font-weight: 800;
+    font-family: var(--font-body, sans-serif);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    pointer-events: auto;
+    animation: popIn 0.15s ease-out;
+    max-width: 320px;
+  `;
+
+  toast.innerHTML = `
+    <span style="display: inline-flex; align-items: center; flex-shrink: 0;">${icon}</span>
+    <span style="flex: 1; line-height: 1.35;">${message}</span>
+  `;
+
+  container.appendChild(toast);
+
+  setTimeout(() => {
+    toast.style.transition = "opacity 0.2s ease, transform 0.2s ease";
+    toast.style.opacity = "0";
+    toast.style.transform = "translateY(10px)";
+    setTimeout(() => toast.remove(), 220);
+  }, durationMs);
+}
+(window as any).showToast = showToast;
+
+// Wire Tour Button
+const btnStartPinTour = document.getElementById("btn-start-pin-tour");
+if (btnStartPinTour) {
+  btnStartPinTour.addEventListener("click", () => {
+    AnnotationModule.getInstance().startTour();
+    showToast("Starting Guided 3D Issue Tour", `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polygon points="5 3 19 12 5 21 5 3"/></svg>`);
+  });
+}
+
+// ============================================================
+// COMMAND PALETTE (CTRL+K / CMD+K) CONTROLLER
+// ============================================================
+const cmdModal = document.getElementById("command-palette-modal");
+const cmdInput = document.getElementById("command-palette-input") as HTMLInputElement | null;
+const cmdResults = document.getElementById("command-palette-results");
+const btnOpenCmd = document.getElementById("btn-open-command-palette");
+
+let selectedCmdIndex = 0;
+
+interface CommandItem {
+  id: string;
+  title: string;
+  category: string;
+  icon: string;
+  action: () => void;
+}
+
+const getCommandRegistry = (): CommandItem[] => {
+  const list: CommandItem[] = [
+    // Navigation Tabs
+    { id: "tab-files", title: "Project Files & IFC Upload", category: "Navigation", icon: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>`, action: () => (window as any).switchSidebarTab?.("left-tab-bar", "files") },
+    { id: "tab-finder", title: "Items Finder & Storey Filter", category: "Navigation", icon: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>`, action: () => (window as any).switchSidebarTab?.("left-tab-bar", "finder") },
+    { id: "tab-4d", title: "4D Construction Schedule", category: "Navigation", icon: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>`, action: () => (window as any).switchSidebarTab?.("left-tab-bar", "schedule") },
+    { id: "tab-scene", title: "Scene Tree & Post-Processing", category: "Navigation", icon: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polygon points="12 2 2 12 5 12 5 22 19 22 19 12 22 12 12 2"/></svg>`, action: () => (window as any).switchSidebarTab?.("right-tab-bar", "scene") },
+    { id: "tab-inspector", title: "Element Properties & 5D Inspector", category: "Navigation", icon: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>`, action: () => (window as any).switchSidebarTab?.("right-tab-bar", "inspector") },
+    { id: "tab-tools", title: "Tools (Measure / Pins / Section / Explode)", category: "Navigation", icon: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>`, action: () => (window as any).switchSidebarTab?.("right-tab-bar", "tools") },
+    { id: "tab-camera", title: "First Person Camera Controls", category: "Navigation", icon: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="8" cy="12" r="2"/><circle cx="16" cy="12" r="2"/></svg>`, action: () => (window as any).switchSidebarTab?.("right-tab-bar", "camera") },
+    
+    // Viewport & Tools
+    { id: "tool-fit", title: "Fit Geometry in View (Home)", category: "Viewport", icon: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>`, action: () => (window as any).fitView?.() },
+    { id: "tool-4d-toggle", title: "Toggle 4D Construction Simulation", category: "4D Simulation", icon: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`, action: () => document.getElementById("btn-4d-mode")?.click() },
+    { id: "tool-pin-tour", title: "Play Guided 3D Issue Tour", category: "Collaboration", icon: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polygon points="5 3 19 12 5 21 5 3"/></svg>`, action: () => AnnotationModule.getInstance().startTour() },
+    { id: "tool-export-bcf", title: "Export Pins (BCF / JSON Report)", category: "Collaboration", icon: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>`, action: () => AnnotationModule.getInstance().exportBCFJSON() },
+    { id: "tool-xray-toggle", title: "Toggle X-Ray Isolation Mode", category: "Display", icon: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M9 3H5a2 2 0 0 0-2 2v4m0 6v4a2 2 0 0 0 2 2h4m6 0h4a2 2 0 0 0 2-2v-4m0-6V5a2 2 0 0 0-2-2h-4"/><circle cx="12" cy="12" r="3"/></svg>`, action: () => AnnotationModule.getInstance().toggleXRay() },
+    { id: "tool-help", title: "Open Help & Tutorial Guide (?)", category: "Help", icon: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>`, action: () => (window as any).toggleShortcutsModal?.(true) },
+
+    // Themes
+    { id: "th-zen", title: "Switch to Zen Theme", category: "Themes", icon: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 1 0 18"/></svg>`, action: () => setTheme("zen") },
+    { id: "th-cyber", title: "Switch to Cyberpunk Neon Theme", category: "Themes", icon: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>`, action: () => setTheme("cyberpunk") },
+    { id: "th-pencil", title: "Switch to Pencil & Paper Theme", category: "Themes", icon: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>`, action: () => setTheme("pencil") },
+    { id: "th-bluepen", title: "Switch to Bluepen Draft Theme", category: "Themes", icon: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M2 20h20M5 20V8l7-5 7 5v12"/></svg>`, action: () => setTheme("bluepen") },
+    { id: "th-amber", title: "Switch to Retro Amber Theme", category: "Themes", icon: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>`, action: () => setTheme("amber") },
+    { id: "th-emerald", title: "Switch to Matrix Emerald Theme", category: "Themes", icon: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="2" y="2" width="20" height="20" rx="4"/></svg>`, action: () => setTheme("emerald") },
+    { id: "th-light", title: "Switch to Ice Light Theme", category: "Themes", icon: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 2v20M2 12h20M4.93 4.93l14.14 14.14M4.93 19.07l14.14-14.14"/></svg>`, action: () => setTheme("light") }
+  ];
+
+  // Add all active 3D pins dynamically
+  const pins = AnnotationModule.getInstance().getAnnotations();
+  pins.forEach(pin => {
+    list.push({
+      id: `pin-${pin.id}`,
+      title: `Pin #${pin.number}: ${pin.title} (${pin.category})`,
+      category: "Field Pins",
+      icon: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 2a7 7 0 0 0-7 7c0 5.25 7 13 7 13s7-7.75 7-13a7 7 0 0 0-7-7z"/><circle cx="12" cy="9" r="2.5"/></svg>`,
+      action: () => {
+        AnnotationModule.getInstance().selectPin(pin.id);
+        AnnotationModule.getInstance().showPinDetailsModal(pin);
+      }
+    });
+  });
+
+  return list;
+};
+
+const setTheme = (themeName: string) => {
+  document.documentElement.setAttribute("data-theme", themeName);
+  (window as any).currentTheme = themeName;
+  if (themeSelect) themeSelect.value = themeName;
+  if ((window as any).modelManager?.applyThemePalette) {
+    (window as any).modelManager.applyThemePalette(themeName);
+  }
+  syncPostProcessingWithTheme(themeName);
+  showToast(`Switched theme to ${themeName.toUpperCase()}`, `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 1 0 18"/></svg>`);
+};
+
+const openCommandPalette = () => {
+  if (!cmdModal) return;
+  cmdModal.style.display = "flex";
+  if (cmdInput) {
+    cmdInput.value = "";
+    cmdInput.focus();
+  }
+  selectedCmdIndex = 0;
+  renderCommandResults("");
+};
+
+const closeCommandPalette = () => {
+  if (!cmdModal) return;
+  cmdModal.style.display = "none";
+};
+
+const renderCommandResults = (query: string) => {
+  if (!cmdResults) return;
+  cmdResults.innerHTML = "";
+  const allCmds = getCommandRegistry();
+  const q = query.toLowerCase().trim();
+
+  const filtered = q
+    ? allCmds.filter(c => c.title.toLowerCase().includes(q) || c.category.toLowerCase().includes(q))
+    : allCmds;
+
+  if (filtered.length === 0) {
+    cmdResults.innerHTML = `<div style="font-size: 0.68rem; color: var(--text-muted); padding: 0.6rem; text-align: center;">No matching actions or elements found.</div>`;
+    return;
+  }
+
+  filtered.forEach((cmd, idx) => {
+    const isSelected = idx === selectedCmdIndex;
+    const itemEl = document.createElement("div");
+    itemEl.className = "command-item";
+    itemEl.style.cssText = `
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.45rem 0.65rem;
+      border-radius: 4px;
+      cursor: pointer;
+      background: ${isSelected ? "var(--bg-hover, #e0f2fe)" : "transparent"};
+      border: 1.5px solid ${isSelected ? "var(--accent-500)" : "transparent"};
+    `;
+
+    itemEl.innerHTML = `
+      <div style="display: flex; align-items: center; gap: 0.5rem;">
+        <span style="font-size: 0.85rem;">${cmd.icon}</span>
+        <span style="font-size: 0.72rem; font-weight: 700; color: var(--text-primary);">${cmd.title}</span>
+      </div>
+      <span style="font-size: 0.56rem; font-weight: 800; text-transform: uppercase; background: var(--bg-card); border: 1px solid var(--border-subtle); padding: 0.1rem 0.35rem; border-radius: 2px; color: var(--text-muted);">${cmd.category}</span>
+    `;
+
+    itemEl.addEventListener("click", () => {
+      cmd.action();
+      closeCommandPalette();
+    });
+
+    cmdResults.appendChild(itemEl);
+  });
+};
+
+if (btnOpenCmd) {
+  btnOpenCmd.addEventListener("click", openCommandPalette);
+}
+
+if (cmdInput) {
+  cmdInput.addEventListener("input", () => {
+    selectedCmdIndex = 0;
+    renderCommandResults(cmdInput.value);
+  });
+
+  cmdInput.addEventListener("keydown", (e: KeyboardEvent) => {
+    const allCmds = getCommandRegistry();
+    const q = cmdInput.value.toLowerCase().trim();
+    const filtered = q ? allCmds.filter(c => c.title.toLowerCase().includes(q) || c.category.toLowerCase().includes(q)) : allCmds;
+
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      selectedCmdIndex = (selectedCmdIndex + 1) % Math.max(1, filtered.length);
+      renderCommandResults(cmdInput.value);
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      selectedCmdIndex = (selectedCmdIndex - 1 + filtered.length) % Math.max(1, filtered.length);
+      renderCommandResults(cmdInput.value);
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      if (filtered[selectedCmdIndex]) {
+        filtered[selectedCmdIndex].action();
+        closeCommandPalette();
+      }
+    } else if (e.key === "Escape") {
+      closeCommandPalette();
+    }
+  });
+}
+
+// Global Keyboard Shortcut for Command Palette (Ctrl+K or Cmd+K)
+window.addEventListener("keydown", (e: KeyboardEvent) => {
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
+    e.preventDefault();
+    if (cmdModal && cmdModal.style.display === "flex") {
+      closeCommandPalette();
+    } else {
+      openCommandPalette();
+    }
+  }
+});
+
+// Close command palette when clicking outside
+if (cmdModal) {
+  cmdModal.addEventListener("click", (e) => {
+    if (e.target === cmdModal) closeCommandPalette();
+  });
+}
+
+// ============================================================
+// RIGHT-CLICK SMART CONTEXT MENU FOR VIEWPORT
+// ============================================================
+const ctxMenu = document.getElementById("bim-context-menu");
+const ctxTitle = document.getElementById("ctx-element-title");
+
+let ctxHitPoint: THREE.Vector3 | null = null;
+let ctxModelId: string | undefined = undefined;
+let ctxExpressId: number | undefined = undefined;
+let ctxElementName: string | undefined = undefined;
+
+container.addEventListener("contextmenu", async (e: MouseEvent) => {
+  e.preventDefault();
+  if (!ctxMenu) return;
+
+  const rect = container.getBoundingClientRect();
+  const mouse = new THREE.Vector2(
+    ((e.clientX - rect.left) / rect.width) * 2 - 1,
+    -((e.clientY - rect.top) / rect.height) * 2 + 1
+  );
+
+  ctxHitPoint = null;
+  ctxModelId = undefined;
+  ctxExpressId = undefined;
+  ctxElementName = undefined;
+
+  // Raycast against IFC elements
+  try {
+    const caster = components.get(OBC.Raycasters).get(world);
+    const result = (await caster.castRay()) as any;
+    if (result && result.point) {
+      ctxHitPoint = result.point.clone();
+      if (result.fragments?.modelId && result.localId !== undefined) {
+        ctxModelId = result.fragments.modelId;
+        ctxExpressId = result.localId;
+        if (typeof ctxExpressId === "number") {
+          ctxElementName = resolveElementTag(ctxExpressId);
+        }
+      }
+    }
+  } catch (err) {
+    // fallback
+  }
+
+  if (!ctxHitPoint) {
+    const raycaster = new THREE.Raycaster();
+    raycaster.setFromCamera(mouse, world.camera.three);
+    const target = new THREE.Vector3();
+    world.camera.controls.getTarget(target);
+    const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -target.y);
+    const hit = new THREE.Vector3();
+    if (raycaster.ray.intersectPlane(plane, hit)) {
+      ctxHitPoint = hit;
+    } else {
+      ctxHitPoint = target;
+    }
+  }
+
+  if (ctxTitle) {
+    ctxTitle.innerHTML = ctxElementName 
+      ? `<span style="display: inline-flex; align-items: center; gap: 0.25rem;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg> ${ctxElementName}</span>`
+      : `<span style="display: inline-flex; align-items: center; gap: 0.25rem;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 2a7 7 0 0 0-7 7c0 5.25 7 13 7 13s7-7.75 7-13a7 7 0 0 0-7-7z"/><circle cx="12" cy="9" r="2.5"/></svg> 3D Point Coordinates</span>`;
+  }
+
+  ctxMenu.style.display = "flex";
+  ctxMenu.style.left = `${Math.min(window.innerWidth - 200, e.clientX)}px`;
+  ctxMenu.style.top = `${Math.min(window.innerHeight - 200, e.clientY)}px`;
+});
+
+// Close context menu on outside click
+document.addEventListener("pointerdown", (e: MouseEvent) => {
+  if (ctxMenu && !ctxMenu.contains(e.target as Node)) {
+    ctxMenu.style.display = "none";
+  }
+});
+
+// Context Menu Action Listeners
+if (ctxMenu) {
+  ctxMenu.querySelectorAll(".ctx-item").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const action = btn.getAttribute("data-action");
+      ctxMenu.style.display = "none";
+
+      if (action === "drop-pin" && ctxHitPoint) {
+        AnnotationModule.getInstance().addAnnotation(
+          ctxHitPoint,
+          "Inspection Pin",
+          "Recorded via Smart Context Menu.",
+          "Inspection",
+          ctxModelId,
+          ctxExpressId,
+          ctxElementName
+        );
+        showToast(`3D Pin placed on ${ctxElementName || "Model"}`, `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 2a7 7 0 0 0-7 7c0 5.25 7 13 7 13s7-7.75 7-13a7 7 0 0 0-7-7z"/><circle cx="12" cy="9" r="2.5"/></svg>`);
+      } else if (action === "properties" && ctxModelId && ctxExpressId !== undefined) {
+        const fragments = components.get(OBC.FragmentsManager);
+        const model = fragments.list.get(ctxModelId);
+        if (model) {
+          displayElementProperties(model, ctxExpressId);
+          (window as any).switchSidebarTab?.("right-tab-bar", "inspector");
+        }
+      } else if (action === "xray" && ctxModelId && ctxExpressId !== undefined) {
+        AnnotationModule.getInstance().toggleXRay();
+        showToast("Toggled X-Ray Mode", `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M9 3H5a2 2 0 0 0-2 2v4m0 6v4a2 2 0 0 0 2 2h4m6 0h4a2 2 0 0 0 2-2v-4m0-6V5a2 2 0 0 0-2-2h-4"/><circle cx="12" cy="12" r="3"/></svg>`);
+      } else if (action === "isolate" && ctxModelId && ctxExpressId !== undefined) {
+        const highlighter = components.get(OBF.Highlighter);
+        if (highlighter) {
+          highlighter.highlightByID("select", { [ctxModelId]: new Set([ctxExpressId]) }, true, true);
+          showToast(`Isolated ${ctxElementName || "Element"}`, `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`);
+        }
+      } else if (action === "focus" && ctxHitPoint) {
+        world.camera.controls.setLookAt(ctxHitPoint.x + 4, ctxHitPoint.y + 3, ctxHitPoint.z + 4, ctxHitPoint.x, ctxHitPoint.y, ctxHitPoint.z, true);
+        showToast("Focused Camera on Target", `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>`);
+      }
+    });
+  });
+}
+
+// --- PWA SERVICE WORKER REGISTRATION ---
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker
+      .register("./sw.js")
+      .then((reg) => {
+        console.log("PWA Service Worker registered with scope:", reg.scope);
+      })
+      .catch((err) => {
+        console.log("PWA Service Worker registration skipped:", err);
+      });
+  });
+}
+
 
