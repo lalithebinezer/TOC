@@ -140,20 +140,28 @@ export class UIManager {
     });
 
     document.getElementById('btn-toggle-left')?.addEventListener('click', () => {
-      const leftSidebar = document.querySelector('.left-sidebar');
-      if (leftSidebar?.classList.contains('open')) {
-        closeAllSidebars();
+      if (window.innerWidth > 1024) {
+        document.body.classList.toggle('left-sidebar-collapsed');
       } else {
-        switchSidebarTab('left-tab-bar', 'files');
+        const leftSidebar = document.querySelector('.left-sidebar');
+        if (leftSidebar?.classList.contains('open')) {
+          closeAllSidebars();
+        } else {
+          switchSidebarTab('left-tab-bar', 'files');
+        }
       }
     });
 
     document.getElementById('btn-toggle-right')?.addEventListener('click', () => {
-      const rightSidebar = document.querySelector('.right-sidebar');
-      if (rightSidebar?.classList.contains('open')) {
-        closeAllSidebars();
+      if (window.innerWidth > 1024) {
+        document.body.classList.toggle('right-sidebar-collapsed');
       } else {
-        switchSidebarTab('right-tab-bar', 'scene');
+        const rightSidebar = document.querySelector('.right-sidebar');
+        if (rightSidebar?.classList.contains('open')) {
+          closeAllSidebars();
+        } else {
+          switchSidebarTab('right-tab-bar', 'scene');
+        }
       }
     });
 

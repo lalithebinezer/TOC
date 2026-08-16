@@ -5847,16 +5847,20 @@ const renderCommandResults = (query: string) => {
       padding: 0.45rem 0.65rem;
       border-radius: 4px;
       cursor: pointer;
-      background: ${isSelected ? "var(--bg-hover, #e0f2fe)" : "transparent"};
+      background: ${isSelected ? "var(--accent-500)" : "transparent"};
       border: 1.5px solid ${isSelected ? "var(--accent-500)" : "transparent"};
     `;
 
+    const selectedTextColor = isSelected ? "#000000" : "var(--text-primary)";
+    const selectedMutedColor = isSelected ? "#000000" : "var(--text-muted)";
+    const selectedBadgeBg = isSelected ? "rgba(0,0,0,0.15)" : "var(--bg-card)";
+
     itemEl.innerHTML = `
       <div style="display: flex; align-items: center; gap: 0.5rem;">
-        <span style="font-size: 0.85rem;">${cmd.icon}</span>
-        <span style="font-size: 0.72rem; font-weight: 700; color: var(--text-primary);">${cmd.title}</span>
+        <span style="font-size: 0.85rem; ${isSelected ? 'filter: brightness(0);' : ''}">${cmd.icon}</span>
+        <span style="font-size: 0.72rem; font-weight: 700; color: ${selectedTextColor};">${cmd.title}</span>
       </div>
-      <span style="font-size: 0.56rem; font-weight: 800; text-transform: uppercase; background: var(--bg-card); border: 1px solid var(--border-subtle); padding: 0.1rem 0.35rem; border-radius: 2px; color: var(--text-muted);">${cmd.category}</span>
+      <span style="font-size: 0.56rem; font-weight: 800; text-transform: uppercase; background: ${selectedBadgeBg}; border: 1px solid ${isSelected ? 'rgba(0,0,0,0.2)' : 'var(--border-subtle)'}; padding: 0.1rem 0.35rem; border-radius: 2px; color: ${selectedMutedColor};">${cmd.category}</span>
     `;
 
     itemEl.addEventListener("click", () => {

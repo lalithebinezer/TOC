@@ -127,6 +127,7 @@ export class CustomViewManager {
 
   public async init(world: any) {
     this.world = world;
+    this.customViews = [];
     const cache = StorageCache.getInstance();
     await cache.init();
 
@@ -138,6 +139,8 @@ export class CustomViewManager {
         } catch {
           this.customViews = [];
         }
+      } else {
+        this.customViews = [];
       }
     }
 
