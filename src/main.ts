@@ -30,6 +30,8 @@ import { UIManager } from "./ui/UIManager";
 import { ExplosionModule } from "./modules/ExplosionModule";
 import { AnnotationModule } from "./modules/AnnotationModule";
 import { SnapshotModule } from "./modules/SnapshotModule";
+import { HighlighterManager } from "./modules/HighlighterManager";
+import { ModelInfoManager } from "./modules/ModelInfoManager";
 import { MinimapHUD } from "./ui/MinimapHUD";
 import { formatCurrency, formatItemCount } from "./utils/formatters";
 
@@ -3062,7 +3064,220 @@ clearSelectionColorsBtn.addEventListener("click", async () => {
   await highlighter.clear("select");
   await highlighter.clear("hover");
   resetPropertiesPanel();
+  showToast("Cleared Selection Highlight", `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>`);
 });
+
+// Custom Highlighter Manager UI Integration
+const highlighterManager = HighlighterManager.getInstance();
+const customStyleSelect = document.getElementById("select-custom-highlighter-style") as HTMLSelectElement | null;
+const customStyleColorPicker = document.getElementById("picker-custom-highlighter-color") as HTMLInputElement | null;
+const btnApplyCustomHighlight = document.getElementById("btn-apply-custom-highlight") as HTMLButtonElement | null;
+const btnResetCustomHighlight = document.getElementById("btn-reset-custom-highlight") as HTMLButtonElement | null;
+const btnClearAllHighlighters = document.getElementById("btn-clear-all-highlighters") as HTMLButtonElement | null;
+
+if (customStyleSelect && customStyleColorPicker) {
+  customStyleSelect.addEventListener("change", () => {
+    const selectedStyleId = customStyleSelect.value;
+    const style = highlighterManager.getStyle(selectedStyleId);
+    if (style) {
+      customStyleColorPicker.value = style.color;
+    }
+  });
+
+  customStyleColorPicker.addEventListener("input", () => {
+    const selectedStyleId = customStyleSelect.value;
+    highlighterManager.updateStyleColor(selectedStyleId, customStyleColorPicker.value);
+  });
+}
+
+if (btnApplyCustomHighlight && customStyleSelect) {
+  btnApplyCustomHighlight.addEventListener("click", async () => {
+    const styleId = customStyleSelect.value;
+    const applied = await highlighterManager.applyCustomHighlight(styleId, false);
+    if (applied) {
+      showToast(`Applied ${styleId} Highlight (Deselect to view custom color)`, `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 2v20M2 12h20"/></svg>`);
+    } else {
+      showToast("No element selected to highlight", `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`);
+    }
+  });
+}
+
+if (btnResetCustomHighlight && customStyleSelect) {
+  btnResetCustomHighlight.addEventListener("click", async () => {
+    const styleId = customStyleSelect.value;
+    await highlighterManager.resetCustomHighlighter(styleId, true);
+    showToast(`Reset ${styleId} Highlight for Selection`, `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>`);
+  });
+}
+
+if (btnClearAllHighlighters) {
+  btnClearAllHighlighters.addEventListener("click", async () => {
+    await highlighterManager.clearAllCustomHighlights();
+    showToast("Cleared All Custom Highlights", `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>`);
+  });
+}
+
+// Quick Highlight Preset Buttons in Tools Tab
+document.querySelectorAll(".btn-quick-highlight-preset").forEach((btn) => {
+  btn.addEventListener("click", async () => {
+    const preset = btn.getAttribute("data-preset");
+    if (!preset) return;
+    const applied = await highlighterManager.applyCustomHighlight(preset, false);
+    if (applied) {
+      showToast(`Applied ${preset} Overlay (Deselect to view)`, `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 2v20M2 12h20"/></svg>`);
+    } else {
+      showToast("Select elements to highlight first", `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`);
+    }
+  });
+});
+
+const btnQuickHighlightClear = document.getElementById("btn-quick-highlight-clear");
+if (btnQuickHighlightClear) {
+  btnQuickHighlightClear.addEventListener("click", async () => {
+    await highlighterManager.clearAllCustomHighlights();
+    showToast("Reset all custom highlights", `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>`);
+  });
+}
+
+const btnHighlightApplyTool = document.getElementById("btn-highlight-apply-tool");
+if (btnHighlightApplyTool && customStyleSelect) {
+  btnHighlightApplyTool.addEventListener("click", async () => {
+    const styleId = customStyleSelect.value || "Red";
+    const applied = await highlighterManager.applyCustomHighlight(styleId, false);
+    if (applied) {
+      showToast(`Applied ${styleId} Overlay`, `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 2v20M2 12h20"/></svg>`);
+    } else {
+      showToast("Select elements first", `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`);
+    }
+  });
+}
+
+const btnHighlightClearTool = document.getElementById("btn-highlight-clear-tool");
+if (btnHighlightClearTool) {
+  btnHighlightClearTool.addEventListener("click", async () => {
+    await highlighterManager.clearAllCustomHighlights();
+    showToast("Cleared highlights", `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>`);
+  });
+}
+
+// --- FRAGMENTS MODEL INFORMATION & DATA OPERATIONS WIRING ---
+const modelInfoManager = ModelInfoManager.getInstance();
+
+// 1. Log Attributes
+const btnQueryLogAttrs = document.getElementById("btn-query-log-attrs");
+if (btnQueryLogAttrs) {
+  btnQueryLogAttrs.addEventListener("click", async () => {
+    if (activeExpressId === null) {
+      showToast("Select an element in viewport first", `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`);
+      return;
+    }
+    const attrs = await modelInfoManager.getAttributes(activeExpressId, undefined, activeModelId || undefined);
+    console.log(`[Fragments] Attributes for Element #${activeExpressId}:`, attrs);
+    showToast(`Logged Attributes for #${activeExpressId} to Console`, `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>`);
+  });
+}
+
+// 2. Log Property Sets (IsDefinedBy)
+const btnQueryLogPsets = document.getElementById("btn-query-log-psets");
+if (btnQueryLogPsets) {
+  btnQueryLogPsets.addEventListener("click", async () => {
+    if (activeExpressId === null) {
+      showToast("Select an element in viewport first", `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`);
+      return;
+    }
+    const rawPsets = await modelInfoManager.getItemPropertySets(activeExpressId, activeModelId || undefined);
+    const formatted = modelInfoManager.formatItemPsets(rawPsets);
+    console.log(`[Fragments] Formatted Psets for Element #${activeExpressId}:`, formatted);
+    console.log(`[Fragments] Raw IsDefinedBy relations:`, rawPsets);
+    showToast(`Logged Property Sets for #${activeExpressId}`, `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>`);
+  });
+}
+
+// 3. Log Geometry (BufferAttributes)
+const btnQueryLogGeom = document.getElementById("btn-query-log-geom");
+if (btnQueryLogGeom) {
+  btnQueryLogGeom.addEventListener("click", async () => {
+    if (activeExpressId === null) {
+      showToast("Select an element in viewport first", `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`);
+      return;
+    }
+    const geom = await modelInfoManager.getItemGeometry(activeExpressId, activeModelId || undefined);
+    console.log(`[Fragments] BufferGeometry for Element #${activeExpressId}:`, geom);
+    showToast(`Logged Geometry Collection for #${activeExpressId}`, `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>`);
+  });
+}
+
+// 4. Log Spatial Structure Hierarchy Tree
+const btnQueryLogStructure = document.getElementById("btn-query-log-structure");
+if (btnQueryLogStructure) {
+  btnQueryLogStructure.addEventListener("click", async () => {
+    const structure = await modelInfoManager.getSpatialStructure(activeModelId || undefined);
+    console.log(`[Fragments] Full Model Spatial Structure Hierarchy:`, structure);
+    showToast("Logged Full Spatial Structure Tree", `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="6" y1="3" x2="6" y2="15"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/></svg>`);
+  });
+}
+
+// 5. Category: Log Names
+const selectQueryCategory = document.getElementById("select-query-category") as HTMLSelectElement | null;
+const btnCategoryLogNames = document.getElementById("btn-category-log-names");
+if (btnCategoryLogNames && selectQueryCategory) {
+  btnCategoryLogNames.addEventListener("click", async () => {
+    const category = selectQueryCategory.value;
+    const names = await modelInfoManager.getNamesFromCategory(category, true, activeModelId || undefined);
+    console.log(`[Fragments] Unique Element Names in "${category}" (${names.length} items):`, names);
+    showToast(`Logged ${names.length} elements in ${category}`, `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>`);
+  });
+}
+
+// 6. Category: Extract & Render Three.js Meshes
+const btnCategoryExtractGeom = document.getElementById("btn-category-extract-geom");
+if (btnCategoryExtractGeom && selectQueryCategory) {
+  btnCategoryExtractGeom.addEventListener("click", async () => {
+    const category = selectQueryCategory.value;
+    showToast(`Extracting 3D geometry for ${category}...`);
+    const { localIds, geometries } = await modelInfoManager.getGeometriesFromCategory(category, activeModelId || undefined);
+    let createdCount = 0;
+    for (const val of geometries) {
+      if (Array.isArray(val)) {
+        for (const meshData of val) {
+          const mesh = modelInfoManager.createMeshFromData(meshData, "#a855f7");
+          if (mesh) createdCount++;
+        }
+      }
+    }
+
+    // Hide original geometry elements so extracted meshes are prominent
+    const fragments = components.get(OBC.FragmentsManager);
+    for (const [, model] of fragments.list) {
+      if (typeof (model as any).setVisible === "function") {
+        await (model as any).setVisible(localIds, false);
+      }
+    }
+    fragments.core.update(true);
+
+    console.log(`[Fragments] Extracted & rendered ${createdCount} Three.js Meshes for ${category}:`, geometries);
+    showToast(`Rendered ${createdCount} meshes in purple for ${category}`, `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polygon points="12 2 2 7 12 12 22 7 12 2"/></svg>`);
+  });
+}
+
+// 7. Spatial: First Level Children
+const btnSpatialFirstLevel = document.getElementById("btn-spatial-first-level");
+if (btnSpatialFirstLevel) {
+  btnSpatialFirstLevel.addEventListener("click", async () => {
+    const children = await modelInfoManager.getFirstLevelChildren(activeModelId || undefined);
+    console.log(`[Fragments] First Level (Storey) Children Elements:`, children);
+    showToast(`Logged ${children ? children.length : 0} Storey Children to Console`, `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="6" y1="3" x2="6" y2="15"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/></svg>`);
+  });
+}
+
+// 8. Dispose Extracted Meshes
+const btnDisposeExtractedMeshes = document.getElementById("btn-dispose-extracted-meshes");
+if (btnDisposeExtractedMeshes) {
+  btnDisposeExtractedMeshes.addEventListener("click", async () => {
+    await modelInfoManager.disposeExtractedMeshes(activeModelId || undefined);
+    showToast("Disposed extracted meshes & restored model", `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>`);
+  });
+}
 
 // --- GAMEPLAY CAMERA PRESET VARIABLES & STATE ---
 let activePreset: "Default" | "FPS" | "Sports" | "Racing" | "ThirdPerson" = "Default";
