@@ -3108,9 +3108,8 @@ input[type="range"].custom-slider {
    ============================================================ */
 .viewport-hint-bar {
   position: absolute;
-  top: calc(52px + 1rem);
-  left: 50%;
-  transform: translateX(-50%);
+  top: calc(56px + 1.2rem);
+  right: calc(360px + 1.8rem);
   z-index: 25;
   display: flex;
   align-items: center;
@@ -3127,6 +3126,7 @@ input[type="range"].custom-slider {
   pointer-events: none;
   transition: all var(--ease-normal);
   animation: fadeInDown 0.3s ease both;
+  max-width: calc(100vw - 860px);
 }
 
 .viewport-hint-bar .btn-hint-close {
@@ -3168,8 +3168,41 @@ input[type="range"].custom-slider {
 
 .viewport-hint-bar.hidden {
   opacity: 0;
-  transform: translate(-50%, -10px);
+  transform: translateY(-10px);
   pointer-events: none;
+}
+
+/* ============================================================
+   SAVED CUSTOM VIEWS FLYOUT (AUTODESK TANDEM STYLE)
+   ============================================================ */
+.saved-views-flyout {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 330px;
+  max-width: calc(100vw - 32px);
+  background: var(--bg-surface, #151d1e);
+  border: 3px solid #000000;
+  box-shadow: 4px 4px 0px #000000;
+  border-radius: 2px;
+  z-index: 10000;
+  overflow: hidden;
+  animation: flyoutSlideDown 0.15s ease-out;
+}
+
+[data-theme="light"] .saved-views-flyout {
+  background: #ffffff;
+}
+
+@keyframes flyoutSlideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 /* ============================================================
@@ -3177,10 +3210,10 @@ input[type="range"].custom-slider {
    ============================================================ */
 .bim-breadcrumbs-bar {
   position: absolute;
-  top: calc(52px + 3.4rem);
-  left: 50%;
-  transform: translateX(-50%);
+  top: calc(56px + 3.8rem);
+  right: calc(360px + 1.8rem);
   z-index: 20;
+  max-width: calc(100vw - 860px);
   background: var(--bg-panel);
   border: 2px solid var(--border-strong);
   border-radius: 4px;
@@ -3195,11 +3228,14 @@ input[type="range"].custom-slider {
   pointer-events: auto;
   backdrop-filter: blur(6px);
   transition: top 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .viewport-hint-bar.hidden ~ .bim-breadcrumbs-bar,
 .viewport-hint-bar.hidden + .bim-breadcrumbs-bar {
-  top: calc(52px + 0.8rem);
+  top: calc(56px + 1.2rem);
 }
 
 /* ============================================================
