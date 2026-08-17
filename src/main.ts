@@ -385,11 +385,15 @@ function updateMetricScaleBar() {
   }
 }
 
-// Continuously update MinimapHUD, Scale Ruler, and 3D Pin Annotations on render loops
+// Continuously update MinimapHUD, Scale Ruler, 3D Pin Annotations, and ViewCube on render loops
 function animateHUD() {
   MinimapHUD.getInstance().update();
   AnnotationModule.getInstance().updateOverlayPositions();
   updateMetricScaleBar();
+  const vc = getEl("view-cube") as any;
+  if (vc && typeof vc.updateOrientation === "function") {
+    vc.updateOrientation();
+  }
   requestAnimationFrame(animateHUD);
 }
 animateHUD();

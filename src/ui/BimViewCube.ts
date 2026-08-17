@@ -147,10 +147,11 @@ export class BimViewCube extends HTMLElement {
     matrix.extractRotation(this._camera.matrixWorldInverse);
 
     const e = matrix.elements;
+    // CSS 3D matrix3d (column-major) converting Three.js camera world inverse to screen space
     this.cubeElement.style.transform = `matrix3d(
       ${e[0].toFixed(6)}, ${-e[1].toFixed(6)}, ${e[2].toFixed(6)}, 0,
       ${-e[4].toFixed(6)}, ${e[5].toFixed(6)}, ${-e[6].toFixed(6)}, 0,
-      ${e[8].toFixed(6)}, ${-e[9].toFixed(6)}, ${e[10].toFixed(6)}, 0,
+      ${-e[8].toFixed(6)}, ${e[9].toFixed(6)}, ${-e[10].toFixed(6)}, 0,
       0, 0, 0, 1
     )`;
   }
