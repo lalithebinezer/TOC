@@ -2278,11 +2278,11 @@ async function loadModelData(name: string, buffer: Uint8Array) {
 
     clearInterval(interval);
     progress.innerText = "100%";
-    text.innerText = "Building Semantic Model database...";
 
     if (model) {
       (window as any).viewer_model = model;
       federationModule.registerModel(model, name);
+
       // Enable shadows if checked
       const shadowsToggleEl = getEl("settings-toggle-shadows") as HTMLInputElement | null;
       const shadowsOn = shadowsToggleEl?.checked ?? false;
@@ -2293,99 +2293,11 @@ async function loadModelData(name: string, buffer: Uint8Array) {
         }
       });
 
-      // Run dynamic classifications safely
-      try {
-        console.log("CLASSIFIER: starting byCategory");
-        await classifier.byCategory({ classificationName: "Categories" });
-        console.log("CLASSIFIER: byCategory done");
-      } catch (e) {
-        console.warn("Classifier byCategory info:", e);
-      }
-
-      try {
-        console.log("CLASSIFIER: starting byIfcBuildingStorey");
-        await classifier.byIfcBuildingStorey({ classificationName: "Storeys" });
-        console.log("CLASSIFIER: byIfcBuildingStorey done");
-      } catch (e) {
-        console.warn("Classifier byIfcBuildingStorey info:", e);
-      }
-
-      try {
-        console.log("CLASSIFIER: starting byModel");
-        await classifier.byModel({ classificationName: "Models" });
-        console.log("CLASSIFIER: byModel done");
-      } catch (e) {
-        console.warn("Classifier byModel info:", e);
-      }
-
-      // Apply category-based theme colors to three.js mesh materials
-      try {
-        await applyCategoryColors();
-      } catch (e) {
-        console.warn("applyCategoryColors skipped:", e);
-      }
-
-      // Sync/generate local database twin properties using classifications
-      try {
-        await initializeModelTwinData(model);
-      } catch (e) {
-        console.warn("initializeModelTwinData skipped:", e);
-      }
-
-      // Auto-populate 4D Schedule tasks for all elements and categories in loaded model
-      try {
-        const categoriesGroup = classifier.list.get("Categories");
-        if (categoriesGroup) {
-          const catMap = new Map<string, { modelId: string; elementIds: number[] }[]>();
-          for (const [catName, groupData] of categoriesGroup) {
-            if (!groupData || typeof groupData.get !== "function") continue;
-            const res = await groupData.get();
-            if (!res) continue;
-            const itemsArr: { modelId: string; elementIds: number[] }[] = [];
-            for (const mId in res) {
-              if (res[mId]) {
-                itemsArr.push({ modelId: mId, elementIds: Array.from(res[mId]) });
-              }
-            }
-            catMap.set(catName, itemsArr);
-          }
-          scheduleManager.generateFromCategories(catMap);
-        }
-      } catch (e) {
-        console.warn("ScheduleManager generation skipped:", e);
-      }
-
-      // Update 5D cumulative project budget now that twin data is populated
-      if (typeof (window as any).updateCumulative5DCost === 'function') {
-        try {
-          (window as any).updateCumulative5DCost();
-        } catch (e) {
-          console.warn("updateCumulative5DCost skipped:", e);
-        }
-      }
-
-      try {
-        console.log("CLASSIFIER: starting updateClassificationUI");
-        await updateClassificationUI();
-        console.log("CLASSIFIER: updateClassificationUI done");
-      } catch (e) {
-        console.warn("updateClassificationUI skipped:", e);
-      }
-      calculateTimelineBounds();
-
-      // Force renderer to resize and update layout
+      // Force renderer to resize and update layout immediately
       if (world.renderer) {
         world.renderer.resize();
       }
       window.dispatchEvent(new Event('resize'));
-
-      // Sync 4D simulation state for newly loaded model
-      if (typeof calculateTimelineBounds === 'function') {
-        calculateTimelineBounds();
-      }
-      if (is4dMode && typeof (window as any).updateTimelineVisualState === 'function') {
-        (window as any).updateTimelineVisualState();
-      }
 
       // Fit camera controls box around loaded model
       setTimeout(async () => {
@@ -2399,16 +2311,107 @@ async function loadModelData(name: string, buffer: Uint8Array) {
         } catch (err) {
           console.warn("Camera fitToBox skipped:", err);
         }
-      }, 300);
-    }
+      }, 100);
 
-    // Update dynamic file list and search index
-    refreshFileList();
-    GlobalSearchOverlay.getInstance().buildIndex();
-    // Success path: hide overlay after a short delay
-    setTimeout(() => {
+      // Update dynamic file list immediately
+      refreshFileList();
+
+      // Instantly hide loading overlay so user can interact with the 3D model immediately
       overlay.classList.add("hidden");
-    }, 500);
+
+      // Run background metadata processing asynchronously without blocking viewport
+      (async () => {
+        try {
+          // 1. Dynamic classifications
+          try {
+            await classifier.byCategory({ classificationName: "Categories" });
+          } catch (e) {
+            console.warn("Classifier byCategory info:", e);
+          }
+
+          try {
+            await classifier.byIfcBuildingStorey({ classificationName: "Storeys" });
+          } catch (e) {
+            console.warn("Classifier byIfcBuildingStorey info:", e);
+          }
+
+          try {
+            await classifier.byModel({ classificationName: "Models" });
+          } catch (e) {
+            console.warn("Classifier byModel info:", e);
+          }
+
+          // 2. Apply theme category colors
+          try {
+            await applyCategoryColors();
+          } catch (e) {
+            console.warn("applyCategoryColors skipped:", e);
+          }
+
+          // 3. Populate 4D/5D digital twin properties
+          try {
+            await initializeModelTwinData(model);
+          } catch (e) {
+            console.warn("initializeModelTwinData skipped:", e);
+          }
+
+          // 4. Auto-populate 4D Schedule tasks
+          try {
+            const categoriesGroup = classifier.list.get("Categories");
+            if (categoriesGroup) {
+              const catMap = new Map<string, { modelId: string; elementIds: number[] }[]>();
+              for (const [catName, groupData] of categoriesGroup) {
+                if (!groupData || typeof groupData.get !== "function") continue;
+                const res = await groupData.get();
+                if (!res) continue;
+                const itemsArr: { modelId: string; elementIds: number[] }[] = [];
+                for (const mId in res) {
+                  if (res[mId]) {
+                    itemsArr.push({ modelId: mId, elementIds: Array.from(res[mId]) });
+                  }
+                }
+                catMap.set(catName, itemsArr);
+              }
+              scheduleManager.generateFromCategories(catMap);
+            }
+          } catch (e) {
+            console.warn("ScheduleManager generation skipped:", e);
+          }
+
+          // 5. Update 5D cumulative project budget
+          if (typeof (window as any).updateCumulative5DCost === 'function') {
+            try {
+              (window as any).updateCumulative5DCost();
+            } catch (e) {
+              console.warn("updateCumulative5DCost skipped:", e);
+            }
+          }
+
+          // 6. Update Classification UI tree & ItemsFinder queries
+          try {
+            await updateClassificationUI();
+            await updateItemFinderQueries();
+          } catch (e) {
+            console.warn("updateClassificationUI skipped:", e);
+          }
+
+          // 7. Sync 4D timeline bounds
+          if (typeof calculateTimelineBounds === 'function') {
+            calculateTimelineBounds();
+          }
+          if (is4dMode && typeof (window as any).updateTimelineVisualState === 'function') {
+            (window as any).updateTimelineVisualState();
+          }
+
+          // 8. Build Global Search Index
+          GlobalSearchOverlay.getInstance().buildIndex();
+        } catch (bgErr) {
+          console.warn("Background metadata post-processing warning:", bgErr);
+        }
+      })();
+    } else {
+      overlay.classList.add("hidden");
+    }
 
   } catch (err) {
     clearInterval(interval);
