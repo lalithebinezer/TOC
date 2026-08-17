@@ -413,6 +413,7 @@ world.scene.three.add(grid);
 
 // Multi-Selection State Storage
 const multiSelectedElements: Record<string, Set<number>> = {};
+(window as any).multiSelectedElements = multiSelectedElements;
 
 function updateBreadcrumbs(storeyName: string = "Level 0", elementName: string = "Element", _modelId?: string, expressId?: number) {
   const storeyEl = getEl("breadcrumb-storey");

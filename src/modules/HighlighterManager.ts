@@ -121,7 +121,21 @@ export class HighlighterManager {
       }
     }
 
-    const selection = highlighter.selection["select"] || highlighter.selection.select;
+    let selection: any = highlighter.selection["select"] || highlighter.selection.select;
+    if (!selection || OBC.ModelIdMapUtils.isEmpty(selection)) {
+      // Fallback: check global selection maps or active single element
+      const multi = (window as any).multiSelectedElements;
+      if (multi && !OBC.ModelIdMapUtils.isEmpty(multi)) {
+        selection = multi;
+      } else if ((window as any).activeExpressId !== null && (window as any).activeExpressId !== undefined) {
+        const actId = (window as any).activeExpressId;
+        const actMod = (window as any).activeModelId || (this.engine.fragments.list.keys().next().value);
+        if (actMod) {
+          selection = { [actMod]: new Set([actId]) };
+        }
+      }
+    }
+
     if (!selection || OBC.ModelIdMapUtils.isEmpty(selection)) {
       return false;
     }
