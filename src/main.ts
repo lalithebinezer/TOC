@@ -33,6 +33,7 @@ import { SnapshotModule } from "./modules/SnapshotModule";
 import { HighlighterManager } from "./modules/HighlighterManager";
 import { ModelInfoManager } from "./modules/ModelInfoManager";
 import { MinimapHUD } from "./ui/MinimapHUD";
+import { GlobalSearchOverlay } from "./ui/GlobalSearchOverlay";
 import { formatCurrency, formatItemCount } from "./utils/formatters";
 
 BUI.Manager.init();
@@ -141,6 +142,8 @@ const customViewManager = CustomViewManager.getInstance();
 customViewManager.init(world);
 (window as any).customViewManager = customViewManager;
 
+
+
 // Top Ribbon Saved Views Flyout Menu Toggle
 const btnRibbonSavedViews = document.getElementById("btn-ribbon-saved-views");
 const menuSavedViews = document.getElementById("menu-saved-views");
@@ -194,6 +197,10 @@ const timeline4DModule = new Timeline4DModule();
 const boq5DModule = new Boq5DModule();
 const federationModule = new FederationModule();
 
+// Initialize Global BIM Search Overlay
+const globalSearchOverlay = GlobalSearchOverlay.getInstance();
+(window as any).globalSearchOverlay = globalSearchOverlay;
+
 (window as any).bimEngine = bimEngine;
 (window as any).modelManager = modelManager;
 (window as any).viewportController = viewportController;
@@ -202,113 +209,132 @@ const federationModule = new FederationModule();
 
 // Setup Command Palette (Ctrl + K)
 const commandPalette = new CommandPalette([
-  { label: "Switch to Zen Infrastructure Theme", action: () => {
+  {
+    label: "Switch to Zen Infrastructure Theme", action: () => {
       const themeSelect = document.getElementById("select-theme-toggle") as HTMLSelectElement | null;
       if (themeSelect) {
         themeSelect.value = "zen";
         themeSelect.dispatchEvent(new Event("change"));
       }
-    } 
+    }
   },
-  { label: "Switch to Pencil & Paper Theme", action: () => {
+  {
+    label: "Switch to Pencil & Paper Theme", action: () => {
       const themeSelect = document.getElementById("select-theme-toggle") as HTMLSelectElement | null;
       if (themeSelect) {
         themeSelect.value = "pencil";
         themeSelect.dispatchEvent(new Event("change"));
       }
-    } 
+    }
   },
-  { label: "Switch to Bluepen Draft Theme", action: () => {
+  {
+    label: "Switch to Bluepen Draft Theme", action: () => {
       const themeSelect = document.getElementById("select-theme-toggle") as HTMLSelectElement | null;
       if (themeSelect) {
         themeSelect.value = "bluepen";
         themeSelect.dispatchEvent(new Event("change"));
       }
-    } 
+    }
   },
-  { label: "Switch to Cyberpunk Neon Theme", action: () => {
+  {
+    label: "Switch to Cyberpunk Neon Theme", action: () => {
       const themeSelect = document.getElementById("select-theme-toggle") as HTMLSelectElement | null;
       if (themeSelect) {
         themeSelect.value = "cyberpunk";
         themeSelect.dispatchEvent(new Event("change"));
       }
-    } 
+    }
   },
-  { label: "Top 2D Orthographic View", action: () => {
+  {
+    label: "Top 2D Orthographic View", action: () => {
       document.getElementById("btn-view-top")?.click();
     }
   },
-  { label: "Reset 3D Isometric View", action: () => {
+  {
+    label: "Reset 3D Isometric View", action: () => {
       document.getElementById("btn-view-iso")?.click();
     }
   },
-  { label: "Bookmark Current Camera Viewpoint", action: () => {
+  {
+    label: "Bookmark Current Camera Viewpoint", action: () => {
       document.getElementById("btn-add-viewpoint")?.click();
     }
   },
-  { label: "Export Bills of Quantities (BOQ CSV)", action: () => {
+  {
+    label: "Export Bills of Quantities (BOQ CSV)", action: () => {
       document.getElementById("btn-export-boq-csv")?.click();
     }
   },
   { label: "Toggle Section Cut Mode", action: () => clippingModule.createSectionPlane() },
   { label: "Clear All Section Planes", action: () => clippingModule.deleteAllPlanes() },
-  { label: "Run IDS Door Compliance Audit", action: () => {
+  {
+    label: "Run IDS Door Compliance Audit", action: () => {
       const spec = idsModule.createSampleDoorSpec();
       idsModule.runAudit(spec);
-    } 
+    }
   },
   { label: "Start 4D Simulation Playback", action: () => timeline4DModule.startSimulation() },
   { label: "Stop 4D Simulation", action: () => timeline4DModule.stopSimulation() },
   { label: "Export 4K Architectural Snapshot (.png)", action: () => SnapshotModule.getInstance().captureTechnicalSnapshot() },
   { label: "Reset Model Visibility", action: () => queryModule.resetVisibility() },
-  { label: "Exploded Disassembly View (50% Expansion)", action: () => {
+  {
+    label: "Exploded Disassembly View (50% Expansion)", action: () => {
       const slider = document.getElementById("settings-explosion-slider") as HTMLInputElement | null;
       if (slider) { slider.value = "50"; slider.dispatchEvent(new Event("input")); }
     }
   },
-  { label: "Exploded Disassembly View (100% Full Separation)", action: () => {
+  {
+    label: "Exploded Disassembly View (100% Full Separation)", action: () => {
       const slider = document.getElementById("settings-explosion-slider") as HTMLInputElement | null;
       if (slider) { slider.value = "100"; slider.dispatchEvent(new Event("input")); }
     }
   },
-  { label: "Reset Exploded Disassembly (0% Assembled)", action: () => {
+  {
+    label: "Reset Exploded Disassembly (0% Assembled)", action: () => {
       const slider = document.getElementById("settings-explosion-slider") as HTMLInputElement | null;
       if (slider) { slider.value = "0"; slider.dispatchEvent(new Event("input")); }
     }
   },
-  { label: "Exploded View: Sort by Category Clusters", action: () => {
+  {
+    label: "Exploded View: Sort by Category Clusters", action: () => {
       const select = document.getElementById("select-explosion-mode") as HTMLSelectElement | null;
       if (select) { select.value = "category-cluster"; select.dispatchEvent(new Event("change")); }
     }
   },
-  { label: "Exploded View: Asset & Equipment Matrix Mode (Tandem)", action: () => {
+  {
+    label: "Exploded View: Asset & Equipment Matrix Mode (Tandem)", action: () => {
       const select = document.getElementById("select-explosion-mode") as HTMLSelectElement | null;
       if (select) { select.value = "asset-dense-cluster"; select.dispatchEvent(new Event("change")); }
     }
   },
-  { label: "Exploded View: Sort by Storey Levels", action: () => {
+  {
+    label: "Exploded View: Sort by Storey Levels", action: () => {
       const select = document.getElementById("select-explosion-mode") as HTMLSelectElement | null;
       if (select) { select.value = "storey-cluster"; select.dispatchEvent(new Event("change")); }
     }
   },
-  { label: "Exploded View: Radial Spatial Mode", action: () => {
+  {
+    label: "Exploded View: Radial Spatial Mode", action: () => {
       const select = document.getElementById("select-explosion-mode") as HTMLSelectElement | null;
       if (select) { select.value = "radial"; select.dispatchEvent(new Event("change")); }
     }
   },
-  { label: "Save Current Configuration as Custom View (Bookmark)", action: () => {
+  {
+    label: "Save Current Configuration as Custom View (Bookmark)", action: () => {
       const name = prompt("Enter a name for this Custom View (stores camera, clustering, and visual settings):", `View #${CustomViewManager.getInstance().getAllViews().length + 1}`);
       if (name && name.trim()) {
         CustomViewManager.getInstance().saveCurrentView(name.trim());
       }
     }
   },
-  { label: "Open Saved Custom Views Ribbon", action: () => {
+  {
+    label: "Open Saved Custom Views Ribbon", action: () => {
       const menu = document.getElementById("menu-saved-views");
       if (menu) menu.classList.toggle("hidden");
     }
   },
-  { label: "Toggle Help & Guide Modal", action: () => {
+  {
+    label: "Toggle Help & Guide Modal", action: () => {
       if (typeof (window as any).toggleShortcutsModal === "function") {
         (window as any).toggleShortcutsModal();
       }
@@ -685,7 +711,7 @@ function getStoreyIndex(storeyName: string): number {
   if (name.includes("LEVEL 2") || name.includes("FLOOR 2") || name.includes("SECOND")) return 3;
   if (name.includes("LEVEL 3") || name.includes("FLOOR 3") || name.includes("THIRD")) return 4;
   if (name.includes("ROOF") || name.includes("PENTHOUSE")) return 5;
-  
+
   const match = name.match(/\d+/);
   if (match) {
     return parseInt(match[0], 10) + 1;
@@ -695,7 +721,7 @@ function getStoreyIndex(storeyName: string): number {
 
 function getCategorySequence(ifcType: string): { startOffset: number, duration: number, task: string, unitCost: number } {
   const type = ifcType.toUpperCase();
-  
+
   if (type.includes("SITE") || type.includes("FOOTING") || type.includes("PILE")) {
     return { startOffset: 0, duration: 8, task: "Site & Substructure Foundations", unitCost: 500 };
   }
@@ -848,15 +874,15 @@ function getOrGenerateTwinData(modelId: string, expressId: number, ifcType: stri
 
   const storeyName = globalElementStoreysMap[dbKey] || "Entry Level";
   const storeyIndex = getStoreyIndex(storeyName);
-  
+
   // 12 days construction cycle per floor with overlap
   const storeyOffset = storeyIndex * 12;
   const { startOffset, duration, task, unitCost } = getCategorySequence(ifcType);
-  
+
   const projectStart = new Date("2026-06-18");
   const start = new Date(projectStart);
   start.setDate(start.getDate() + storeyOffset + startOffset);
-  
+
   const end = new Date(projectStart);
   end.setDate(end.getDate() + storeyOffset + startOffset + duration);
 
@@ -942,14 +968,14 @@ async function initializeModelTwinData(model: any) {
     const ifcType = getIfcEntityName(elementProps.type).toUpperCase();
     const storeyName = globalElementStoreysMap[dbKey] || "Entry Level";
     const storeyIndex = getStoreyIndex(storeyName);
-    
+
     // 12 days construction cycle per floor with overlap
     const storeyOffset = storeyIndex * 12;
     const { startOffset, duration, task, unitCost } = getCategorySequence(ifcType);
-    
+
     const start = new Date(projectStart);
     start.setDate(start.getDate() + storeyOffset + startOffset);
-    
+
     const end = new Date(projectStart);
     end.setDate(end.getDate() + storeyOffset + startOffset + duration);
 
@@ -1084,10 +1110,10 @@ function updateDashboardMetrics() {
       </div>
       <div class="list-item-val" style="font-weight:600; color:var(--text-primary);">
         ${new Intl.NumberFormat("en-US", {
-          style: "currency",
-          currency: "USD",
-          maximumFractionDigits: 0,
-        }).format(stat.cost)}
+      style: "currency",
+      currency: "USD",
+      maximumFractionDigits: 0,
+    }).format(stat.cost)}
       </div>
     `;
     breakdownList.appendChild(item);
@@ -1264,16 +1290,16 @@ function resolveElementPropertySets(properties: any, elementId: number): Record<
 function addPropertyRow(container: Element, label: string, value: string, extraClass: string = "") {
   const row = document.createElement("div");
   row.className = "prop-row";
-  
+
   const labelSpan = document.createElement("span");
   labelSpan.className = "prop-label";
   labelSpan.innerText = label;
-  
+
   const valSpan = document.createElement("span");
   valSpan.className = `prop-val ${extraClass}`;
   valSpan.title = value; // Show full value on hover
   valSpan.innerText = value;
-  
+
   if (label === "Express ID") {
     valSpan.id = "prop-express-id";
   } else if (label === "IFC Entity") {
@@ -1281,7 +1307,7 @@ function addPropertyRow(container: Element, label: string, value: string, extraC
   } else if (label === "Name") {
     valSpan.id = "prop-name";
   }
-  
+
   row.appendChild(labelSpan);
   row.appendChild(valSpan);
   container.appendChild(row);
@@ -1293,7 +1319,7 @@ if (propsContainer) {
   const editorContainer = document.createElement("div");
   editorContainer.id = "properties-bui-container";
   propsContainer.appendChild(editorContainer);
-  
+
   propertyEditor = new PropertyEditor(world, fragments);
   propertyEditor.init();
   initPropertyEditorUI(propertyEditor, editorContainer);
@@ -1544,7 +1570,7 @@ function displayElementProperties(model: any, expressId: number) {
 
   for (const key in elementProps) {
     if (key === "type" || key === "expressId" || key === "Name") continue;
-    
+
     // Format label to separate PascalCase words
     const formattedLabel = key.replace(/([A-Z])/g, " $1").trim();
     const val = getPropValue(elementProps[key]);
@@ -1582,7 +1608,7 @@ function displayElementProperties(model: any, expressId: number) {
         const typeEntityName = getIfcEntityName(typeProps.type);
         addPropertyRow(tableEl, "Type Entity", typeEntityName, "color-green");
       }
-      
+
       for (const key in typeProps) {
         if (key === "type" || key === "expressId" || key === "Name") continue;
         const formattedLabel = key.replace(/([A-Z])/g, " $1").trim();
@@ -1885,7 +1911,7 @@ const initBim = async () => {
     fragments.list.onItemSet.add(({ value: model }) => {
       model.useCamera(world.camera.three);
       world.scene.three.add(model.object);
-      
+
       // Enable cast/receive shadows for all meshes in the model
       model.object.traverse((child: any) => {
         if (child.isMesh) {
@@ -1893,7 +1919,7 @@ const initBim = async () => {
           child.receiveShadow = true;
         }
       });
-      
+
       // Force shadowed scene to update shadows
       if (world.scene && (world.scene as any).updateShadows) {
         (world.scene as any).updateShadows();
@@ -2121,6 +2147,7 @@ function refreshFileList() {
       updateClassificationUI();
       resetPropertiesPanel();
       calculateTimelineBounds();
+      GlobalSearchOverlay.getInstance().buildIndex();
     });
 
     fileListEl.appendChild(item);
@@ -2178,7 +2205,7 @@ async function loadModelData(name: string, buffer: Uint8Array) {
       }
       const cacheKey = `${name}-${buffer.length}`;
       text.innerText = "Checking offline cache...";
-      
+
       let cachedBuffer: Uint8Array | null = null;
       try {
         cachedBuffer = await getCachedFragment(cacheKey);
@@ -2190,10 +2217,10 @@ async function loadModelData(name: string, buffer: Uint8Array) {
         console.log(`Cache hit for ${name}. Loading pre-converted fragments.`);
         text.innerText = "Loading cached fragments...";
         subtitle.innerText = "Cache hit: Loading pre-converted fragment from IndexedDB (instant).";
-        
+
         clearInterval(interval);
         progress.innerText = "100%";
-        
+
         const fragData = cachedBuffer instanceof Uint8Array ? cachedBuffer : new Uint8Array(cachedBuffer as any);
         model = await fragments.core.load(fragData, { modelId: name } as any);
       } else {
@@ -2209,7 +2236,7 @@ async function loadModelData(name: string, buffer: Uint8Array) {
             }
           }
         });
-        
+
         // Cache the parsed model in background once loaded successfully
         if (model) {
           setTimeout(async () => {
@@ -2321,9 +2348,9 @@ async function loadModelData(name: string, buffer: Uint8Array) {
       }, 300);
     }
 
-    // Update dynamic file list
+    // Update dynamic file list and search index
     refreshFileList();
-
+    GlobalSearchOverlay.getInstance().buildIndex();
     // Success path: hide overlay after a short delay
     setTimeout(() => {
       overlay.classList.add("hidden");
@@ -2332,11 +2359,11 @@ async function loadModelData(name: string, buffer: Uint8Array) {
   } catch (err) {
     clearInterval(interval);
     console.error("Error loading model:", err);
-    
+
     text.innerText = "Model Load Failed";
     progress.innerText = "Error";
     subtitle.innerText = `Detail: ${err instanceof Error ? err.message : String(err)}`;
-    
+
     // Auto-hide error overlay after 6 seconds so user can try again
     setTimeout(() => {
       overlay.classList.add("hidden");
@@ -2777,7 +2804,7 @@ function wireItemFinderButtons() {
 
       try {
         let results: Record<string, Set<number>> = {};
-        
+
         if (target.getAttribute("data-type") === "category") {
           const groupName = target.getAttribute("data-group-name");
           if (groupName) {
@@ -3314,8 +3341,8 @@ function isGlass(object: THREE.Object3D): boolean {
       if (mat) {
         if (mat.transparent && mat.opacity < 0.95) return true;
         if (mat.name && (
-          mat.name.toLowerCase().includes("glass") || 
-          mat.name.toLowerCase().includes("glazing") || 
+          mat.name.toLowerCase().includes("glass") ||
+          mat.name.toLowerCase().includes("glazing") ||
           mat.name.toLowerCase().includes("translucent")
         )) {
           return true;
@@ -3342,13 +3369,13 @@ function updateCollisionMeshes() {
 
 function createDrawingSheetMesh(): THREE.Group {
   const group = new THREE.Group();
-  
+
   // A0 drawing sheet (thin blue rectangular box)
   const sheetGeo = new THREE.BoxGeometry(0.7, 0.5, 0.005);
-  const sheetMat = new THREE.MeshStandardMaterial({ 
+  const sheetMat = new THREE.MeshStandardMaterial({
     color: 0x1e40af, // Blueprint blue
     roughness: 0.8,
-    metalness: 0.1 
+    metalness: 0.1
   });
   const sheet = new THREE.Mesh(sheetGeo, sheetMat);
   sheet.castShadow = true;
@@ -3364,7 +3391,7 @@ function createDrawingSheetMesh(): THREE.Group {
 
   // Mock blueprint lines (light blue lines)
   const lineMat = new THREE.MeshBasicMaterial({ color: 0x93c5fd });
-  
+
   // Horizontal line
   const l1 = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.003, 0.006), lineMat);
   l1.position.set(-0.05, 0.1, 0.001);
@@ -3386,11 +3413,11 @@ function createDrawingSheetMesh(): THREE.Group {
   group.add(titleBlock);
 
   // Two hands holding the bottom corners
-  const handMat = new THREE.MeshStandardMaterial({ 
+  const handMat = new THREE.MeshStandardMaterial({
     color: 0xe0ac69, // skin tone
-    roughness: 0.6 
+    roughness: 0.6
   });
-  
+
   const leftHand = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.1, 0.08), handMat);
   leftHand.position.set(-0.35, -0.2, 0.03);
   leftHand.rotation.z = 0.2;
@@ -3406,7 +3433,7 @@ function createDrawingSheetMesh(): THREE.Group {
 
 function createCarMesh(): THREE.Group {
   const carGroup = new THREE.Group();
-  
+
   // Car chassis body
   const body = new THREE.Mesh(
     new THREE.BoxGeometry(1.6, 0.5, 3.2),
@@ -3416,7 +3443,7 @@ function createCarMesh(): THREE.Group {
   body.castShadow = true;
   body.receiveShadow = true;
   carGroup.add(body);
-  
+
   // Cabin
   const cabin = new THREE.Mesh(
     new THREE.BoxGeometry(1.2, 0.5, 1.4),
@@ -3456,7 +3483,7 @@ function createCarMesh(): THREE.Group {
 
 function createCharacterMesh(): THREE.Group {
   const charGroup = new THREE.Group();
-  
+
   // Capsule body
   const body = new THREE.Mesh(
     new THREE.CapsuleGeometry(0.35, 0.9, 4, 8),
@@ -3466,15 +3493,15 @@ function createCharacterMesh(): THREE.Group {
   body.castShadow = true;
   body.receiveShadow = true;
   charGroup.add(body);
-  
+
   // Eyes
   const eyeGeo = new THREE.SphereGeometry(0.08, 8, 8);
   const eyeMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
   const pupilMat = new THREE.MeshBasicMaterial({ color: 0x000000 });
-  
+
   const leftEye = new THREE.Mesh(eyeGeo, eyeMat); leftEye.position.set(0.14, 1.0, 0.32); charGroup.add(leftEye);
   const rightEye = new THREE.Mesh(eyeGeo, eyeMat); rightEye.position.set(-0.14, 1.0, 0.32); charGroup.add(rightEye);
-  
+
   const leftPupil = new THREE.Mesh(new THREE.SphereGeometry(0.04, 8, 8), pupilMat); leftPupil.position.set(0.16, 1.0, 0.38); charGroup.add(leftPupil);
   const rightPupil = new THREE.Mesh(new THREE.SphereGeometry(0.04, 8, 8), pupilMat); rightPupil.position.set(-0.12, 1.0, 0.38); charGroup.add(rightPupil);
 
@@ -3577,15 +3604,15 @@ gamePresetSelect.addEventListener("change", () => {
   if (activePreset === "FPS") {
     world.camera.set("FirstPerson");
     if (settingsCameraMode) settingsCameraMode.value = "FirstPerson";
-    
+
     // Ensure camera is added to the scene so attached children (the weapon mesh) render
     if (!world.camera.three.parent) {
       world.scene.three.add(world.camera.three);
     }
-    
+
     if (!gameDrawingSheetMesh) gameDrawingSheetMesh = createDrawingSheetMesh();
     world.camera.three.add(gameDrawingSheetMesh);
-    
+
     // Scan scene for collision meshes
     updateCollisionMeshes();
 
@@ -3609,21 +3636,21 @@ gamePresetSelect.addEventListener("change", () => {
 
     const currentPosition = new THREE.Vector3();
     world.camera.controls.getPosition(currentPosition);
-    
+
     const forwardDirection = new THREE.Vector3();
     world.camera.three.getWorldDirection(forwardDirection);
     forwardDirection.y = 0;
     forwardDirection.normalize();
-    
+
     const newEyePos = new THREE.Vector3(currentPosition.x, targetY, currentPosition.z);
     const newTargetPos = newEyePos.clone().add(forwardDirection);
-    
+
     world.camera.controls.setLookAt(
       newEyePos.x, newEyePos.y, newEyePos.z,
       newTargetPos.x, newTargetPos.y, newTargetPos.z,
       false
     );
-    
+
     // Apply initial FOV and near clipping plane
     if (world.camera.three instanceof THREE.PerspectiveCamera) {
       world.camera.three.near = 0.1; // Allow close rendering of the weapon
@@ -3647,7 +3674,7 @@ gamePresetSelect.addEventListener("change", () => {
     carSpeed = 0;
     gameCarMesh.position.copy(carPosition);
     gameCarMesh.rotation.y = carRotationY;
-    
+
     // Apply initial FOV
     if (world.camera.three instanceof THREE.PerspectiveCamera) {
       world.camera.three.fov = Number(racingFovSlider.value);
@@ -3699,7 +3726,7 @@ const settingsCameraModeSelect = document.getElementById("settings-camera-mode")
 if (settingsCameraModeSelect) {
   settingsCameraModeSelect.addEventListener("change", async () => {
     const mode = settingsCameraModeSelect.value as "Orbit" | "FirstPerson" | "Plan";
-    
+
     // Ensure modes map is initialized on camera
     const camAny = world.camera as any;
     if (!camAny._navigationModes.has(mode)) {
@@ -3803,18 +3830,18 @@ window.addEventListener("keydown", (e) => {
     e.preventDefault();
     e.stopPropagation();
     const newKey = e.key.toLowerCase();
-    
+
     // Save new binding
     keyBindings[activeBindingAction as keyof typeof keyBindings] = newKey;
     localStorage.setItem(`key-bind-${activeBindingAction}`, newKey);
-    
+
     // Update button text
     const activeBtn = document.querySelector(`.key-bind-btn[data-action="${activeBindingAction}"]`);
     if (activeBtn) {
       activeBtn.textContent = newKey.toUpperCase();
       activeBtn.classList.remove("active");
     }
-    
+
     activeBindingAction = null;
     return;
   }
@@ -3872,7 +3899,7 @@ function animateFirstPerson() {
     if (activePreset === "FPS") {
       const previousPos = new THREE.Vector3();
       controls.getPosition(previousPos);
-      
+
       const moveDelta = new THREE.Vector3();
 
       // 1. Calculate manual movement inputs relative to look vector
@@ -3904,7 +3931,7 @@ function animateFirstPerson() {
         const rayDir = moveDelta.clone().normalize();
         // Cast wall collision ray at chest height (~1.5m above current ground)
         const rayOrigin = new THREE.Vector3(previousPos.x, previousPos.y - 0.1, previousPos.z);
-        
+
         const hit = caster.castRayFromVector(rayOrigin, rayDir, nonGlassMeshes);
 
         let hitNormal = new THREE.Vector3();
@@ -4025,11 +4052,11 @@ function animateFirstPerson() {
             Math.cos(fpsShakeTime * 1.5) * shakeAmp,
             Math.sin(fpsShakeTime * 1.0) * shakeAmp * 0.2
           );
-          
+
           // Apply shake directly to camera position offset
           world.camera.three.position.x += fpsShakeOffset.x;
           world.camera.three.position.y += fpsShakeOffset.y;
-          
+
           // Also slightly bounce the drawing sheet
           baseOffset.x += fpsShakeOffset.x * 0.5;
           baseOffset.y += fpsShakeOffset.y * 1.2;
@@ -4041,12 +4068,12 @@ function animateFirstPerson() {
         gameDrawingSheetMesh.rotation.set(-0.40, 0, 0);
       }
     }
-    
+
     // --- Sports (Bird's Eye) Update ---
     else if (activePreset === "Sports") {
       const height = Number(sportsHeightSlider.value);
       const zoom = Number(sportsZoomSlider.value);
-      
+
       // Determine active target (selected element center or origin)
       const target = new THREE.Vector3(0, 0, 0);
       if (activeModelId && activeExpressId) {
@@ -4060,7 +4087,7 @@ function animateFirstPerson() {
           }
         }
       }
-      
+
       // Calculate broadcast view positioning: pull back X/Z, lift Y, and adjust FOV
       const offsetDist = 22 - zoom * 1.8;
       const camPos = new THREE.Vector3(
@@ -4068,11 +4095,11 @@ function animateFirstPerson() {
         target.y + height + 3,
         target.z + offsetDist
       );
-      
+
       // Force setting the camera matrix lookAt
       controls.setLookAt(camPos.x, camPos.y, camPos.z, target.x, target.y, target.z, false);
     }
-    
+
     // --- Racing Mode Update ---
     else if (activePreset === "Racing") {
       if (gameCarMesh) {
@@ -4097,7 +4124,7 @@ function animateFirstPerson() {
 
         const driveDir = new THREE.Vector3(0, 0, 1).applyAxisAngle(new THREE.Vector3(0, 1, 0), carRotationY);
         carPosition.addScaledVector(driveDir, carSpeed);
-        
+
         gameCarMesh.position.copy(carPosition);
         gameCarMesh.rotation.y = carRotationY;
 
@@ -4119,7 +4146,7 @@ function animateFirstPerson() {
         controls.setLookAt(camPos.x, camPos.y, camPos.z, lookTarget.x, lookTarget.y, lookTarget.z, false);
       }
     }
-    
+
     // --- Third-Person Update ---
     else if (activePreset === "ThirdPerson") {
       if (gameCharacterMesh) {
@@ -4156,7 +4183,7 @@ function animateFirstPerson() {
           // Position camera directly behind character
           const backOffset = new THREE.Vector3(0, 1.9, -distance).applyAxisAngle(new THREE.Vector3(0, 1, 0), charRotationY);
           const camPos = charPosition.clone().add(backOffset);
-          
+
           controls.setLookAt(
             camPos.x, camPos.y, camPos.z,
             charPosition.x, charPosition.y + 0.9, charPosition.z,
@@ -4165,7 +4192,7 @@ function animateFirstPerson() {
         } else {
           // Lock target and let standard camera-controls mouse drag orbit
           controls.moveTo(charPosition.x, charPosition.y + 0.9, charPosition.z, false);
-          
+
           // Smoothly clamp/dolly to slider distance
           if (Math.abs(controls.distance - distance) > 0.01) {
             controls.distance = distance;
@@ -4988,11 +5015,11 @@ async function updateClassificationUI() {
       hasGroups = true;
       const leaf = document.createElement("div");
       leaf.className = "tree-node-leaf";
-      
-      const icon = classificationName === "Categories" 
-        ? `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>` 
+
+      const icon = classificationName === "Categories"
+        ? `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>`
         : `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3 21h18M5 21V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16M9 9h1M9 13h1M9 17h1M14 9h1M14 13h1M14 17h1"/></svg>`;
-      
+
       leaf.innerHTML = `
         <span class="tree-bullet">•</span>
         <span class="tree-icon" style="display: inline-flex; align-items: center;">${icon}</span>
@@ -5001,7 +5028,7 @@ async function updateClassificationUI() {
 
       leaf.addEventListener("click", async () => {
         const hider = components.get(OBC.Hider);
-        
+
         if (leaf.classList.contains("active")) {
           leaf.classList.remove("active");
           await hider.set(true);
@@ -5107,7 +5134,7 @@ function calculateTimelineBounds() {
   if (hasDates && minTime !== Infinity && maxTime !== -Infinity) {
     timelineMinDate = new Date(minTime);
     timelineMaxDate = new Date(maxTime);
-    
+
     // Add buffer: 1 day before start, 1 day after end
     timelineMinDate.setDate(timelineMinDate.getDate() - 1);
     timelineMaxDate.setDate(timelineMaxDate.getDate() + 1);
@@ -5172,7 +5199,7 @@ async function updateTimelineVisualState() {
   if (!is4dMode) return;
 
   const hider = components.get(OBC.Hider);
-  
+
   // Clear previous timeline highlighting
   await highlighter.clear("timeline-planned");
   await highlighter.clear("timeline-inprogress");
@@ -5278,7 +5305,7 @@ async function updateTimelineVisualState() {
     if (selectedModel && selectedModel.properties && selectedModel.properties[activeExpressId]) {
       const ifcType = String(selectedModel.properties[activeExpressId].type ?? "").toUpperCase();
       const twinData = getOrGenerateTwinData(activeModelId, activeExpressId, ifcType);
-      
+
       const elStatus = document.getElementById("sched-status") as HTMLSelectElement;
       if (elStatus) elStatus.value = twinData.status;
 
@@ -5364,7 +5391,7 @@ function updateScheduleWidgetUI() {
   }
 
   container.innerHTML = "";
-  
+
   // Sort tasks by start date
   const sortedTasks = Object.entries(taskStats).sort((a, b) => {
     return new Date(a[1].startDate).getTime() - new Date(b[1].startDate).getTime();
@@ -5373,7 +5400,7 @@ function updateScheduleWidgetUI() {
   for (const [taskName, stats] of sortedTasks) {
     const item = document.createElement("div");
     item.className = "schedule-task-item";
-    
+
     // Determine overall task status
     let taskStatus: "Planned" | "In Progress" | "Completed" = "Planned";
     if (stats.completedCount === stats.totalCount) {
@@ -5381,7 +5408,7 @@ function updateScheduleWidgetUI() {
     } else if (stats.completedCount > 0) {
       taskStatus = "In Progress";
     }
-    
+
     // Check if the current timeline date is within this task's date range
     if (currentTimelineDate) {
       const currentMs = currentTimelineDate.getTime();
@@ -5417,7 +5444,7 @@ function updateScheduleWidgetUI() {
       // Isolate elements
       const hider = components.get(OBC.Hider);
       await hider.isolate(stats.modelIdMaps);
-      
+
       // Focus Camera on isolated elements
       try {
         const boundingBoxer = components.get(OBC.BoundingBoxer);
@@ -5439,7 +5466,7 @@ function updateScheduleWidgetUI() {
         if (timelineSlider) {
           timelineSlider.value = String(diffDays);
         }
-        
+
         updateTimelineDateUI();
         await updateTimelineVisualState();
       }
@@ -5470,7 +5497,7 @@ function startTimelinePlayback() {
   let lastTime = performance.now();
   const tick = () => {
     if (!timelineIsPlaying || !timelineMinDate || !timelineMaxDate || !currentTimelineDate) return;
-    
+
     const now = performance.now();
     const elapsedSec = (now - lastTime) / 1000;
     lastTime = now;
@@ -5563,7 +5590,7 @@ calculateTimelineBounds();
 function updateHeaderLabel() {
   const labelEl = document.getElementById('project-header-label');
   if (!labelEl) return;
-  
+
   let projectName = "Projects";
   if (fragments.list.size > 0) {
     // Get the name of the first loaded model
@@ -5575,7 +5602,7 @@ function updateHeaderLabel() {
       projectName = rawName.replace(/\.[^/.]+$/, ""); // strip extension
     }
   }
-  
+
   const modeName = is4dMode ? "4D Simulation" : "Viewer";
   labelEl.textContent = `${projectName} - ${modeName}`;
 }
@@ -5812,7 +5839,7 @@ document.querySelectorAll(".panel").forEach((panel) => {
   if (!titleGroup) {
     titleGroup = document.createElement("div");
     titleGroup.className = "header-title-group";
-    
+
     // Move all current children to the title group
     while (header.firstChild) {
       titleGroup.appendChild(header.firstChild);
@@ -5882,12 +5909,12 @@ if (themeSelect) {
     const targetTheme = (e.target as HTMLSelectElement).value;
     document.documentElement.setAttribute("data-theme", targetTheme);
     (window as any).currentTheme = targetTheme;
-    
+
     // Apply theme materials if model manager exists
     if ((window as any).modelManager && typeof (window as any).modelManager.applyThemePalette === 'function') {
       (window as any).modelManager.applyThemePalette(targetTheme);
     }
-    
+
     // Sync GLSL post-processing pass (vignette, bloom glow, toon steps, ink outline)
     syncPostProcessingWithTheme(targetTheme);
   });
@@ -5965,6 +5992,7 @@ interface CommandItem {
 const getCommandRegistry = (): CommandItem[] => {
   const list: CommandItem[] = [
     // Navigation Tabs
+    { id: "global-search", title: "Global BIM Search (GUID, Name, Property Values)", category: "Search", icon: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>`, action: () => GlobalSearchOverlay.getInstance().open() },
     { id: "tab-files", title: "Project Files & IFC Upload", category: "Navigation", icon: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>`, action: () => (window as any).switchSidebarTab?.("left-tab-bar", "files") },
     { id: "tab-finder", title: "Items Finder & Storey Filter", category: "Navigation", icon: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>`, action: () => (window as any).switchSidebarTab?.("left-tab-bar", "finder") },
     { id: "tab-4d", title: "4D Construction Schedule", category: "Navigation", icon: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>`, action: () => (window as any).switchSidebarTab?.("left-tab-bar", "schedule") },
@@ -5972,7 +6000,7 @@ const getCommandRegistry = (): CommandItem[] => {
     { id: "tab-inspector", title: "Element Properties & 5D Inspector", category: "Navigation", icon: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>`, action: () => (window as any).switchSidebarTab?.("right-tab-bar", "inspector") },
     { id: "tab-tools", title: "Tools (Measure / Pins / Section / Explode)", category: "Navigation", icon: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>`, action: () => (window as any).switchSidebarTab?.("right-tab-bar", "tools") },
     { id: "tab-camera", title: "First Person Camera Controls", category: "Navigation", icon: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="8" cy="12" r="2"/><circle cx="16" cy="12" r="2"/></svg>`, action: () => (window as any).switchSidebarTab?.("right-tab-bar", "camera") },
-    
+
     // Viewport & Tools
     { id: "tool-fit", title: "Fit Geometry in View (Home)", category: "Viewport", icon: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>`, action: () => (window as any).fitView?.() },
     { id: "tool-4d-toggle", title: "Toggle 4D Construction Simulation", category: "4D Simulation", icon: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`, action: () => document.getElementById("btn-4d-mode")?.click() },
@@ -6088,7 +6116,9 @@ const renderCommandResults = (query: string) => {
 };
 
 if (btnOpenCmd) {
-  btnOpenCmd.addEventListener("click", openCommandPalette);
+  btnOpenCmd.addEventListener("click", () => {
+    GlobalSearchOverlay.getInstance().open();
+  });
 }
 
 if (cmdInput) {
@@ -6200,7 +6230,7 @@ container.addEventListener("contextmenu", async (e: MouseEvent) => {
   }
 
   if (ctxTitle) {
-    ctxTitle.innerHTML = ctxElementName 
+    ctxTitle.innerHTML = ctxElementName
       ? `<span style="display: inline-flex; align-items: center; gap: 0.25rem;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg> ${ctxElementName}</span>`
       : `<span style="display: inline-flex; align-items: center; gap: 0.25rem;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 2a7 7 0 0 0-7 7c0 5.25 7 13 7 13s7-7.75 7-13a7 7 0 0 0-7-7z"/><circle cx="12" cy="9" r="2.5"/></svg> 3D Point Coordinates</span>`;
   }
