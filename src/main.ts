@@ -35,6 +35,7 @@ import { ModelInfoManager } from "./modules/ModelInfoManager";
 import { MinimapHUD } from "./ui/MinimapHUD";
 import { GlobalSearchOverlay } from "./ui/GlobalSearchOverlay";
 import { formatCurrency, formatItemCount } from "./utils/formatters";
+import { getEl } from "./utils/dom";
 
 BUI.Manager.init();
 
@@ -52,7 +53,7 @@ const scene = new OBC.ShadowedScene(components);
 world.scene = scene;
 (window as any).viewer_world = world;
 
-const container = document.getElementById("container")!;
+const container = getEl("container");
 world.renderer = new OBF.PostproductionRenderer(components, container);
 world.renderer.three.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 world.renderer.three.shadowMap.enabled = true;
@@ -74,7 +75,20 @@ if (glCanvas) {
     try {
       if (world.renderer) {
         world.renderer.three.setSize(container.clientWidth, container.clientHeight);
+        world.renderer.three.setPixelRatio(Math.min(window.devicePixelRatio, 2));
         if (world.renderer.update) world.renderer.update();
+      }
+      if (world.scene && (world.scene as any).setup) {
+        (world.scene as any).setup();
+      }
+      if (world.camera && (world.camera as any).update) {
+        (world.camera as any).update();
+      }
+      if (typeof (window as any).sceneManager?.initPostProcessing === "function") {
+        (window as any).sceneManager.initPostProcessing();
+      }
+      if (typeof (window as any).applyCategoryColors === "function") {
+        (window as any).applyCategoryColors();
       }
       if (typeof (window as any).showToast === "function") {
         (window as any).showToast("WebGL Context Successfully Restored", `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="20 6 9 17 4 12"/></svg>`);
@@ -145,8 +159,8 @@ customViewManager.init(world);
 
 
 // Top Ribbon Saved Views Flyout Menu Toggle
-const btnRibbonSavedViews = document.getElementById("btn-ribbon-saved-views");
-const menuSavedViews = document.getElementById("menu-saved-views");
+const btnRibbonSavedViews = getEl("btn-ribbon-saved-views");
+const menuSavedViews = getEl("menu-saved-views");
 
 if (btnRibbonSavedViews && menuSavedViews) {
   btnRibbonSavedViews.addEventListener("click", (e) => {
@@ -161,7 +175,7 @@ if (btnRibbonSavedViews && menuSavedViews) {
   });
 }
 
-document.getElementById("btn-add-viewpoint")?.addEventListener("click", () => {
+getEl("btn-add-viewpoint")?.addEventListener("click", () => {
   let name: string | null = null;
   try {
     name = prompt("Enter a name for this Custom View (stores camera, clustering, and visual settings):", `Custom View #${customViewManager.getAllViews().length + 1}`);
@@ -211,7 +225,7 @@ const globalSearchOverlay = GlobalSearchOverlay.getInstance();
 const commandPalette = new CommandPalette([
   {
     label: "Switch to Zen Infrastructure Theme", action: () => {
-      const themeSelect = document.getElementById("select-theme-toggle") as HTMLSelectElement | null;
+      const themeSelect = getEl("select-theme-toggle") as HTMLSelectElement | null;
       if (themeSelect) {
         themeSelect.value = "zen";
         themeSelect.dispatchEvent(new Event("change"));
@@ -220,7 +234,7 @@ const commandPalette = new CommandPalette([
   },
   {
     label: "Switch to Pencil & Paper Theme", action: () => {
-      const themeSelect = document.getElementById("select-theme-toggle") as HTMLSelectElement | null;
+      const themeSelect = getEl("select-theme-toggle") as HTMLSelectElement | null;
       if (themeSelect) {
         themeSelect.value = "pencil";
         themeSelect.dispatchEvent(new Event("change"));
@@ -229,7 +243,7 @@ const commandPalette = new CommandPalette([
   },
   {
     label: "Switch to Bluepen Draft Theme", action: () => {
-      const themeSelect = document.getElementById("select-theme-toggle") as HTMLSelectElement | null;
+      const themeSelect = getEl("select-theme-toggle") as HTMLSelectElement | null;
       if (themeSelect) {
         themeSelect.value = "bluepen";
         themeSelect.dispatchEvent(new Event("change"));
@@ -238,7 +252,7 @@ const commandPalette = new CommandPalette([
   },
   {
     label: "Switch to Cyberpunk Neon Theme", action: () => {
-      const themeSelect = document.getElementById("select-theme-toggle") as HTMLSelectElement | null;
+      const themeSelect = getEl("select-theme-toggle") as HTMLSelectElement | null;
       if (themeSelect) {
         themeSelect.value = "cyberpunk";
         themeSelect.dispatchEvent(new Event("change"));
@@ -247,22 +261,22 @@ const commandPalette = new CommandPalette([
   },
   {
     label: "Top 2D Orthographic View", action: () => {
-      document.getElementById("btn-view-top")?.click();
+      getEl("btn-view-top")?.click();
     }
   },
   {
     label: "Reset 3D Isometric View", action: () => {
-      document.getElementById("btn-view-iso")?.click();
+      getEl("btn-view-iso")?.click();
     }
   },
   {
     label: "Bookmark Current Camera Viewpoint", action: () => {
-      document.getElementById("btn-add-viewpoint")?.click();
+      getEl("btn-add-viewpoint")?.click();
     }
   },
   {
     label: "Export Bills of Quantities (BOQ CSV)", action: () => {
-      document.getElementById("btn-export-boq-csv")?.click();
+      getEl("btn-export-boq-csv")?.click();
     }
   },
   { label: "Toggle Section Cut Mode", action: () => clippingModule.createSectionPlane() },
@@ -279,43 +293,43 @@ const commandPalette = new CommandPalette([
   { label: "Reset Model Visibility", action: () => queryModule.resetVisibility() },
   {
     label: "Exploded Disassembly View (50% Expansion)", action: () => {
-      const slider = document.getElementById("settings-explosion-slider") as HTMLInputElement | null;
+      const slider = getEl("settings-explosion-slider") as HTMLInputElement | null;
       if (slider) { slider.value = "50"; slider.dispatchEvent(new Event("input")); }
     }
   },
   {
     label: "Exploded Disassembly View (100% Full Separation)", action: () => {
-      const slider = document.getElementById("settings-explosion-slider") as HTMLInputElement | null;
+      const slider = getEl("settings-explosion-slider") as HTMLInputElement | null;
       if (slider) { slider.value = "100"; slider.dispatchEvent(new Event("input")); }
     }
   },
   {
     label: "Reset Exploded Disassembly (0% Assembled)", action: () => {
-      const slider = document.getElementById("settings-explosion-slider") as HTMLInputElement | null;
+      const slider = getEl("settings-explosion-slider") as HTMLInputElement | null;
       if (slider) { slider.value = "0"; slider.dispatchEvent(new Event("input")); }
     }
   },
   {
     label: "Exploded View: Sort by Category Clusters", action: () => {
-      const select = document.getElementById("select-explosion-mode") as HTMLSelectElement | null;
+      const select = getEl("select-explosion-mode") as HTMLSelectElement | null;
       if (select) { select.value = "category-cluster"; select.dispatchEvent(new Event("change")); }
     }
   },
   {
     label: "Exploded View: Asset & Equipment Matrix Mode (Tandem)", action: () => {
-      const select = document.getElementById("select-explosion-mode") as HTMLSelectElement | null;
+      const select = getEl("select-explosion-mode") as HTMLSelectElement | null;
       if (select) { select.value = "asset-dense-cluster"; select.dispatchEvent(new Event("change")); }
     }
   },
   {
     label: "Exploded View: Sort by Storey Levels", action: () => {
-      const select = document.getElementById("select-explosion-mode") as HTMLSelectElement | null;
+      const select = getEl("select-explosion-mode") as HTMLSelectElement | null;
       if (select) { select.value = "storey-cluster"; select.dispatchEvent(new Event("change")); }
     }
   },
   {
     label: "Exploded View: Radial Spatial Mode", action: () => {
-      const select = document.getElementById("select-explosion-mode") as HTMLSelectElement | null;
+      const select = getEl("select-explosion-mode") as HTMLSelectElement | null;
       if (select) { select.value = "radial"; select.dispatchEvent(new Event("change")); }
     }
   },
@@ -329,7 +343,7 @@ const commandPalette = new CommandPalette([
   },
   {
     label: "Open Saved Custom Views Ribbon", action: () => {
-      const menu = document.getElementById("menu-saved-views");
+      const menu = getEl("menu-saved-views");
       if (menu) menu.classList.toggle("hidden");
     }
   },
@@ -352,7 +366,7 @@ world.onCameraChanged.add((camera) => {
 
 // Dynamic Metric Scale Ruler HUD calculation
 function updateMetricScaleBar() {
-  const scaleLabelEl = document.getElementById("scale-bar-label");
+  const scaleLabelEl = getEl("scale-bar-label");
   const cam = world.camera?.three;
   if (!scaleLabelEl || !cam) return;
   try {
@@ -401,8 +415,8 @@ world.scene.three.add(grid);
 const multiSelectedElements: Record<string, Set<number>> = {};
 
 function updateBreadcrumbs(storeyName: string = "Level 0", elementName: string = "Element", _modelId?: string, expressId?: number) {
-  const storeyEl = document.getElementById("breadcrumb-storey");
-  const elemEl = document.getElementById("breadcrumb-element");
+  const storeyEl = getEl("breadcrumb-storey");
+  const elemEl = getEl("breadcrumb-element");
   if (storeyEl) storeyEl.innerText = storeyName;
   if (elemEl) {
     if (expressId !== undefined && !elementName.includes(`#${expressId}`)) {
@@ -414,23 +428,23 @@ function updateBreadcrumbs(storeyName: string = "Level 0", elementName: string =
 }
 
 // Breadcrumb interactive clicks
-document.getElementById("breadcrumb-project")?.addEventListener("click", () => {
+getEl("breadcrumb-project")?.addEventListener("click", () => {
   (window as any).showAllElements?.();
   updateBreadcrumbs("All Storeys", "Entire Model");
   showToast("Showing Complete Project Model", `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3 21h18M5 21V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16M9 9h1M9 13h1M9 17h1M14 9h1M14 13h1M14 17h1"/></svg>`);
 });
 
-document.getElementById("breadcrumb-storey")?.addEventListener("click", () => {
-  const activeStorey = document.getElementById("breadcrumb-storey")?.innerText || "Level 0";
+getEl("breadcrumb-storey")?.addEventListener("click", () => {
+  const activeStorey = getEl("breadcrumb-storey")?.innerText || "Level 0";
   showToast(`Storey Scope: ${activeStorey}`, `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M2 20h20M5 20V8l7-5 7 5v12"/></svg>`);
 });
 
 // Update single & multi-selection batch cards
 function updateMultiSelectionBatchCard() {
-  const card = document.getElementById("multi-selection-batch-card");
-  const countEl = document.getElementById("batch-selected-count");
-  const volEl = document.getElementById("batch-total-volume");
-  const costEl = document.getElementById("batch-total-cost");
+  const card = getEl("multi-selection-batch-card");
+  const countEl = getEl("batch-selected-count");
+  const volEl = getEl("batch-total-volume");
+  const costEl = getEl("batch-total-cost");
   if (!card || !countEl || !volEl || !costEl) return;
 
   let totalCount = 0;
@@ -450,7 +464,7 @@ function updateMultiSelectionBatchCard() {
   }
 }
 
-document.getElementById("btn-batch-clear")?.addEventListener("click", () => {
+getEl("btn-batch-clear")?.addEventListener("click", () => {
   for (const mid in multiSelectedElements) {
     multiSelectedElements[mid].clear();
   }
@@ -460,12 +474,12 @@ document.getElementById("btn-batch-clear")?.addEventListener("click", () => {
   showToast("Cleared Selection", `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`);
 });
 
-document.getElementById("btn-batch-isolate")?.addEventListener("click", () => {
+getEl("btn-batch-isolate")?.addEventListener("click", () => {
   highlighter.highlightByID("select", multiSelectedElements, true, true);
   showToast("Isolated Selected Batch", `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`);
 });
 
-document.getElementById("btn-batch-xray")?.addEventListener("click", () => {
+getEl("btn-batch-xray")?.addEventListener("click", () => {
   AnnotationModule.getInstance().toggleXRay();
   showToast("Toggled X-Ray for Batch", `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M9 3H5a2 2 0 0 0-2 2v4m0 6v4a2 2 0 0 0 2 2h4m6 0h4a2 2 0 0 0 2-2v-4m0-6V5a2 2 0 0 0-2-2h-4"/><circle cx="12" cy="12" r="3"/></svg>`);
 });
@@ -1059,31 +1073,31 @@ function updateDashboardMetrics() {
   }
 
   // Bind to UI elements (only if they exist — they're optional dashboard stats)
-  const elTotalCost = document.getElementById("stat-total-cost");
+  const elTotalCost = getEl("stat-total-cost");
   if (elTotalCost) elTotalCost.innerText = new Intl.NumberFormat("en-US", {
     style: "currency",
     currency: "USD",
   }).format(totalCost);
 
-  const elCount = document.getElementById("stat-elements-count");
+  const elCount = getEl("stat-elements-count");
   if (elCount) elCount.innerText = String(elementCount);
 
-  const elTotalLabel = document.getElementById("total-elements-label");
+  const elTotalLabel = getEl("total-elements-label");
   if (elTotalLabel) elTotalLabel.innerText = String(elementCount);
 
   const progressPctVal = totalTasks > 0 ? Math.round((completedCount / totalTasks) * 100) : 0;
 
-  const elPct = document.getElementById("stat-progress-pct");
+  const elPct = getEl("stat-progress-pct");
   if (elPct) elPct.innerText = `${progressPctVal}%`;
 
-  const elCompleted = document.getElementById("stat-completed-tasks");
+  const elCompleted = getEl("stat-completed-tasks");
   if (elCompleted) elCompleted.innerText = `${completedCount}/${totalTasks} Tasks`;
 
-  const elBar = document.getElementById("stat-progress-bar");
+  const elBar = getEl("stat-progress-bar");
   if (elBar) elBar.style.width = `${progressPctVal}%`;
 
   // Render Material allocation breakdown list
-  const breakdownList = document.getElementById("breakdown-list");
+  const breakdownList = getEl("breakdown-list");
   if (!breakdownList) return;
   breakdownList.innerHTML = "";
 
@@ -1125,14 +1139,14 @@ function updateDashboardMetrics() {
 let activeModelId: string | null = null;
 let activeExpressId: number | null = null;
 
-const costUnit = document.getElementById("cost-unit-cost")! as HTMLInputElement;
-const costQty = document.getElementById("cost-quantity")! as HTMLInputElement;
-const costCalc = document.getElementById("cost-calculated-total")!;
+const costUnit = getEl("cost-unit-cost") as HTMLInputElement;
+const costQty = getEl("cost-quantity") as HTMLInputElement;
+const costCalc = getEl("cost-calculated-total");
 
-const schedTask = document.getElementById("sched-task")! as HTMLInputElement;
-const schedStatus = document.getElementById("sched-status")! as HTMLSelectElement;
-const schedStart = document.getElementById("sched-start")! as HTMLInputElement;
-const schedEnd = document.getElementById("sched-end")! as HTMLInputElement;
+const schedTask = getEl("sched-task") as HTMLInputElement;
+const schedStatus = getEl("sched-status") as HTMLSelectElement;
+const schedStart = getEl("sched-start") as HTMLInputElement;
+const schedEnd = getEl("sched-end") as HTMLInputElement;
 
 // Parse element property values (handles strings, numbers, or web-ifc property value objects)
 function getPropValue(prop: any): string {
@@ -1314,7 +1328,7 @@ function addPropertyRow(container: Element, label: string, value: string, extraC
 }
 
 let propertyEditor: PropertyEditor | null = null;
-const propsContainer = document.getElementById("properties-selected-state");
+const propsContainer = getEl("properties-selected-state");
 if (propsContainer) {
   const editorContainer = document.createElement("div");
   editorContainer.id = "properties-bui-container";
@@ -1334,8 +1348,8 @@ function displayElementProperties(model: any, expressId: number) {
   const elementProps = properties[expressId];
   if (!elementProps) return;
 
-  document.getElementById("properties-empty-state")!.style.display = "none";
-  document.getElementById("properties-selected-state")!.style.display = "flex";
+  getEl("properties-empty-state").style.display = "none";
+  getEl("properties-selected-state").style.display = "flex";
 
   // Resolve type relation (IFCRELDEFINESBYTYPE) early for name & entity lookup
   let typeElementId: number | null = null;
@@ -1502,29 +1516,29 @@ function displayElementProperties(model: any, expressId: number) {
   }
 
   // Update top header status badge with IFC name & type and static card fields
-  const headerStatusText = document.getElementById("header-status-text");
+  const headerStatusText = getEl("header-status-text");
   if (headerStatusText) {
     headerStatusText.innerText = `${entityName}: ${nameVal} (#${expressId})`;
   }
 
-  const propExpressIdEl = document.getElementById("prop-express-id");
+  const propExpressIdEl = getEl("prop-express-id");
   if (propExpressIdEl) propExpressIdEl.innerText = String(expressId);
 
-  const propIfcTypeEl = document.getElementById("prop-ifc-type");
+  const propIfcTypeEl = getEl("prop-ifc-type");
   if (propIfcTypeEl) propIfcTypeEl.innerText = entityName;
 
-  const propNameEl = document.getElementById("prop-name");
+  const propNameEl = getEl("prop-name");
   if (propNameEl) propNameEl.innerText = nameVal;
 
-  const badgePropsIdEl = document.getElementById("badge-props-id");
+  const badgePropsIdEl = getEl("badge-props-id");
   if (badgePropsIdEl) badgePropsIdEl.innerText = `#${expressId}`;
 
   // Calculate and populate physical bounding dimensions
   try {
-    const dimLengthEl = document.getElementById("prop-dim-length");
-    const dimWidthEl = document.getElementById("prop-dim-width");
-    const dimHeightEl = document.getElementById("prop-dim-height");
-    const dimVolumeEl = document.getElementById("prop-dim-volume");
+    const dimLengthEl = getEl("prop-dim-length");
+    const dimWidthEl = getEl("prop-dim-width");
+    const dimHeightEl = getEl("prop-dim-height");
+    const dimVolumeEl = getEl("prop-dim-volume");
 
     let bbox = new THREE.Box3();
     let hasGeom = false;
@@ -1671,18 +1685,18 @@ function displayElementProperties(model: any, expressId: number) {
 function resetPropertiesPanel() {
   activeModelId = null;
   activeExpressId = null;
-  const headerStatusText = document.getElementById("header-status-text");
+  const headerStatusText = getEl("header-status-text");
   if (headerStatusText) {
     headerStatusText.innerText = "Ready • 3D Workspace";
   }
-  const badgePropsIdEl = document.getElementById("badge-props-id");
+  const badgePropsIdEl = getEl("badge-props-id");
   if (badgePropsIdEl) {
     badgePropsIdEl.innerText = "#--";
   }
-  const emptyState = document.getElementById("properties-empty-state");
+  const emptyState = getEl("properties-empty-state");
   if (emptyState) emptyState.style.display = "flex";
 
-  const selectedState = document.getElementById("properties-selected-state");
+  const selectedState = getEl("properties-selected-state");
   if (selectedState) selectedState.style.display = "none";
 
   if (propertyEditor) {
@@ -1691,7 +1705,7 @@ function resetPropertiesPanel() {
 }
 
 // Wire BOQ CSV export button
-const btnExportBoqCsv = document.getElementById("btn-export-boq-csv");
+const btnExportBoqCsv = getEl("btn-export-boq-csv");
 if (btnExportBoqCsv) {
   btnExportBoqCsv.addEventListener("click", () => {
     const items: BOQLineItem[] = [];
@@ -1719,7 +1733,7 @@ if (btnExportBoqCsv) {
 }
 
 // Wire 4D Schedule CSV Template Export & Import Listeners
-const btnExport4dCsv = document.getElementById("btn-export-4d-csv");
+const btnExport4dCsv = getEl("btn-export-4d-csv");
 if (btnExport4dCsv) {
   btnExport4dCsv.addEventListener("click", () => {
     const csvData = scheduleManager.exportScheduleTemplateCSV();
@@ -1734,7 +1748,7 @@ if (btnExport4dCsv) {
   });
 }
 
-const btnImport4dCsvInput = document.getElementById("btn-import-4d-csv-input") as HTMLInputElement | null;
+const btnImport4dCsvInput = getEl("btn-import-4d-csv-input") as HTMLInputElement | null;
 if (btnImport4dCsvInput) {
   btnImport4dCsvInput.addEventListener("change", async (e) => {
     const target = e.target as HTMLInputElement;
@@ -1761,8 +1775,8 @@ if (btnImport4dCsvInput) {
 // 5D CUMULATIVE PROJECT COST CALCULATOR
 // ============================================================
 export function updateCumulative5DCost() {
-  const grandTotalEl = document.getElementById("cost-project-grand-total");
-  const countEl = document.getElementById("cost-project-elements-count");
+  const grandTotalEl = getEl("cost-project-grand-total");
+  const countEl = getEl("cost-project-elements-count");
   if (!grandTotalEl || !countEl) return;
 
   let grandTotal = 0;
@@ -1842,7 +1856,7 @@ costUnit.addEventListener("input", updateCalculatedCost);
 costQty.addEventListener("input", updateCalculatedCost);
 
 // Save updated 4D/5D data back to the database
-const saveBtn = document.getElementById("save-data-btn")!;
+const saveBtn = getEl("save-data-btn");
 saveBtn.addEventListener("click", () => {
   if (!activeModelId || activeExpressId === null) return;
 
@@ -1927,9 +1941,9 @@ const initBim = async () => {
 
       // Reset explosion state for fresh model
       ExplosionModule.getInstance().reset();
-      const expSlider = document.getElementById("settings-explosion-slider") as HTMLInputElement | null;
+      const expSlider = getEl("settings-explosion-slider") as HTMLInputElement | null;
       if (expSlider) expSlider.value = "0";
-      const expVal = document.getElementById("val-explosion-factor");
+      const expVal = getEl("val-explosion-factor");
       if (expVal) expVal.innerText = "0%";
 
       // Apply current active theme to newly loaded Three.js model materials
@@ -1938,7 +1952,7 @@ const initBim = async () => {
       updateThemeShaderUniforms(currentTheme);
 
       if (sceneManager.postproduction) {
-        const postProcToggle = document.getElementById("settings-toggle-postproc") as HTMLInputElement | null;
+        const postProcToggle = getEl("settings-toggle-postproc") as HTMLInputElement | null;
         const isEnabled = postProcToggle ? postProcToggle.checked : false;
         try {
           sceneManager.postproduction.enabled = isEnabled;
@@ -2009,7 +2023,7 @@ const initBim = async () => {
     });
 
     // Hide initial loader overlay once initialized
-    const loadingOverlay = document.getElementById("loading-overlay");
+    const loadingOverlay = getEl("loading-overlay");
     if (loadingOverlay) {
       loadingOverlay.classList.add("hidden");
     }
@@ -2025,9 +2039,9 @@ const initBim = async () => {
 
   } catch (err) {
     console.error("Failed to initialize BIM components:", err);
-    const text = document.getElementById("loading-text")!;
+    const text = getEl("loading-text");
     text.innerText = "Initialization Error";
-    const subtitle = document.getElementById("loading-subtitle")!;
+    const subtitle = getEl("loading-subtitle");
     subtitle.innerText = "Could not initialize WebAssembly or rendering environment.";
   }
 };
@@ -2037,10 +2051,10 @@ initBim();
 
 // --- DYNAMIC FILE LIST MANAGEMENT ---
 function refreshFileList() {
-  const fileListEl = document.getElementById("file-list")!;
+  const fileListEl = getEl("file-list");
   fileListEl.innerHTML = '';
 
-  const headerStatusEl = document.getElementById("header-status-text");
+  const headerStatusEl = getEl("header-status-text");
 
   if (fragments.list.size === 0) {
     const empty = document.createElement('div');
@@ -2069,13 +2083,13 @@ function refreshFileList() {
     headerStatusEl.textContent = `${firstModelName}${countStr}`;
   }
 
-  const badgeFilesCount = document.getElementById("badge-files-count");
+  const badgeFilesCount = getEl("badge-files-count");
   if (badgeFilesCount) badgeFilesCount.textContent = String(fragments.list.size);
 
-  const tickerModelName = document.getElementById("ticker-model-name");
+  const tickerModelName = getEl("ticker-model-name");
   if (tickerModelName) tickerModelName.textContent = firstModelName.toUpperCase();
 
-  const tickerCount = document.getElementById("ticker-elements-count");
+  const tickerCount = getEl("ticker-elements-count");
   if (tickerCount) tickerCount.textContent = totalPropertiesCount > 0 ? totalPropertiesCount.toLocaleString() : "0";
 
   for (const [modelId, model] of fragments.list) {
@@ -2156,7 +2170,7 @@ function refreshFileList() {
 }
 
 // File search filter
-const fileSearchInput = document.getElementById('file-search') as HTMLInputElement;
+const fileSearchInput = getEl('file-search') as HTMLInputElement;
 if (fileSearchInput) {
   fileSearchInput.addEventListener('input', () => {
     const filter = fileSearchInput.value.toLowerCase();
@@ -2170,10 +2184,10 @@ if (fileSearchInput) {
 
 // --- MODEL LOADING WRAPPER ---
 async function loadModelData(name: string, buffer: Uint8Array) {
-  const overlay = document.getElementById("loading-overlay")!;
-  const text = document.getElementById("loading-text")!;
-  const progress = document.getElementById("loading-progress")!;
-  const subtitle = document.getElementById("loading-subtitle")!;
+  const overlay = getEl("loading-overlay");
+  const text = getEl("loading-text");
+  const progress = getEl("loading-progress");
+  const subtitle = getEl("loading-subtitle");
 
   overlay.classList.remove("hidden");
   text.innerText = "Processing 3D Geometry...";
@@ -2264,7 +2278,7 @@ async function loadModelData(name: string, buffer: Uint8Array) {
       (window as any).viewer_model = model;
       federationModule.registerModel(model, name);
       // Enable shadows if checked
-      const shadowsToggleEl = document.getElementById("settings-toggle-shadows") as HTMLInputElement | null;
+      const shadowsToggleEl = getEl("settings-toggle-shadows") as HTMLInputElement | null;
       const shadowsOn = shadowsToggleEl?.checked ?? false;
       model.object.traverse((child: any) => {
         if (child.isMesh) {
@@ -2374,7 +2388,7 @@ async function loadModelData(name: string, buffer: Uint8Array) {
 // --- UI BUTTON & CONTROL EVENT LISTENERS ---
 
 // File Inputs
-const fileInput = document.getElementById("file-input")! as HTMLInputElement;
+const fileInput = getEl("file-input") as HTMLInputElement;
 fileInput.addEventListener("change", async () => {
   const file = fileInput.files?.[0];
   if (!file) return;
@@ -2388,7 +2402,7 @@ fileInput.addEventListener("change", async () => {
 // Load Sample Model Button
 async function loadSampleModel() {
   const url = "https://thatopen.github.io/engine_components/resources/frags/school_arq.frag";
-  const loadSampleBtn = document.getElementById("load-sample-btn");
+  const loadSampleBtn = getEl("load-sample-btn");
   try {
     if (loadSampleBtn) {
       loadSampleBtn.setAttribute("disabled", "true");
@@ -2417,7 +2431,7 @@ async function loadSampleModel() {
 }
 (window as any).loadSampleModel = loadSampleModel;
 
-const loadSampleBtn = document.getElementById("load-sample-btn");
+const loadSampleBtn = getEl("load-sample-btn");
 if (loadSampleBtn) {
   loadSampleBtn.addEventListener("click", loadSampleModel);
 }
@@ -2459,7 +2473,7 @@ function updateThemeShaderUniforms(theme: string) {
   const vis = themeVisualMap[theme];
   if (vis) {
     // Sync shader uniforms while respecting the post-processing UI toggle
-    const postProcToggle = document.getElementById("settings-toggle-postproc") as HTMLInputElement | null;
+    const postProcToggle = getEl("settings-toggle-postproc") as HTMLInputElement | null;
     const isEnabled = postProcToggle ? postProcToggle.checked : true;
     sceneManager.bluePenPass.uniforms.enabled.value = isEnabled ? 1.0 : 0.0;
     if (sceneManager.postproduction) {
@@ -2489,7 +2503,7 @@ document.documentElement.setAttribute("data-theme", "zen");
 updateThemeShaderUniforms("zen");
 
 // Bottom Toolbar Actions: Visibility
-const showAllBtn = document.getElementById("btn-show-all");
+const showAllBtn = getEl("btn-show-all");
 if (showAllBtn) {
   showAllBtn.addEventListener("click", async () => {
     const hider = components.get(OBC.Hider);
@@ -2497,7 +2511,7 @@ if (showAllBtn) {
   });
 }
 
-const hideAllBtn = document.getElementById("btn-hide-all");
+const hideAllBtn = getEl("btn-hide-all");
 if (hideAllBtn) {
   hideAllBtn.addEventListener("click", async () => {
     const hider = components.get(OBC.Hider);
@@ -2507,7 +2521,8 @@ if (hideAllBtn) {
 
 import { exportFrag } from "./components/FragExporter";
 
-const loadIfcBtn = document.getElementById("btn-load-ifc");
+
+const loadIfcBtn = getEl("btn-load-ifc");
 if (loadIfcBtn) {
   loadIfcBtn.addEventListener("click", () => {
     if (fileInput) {
@@ -2517,7 +2532,7 @@ if (loadIfcBtn) {
   });
 }
 
-const exportFragBtn = document.getElementById("btn-export-frag");
+const exportFragBtn = getEl("btn-export-frag");
 if (exportFragBtn) {
   exportFragBtn.addEventListener("click", async () => {
     // We assume the first model in fragments is the current one
@@ -2533,7 +2548,7 @@ if (exportFragBtn) {
   });
 }
 
-const loadFragBtn = document.getElementById("btn-load-frag");
+const loadFragBtn = getEl("btn-load-frag");
 if (loadFragBtn) {
   loadFragBtn.addEventListener("click", () => {
     if (fileInput) {
@@ -2544,7 +2559,7 @@ if (loadFragBtn) {
 }
 
 // Bottom Toolbar Actions: Selection
-const focusBtn = document.getElementById("btn-focus");
+const focusBtn = getEl("btn-focus");
 if (focusBtn) {
   focusBtn.addEventListener("click", async () => {
     const selectionMap = highlighter.selection["select"];
@@ -2588,7 +2603,7 @@ if (focusBtn) {
   });
 }
 
-const hideSelectedBtn = document.getElementById("btn-hide-selected");
+const hideSelectedBtn = getEl("btn-hide-selected");
 if (hideSelectedBtn) {
   hideSelectedBtn.addEventListener("click", async () => {
     const hider = components.get(OBC.Hider);
@@ -2607,7 +2622,7 @@ if (hideSelectedBtn) {
   });
 }
 
-const isolateBtn = document.getElementById("btn-isolate");
+const isolateBtn = getEl("btn-isolate");
 if (isolateBtn) {
   isolateBtn.addEventListener("click", async () => {
     const hider = components.get(OBC.Hider);
@@ -2624,7 +2639,7 @@ if (isolateBtn) {
   });
 }
 
-const clearSelectionBtn = document.getElementById("btn-clear-selection");
+const clearSelectionBtn = getEl("btn-clear-selection");
 if (clearSelectionBtn) {
   clearSelectionBtn.addEventListener("click", async () => {
     await highlighter.clear("select");
@@ -2633,7 +2648,7 @@ if (clearSelectionBtn) {
 }
 
 // Bottom Toolbar Actions: Sectioning
-const clipperBtn = document.getElementById("btn-section-cut");
+const clipperBtn = getEl("btn-section-cut");
 if (clipperBtn) {
   clipperBtn.addEventListener("click", () => {
     clipper.enabled = !clipper.enabled;
@@ -2642,7 +2657,7 @@ if (clipperBtn) {
   });
 }
 
-const clearClipsBtn = document.getElementById("btn-clear-sections");
+const clearClipsBtn = getEl("btn-clear-sections");
 if (clearClipsBtn) {
   clearClipsBtn.addEventListener("click", () => {
     clipper.deleteAll();
@@ -2652,27 +2667,27 @@ if (clearClipsBtn) {
 
 // --- INTUITIVE VIEWPORT HINT BAR MANAGER ---
 function updateViewportHint(msg: string) {
-  const hintText = document.getElementById("viewport-hint-text");
-  const hintBar = document.getElementById("viewport-hint-bar");
+  const hintText = getEl("viewport-hint-text");
+  const hintBar = getEl("viewport-hint-bar");
   if (hintText) hintText.textContent = msg;
   if (hintBar) hintBar.classList.remove("hidden");
 }
 
-const hintDismissBtn = document.getElementById("btn-hint-dismiss");
+const hintDismissBtn = getEl("btn-hint-dismiss");
 if (hintDismissBtn) {
   hintDismissBtn.addEventListener("click", () => {
-    document.getElementById("viewport-hint-bar")?.classList.add("hidden");
+    getEl("viewport-hint-bar")?.classList.add("hidden");
   });
 }
 
 
 // --- STRUCTURED AI PROMPT EXPORTER ---
-const btnExportPrompt = document.getElementById("btn-export-prompt");
+const btnExportPrompt = getEl("btn-export-prompt");
 if (btnExportPrompt) {
   btnExportPrompt.addEventListener("click", () => {
-    const expressId = document.getElementById("prop-express-id")?.textContent || "-";
-    const ifcType = document.getElementById("prop-ifc-type")?.textContent || "-";
-    const name = document.getElementById("prop-name")?.textContent || "-";
+    const expressId = getEl("prop-express-id")?.textContent || "-";
+    const ifcType = getEl("prop-ifc-type")?.textContent || "-";
+    const name = getEl("prop-name")?.textContent || "-";
 
     const promptText = `Convert the following BIM metadata into an element component specification:\nElement ExpressID: "${expressId}"\nIFC Entity Type: "${ifcType}"\nElement Name: "${name}"\nApplication Context: "Enterprise 3D BIM Twin Dashboard"`;
 
@@ -2691,7 +2706,7 @@ if (btnExportPrompt) {
 
 // Wire and render Items Finder queries dynamically based on model classification categories
 async function updateItemFinderQueries() {
-  const container = document.getElementById("finder-queries-list");
+  const container = getEl("finder-queries-list");
   if (!container) return;
 
   container.innerHTML = "";
@@ -2766,91 +2781,90 @@ async function updateItemFinderQueries() {
     }
   }
 
-  const badgeFinderCount = document.getElementById("badge-finder-count");
+  const badgeFinderCount = getEl("badge-finder-count");
   if (badgeFinderCount) {
     const totalQueries = container.querySelectorAll(".query-item").length;
     badgeFinderCount.textContent = String(totalQueries);
   }
-
-  // 3. Wire event listeners for all buttons
-  wireItemFinderButtons();
 }
 
-function wireItemFinderButtons() {
-  document.querySelectorAll(".btn-query-execute").forEach((btn) => {
-    btn.addEventListener("click", async (e) => {
-      const target = e.currentTarget as HTMLButtonElement;
-      const hider = components.get(OBC.Hider);
-      const currentText = target.textContent?.trim() || "";
+// Attach a single delegated listener on finder-queries-list
+const finderQueriesContainer = getEl("finder-queries-list");
+if (finderQueriesContainer) {
+  finderQueriesContainer.addEventListener("click", async (e) => {
+    const target = (e.target as HTMLElement)?.closest(".btn-query-execute") as HTMLButtonElement | null;
+    if (!target) return;
 
-      // If already isolated, show opposite action (Show All) to restore visibility
-      if (currentText === "Show All") {
-        target.disabled = true;
-        target.textContent = "Restoring...";
-        try {
-          await hider.set(true);
-          target.textContent = "Isolate";
-        } catch (err) {
-          console.error("Failed to restore visibility:", err);
-          target.textContent = "Show All";
-        } finally {
-          target.disabled = false;
-        }
-        return;
-      }
+    const hider = components.get(OBC.Hider);
+    const currentText = target.textContent?.trim() || "";
 
+    // If already isolated, show opposite action (Show All) to restore visibility
+    if (currentText === "Show All") {
       target.disabled = true;
-      target.textContent = "Finding...";
-
+      target.textContent = "Restoring...";
       try {
-        let results: Record<string, Set<number>> = {};
-
-        if (target.getAttribute("data-type") === "category") {
-          const groupName = target.getAttribute("data-group-name");
-          if (groupName) {
-            const categoriesGroup = classifier.list.get("Categories");
-            const groupData = categoriesGroup?.get(groupName);
-            if (groupData) {
-              results = await groupData.get();
-            }
-          }
-        } else {
-          const queryName = target.getAttribute("data-query");
-          if (queryName) {
-            results = await getQueryResults(queryName);
-          }
-        }
-
-        if (results && Object.keys(results).length > 0) {
-          // Reset all other query buttons back to "Isolate"
-          document.querySelectorAll(".btn-query-execute").forEach((otherBtn) => {
-            if (otherBtn !== target) {
-              (otherBtn as HTMLButtonElement).textContent = "Isolate";
-            }
-          });
-
-          await hider.isolate(results);
-          target.textContent = "Show All";
-        } else {
-          alert(`No elements found matching query. Make sure a model is loaded.`);
-          target.textContent = "Isolate";
-        }
-      } catch (err) {
-        console.error("Query execution failed:", err);
+        await hider.set(true);
         target.textContent = "Isolate";
+      } catch (err) {
+        console.error("Failed to restore visibility:", err);
+        target.textContent = "Show All";
       } finally {
         target.disabled = false;
       }
-    });
+      return;
+    }
+
+    target.disabled = true;
+    target.textContent = "Finding...";
+
+    try {
+      let results: Record<string, Set<number>> = {};
+
+      if (target.getAttribute("data-type") === "category") {
+        const groupName = target.getAttribute("data-group-name");
+        if (groupName) {
+          const categoriesGroup = classifier.list.get("Categories");
+          const groupData = categoriesGroup?.get(groupName);
+          if (groupData) {
+            results = await groupData.get();
+          }
+        }
+      } else {
+        const queryName = target.getAttribute("data-query");
+        if (queryName) {
+          results = await getQueryResults(queryName);
+        }
+      }
+
+      if (results && Object.keys(results).length > 0) {
+        // Reset all other query buttons back to "Isolate"
+        finderQueriesContainer.querySelectorAll(".btn-query-execute").forEach((otherBtn) => {
+          if (otherBtn !== target) {
+            (otherBtn as HTMLButtonElement).textContent = "Isolate";
+          }
+        });
+
+        await hider.isolate(results);
+        target.textContent = "Show All";
+      } else {
+        alert(`No elements found matching query. Make sure a model is loaded.`);
+        target.textContent = "Isolate";
+      }
+    } catch (err) {
+      console.error("Query execution failed:", err);
+      target.textContent = "Isolate";
+    } finally {
+      target.disabled = false;
+    }
   });
 }
 
-// Initial wire
+// Initial populate
 updateItemFinderQueries();
 
 // Sidebar Scene Controls bindings
-const ambientSlider = document.getElementById("ambient-light-slider")! as HTMLInputElement;
-const ambientValLabel = document.getElementById("val-ambient-light")!;
+const ambientSlider = getEl("ambient-light-slider") as HTMLInputElement;
+const ambientValLabel = getEl("val-ambient-light");
 ambientSlider.addEventListener("input", () => {
   const val = Number(ambientSlider.value);
   ambientValLabel.innerText = val.toFixed(1);
@@ -2859,8 +2873,8 @@ ambientSlider.addEventListener("input", () => {
   }
 });
 
-const dirSlider = document.getElementById("dir-light-slider")! as HTMLInputElement;
-const dirValLabel = document.getElementById("val-dir-light")!;
+const dirSlider = getEl("dir-light-slider") as HTMLInputElement;
+const dirValLabel = getEl("val-dir-light");
 dirSlider.addEventListener("input", () => {
   const val = Number(dirSlider.value);
   dirValLabel.innerText = val.toFixed(1);
@@ -2872,7 +2886,7 @@ dirSlider.addEventListener("input", () => {
 
 
 // Post-Processing Settings Event Bindings
-const postProcToggle = document.getElementById("settings-toggle-postproc") as HTMLInputElement | null;
+const postProcToggle = getEl("settings-toggle-postproc") as HTMLInputElement | null;
 if (postProcToggle) {
   postProcToggle.addEventListener("change", () => {
     const enabled = postProcToggle.checked;
@@ -2886,8 +2900,8 @@ if (postProcToggle) {
   });
 }
 
-const postProcThickness = document.getElementById("settings-postproc-thickness") as HTMLInputElement | null;
-const postProcThicknessVal = document.getElementById("val-postproc-thickness");
+const postProcThickness = getEl("settings-postproc-thickness") as HTMLInputElement | null;
+const postProcThicknessVal = getEl("val-postproc-thickness");
 if (postProcThickness) {
   postProcThickness.addEventListener("input", () => {
     const val = Number(postProcThickness.value);
@@ -2898,8 +2912,8 @@ if (postProcThickness) {
   });
 }
 
-const postProcJitter = document.getElementById("settings-postproc-jitter") as HTMLInputElement | null;
-const postProcJitterVal = document.getElementById("val-postproc-jitter");
+const postProcJitter = getEl("settings-postproc-jitter") as HTMLInputElement | null;
+const postProcJitterVal = getEl("val-postproc-jitter");
 if (postProcJitter) {
   postProcJitter.addEventListener("input", () => {
     const val = Number(postProcJitter.value);
@@ -2911,8 +2925,8 @@ if (postProcJitter) {
 }
 
 // Bloom Glow Slider
-const postProcBloom = document.getElementById("settings-postproc-bloom") as HTMLInputElement | null;
-const postProcBloomVal = document.getElementById("val-postproc-bloom");
+const postProcBloom = getEl("settings-postproc-bloom") as HTMLInputElement | null;
+const postProcBloomVal = getEl("val-postproc-bloom");
 if (postProcBloom) {
   postProcBloom.addEventListener("input", () => {
     const val = Number(postProcBloom.value);
@@ -2924,8 +2938,8 @@ if (postProcBloom) {
 }
 
 // Radial Vignette Slider
-const postProcVignette = document.getElementById("settings-postproc-vignette") as HTMLInputElement | null;
-const postProcVignetteVal = document.getElementById("val-postproc-vignette");
+const postProcVignette = getEl("settings-postproc-vignette") as HTMLInputElement | null;
+const postProcVignetteVal = getEl("val-postproc-vignette");
 if (postProcVignette) {
   postProcVignette.addEventListener("input", () => {
     const val = Number(postProcVignette.value);
@@ -2937,8 +2951,8 @@ if (postProcVignette) {
 }
 
 // Chromatic Aberration Slider
-const postProcChroma = document.getElementById("settings-postproc-chroma") as HTMLInputElement | null;
-const postProcChromaVal = document.getElementById("val-postproc-chroma");
+const postProcChroma = getEl("settings-postproc-chroma") as HTMLInputElement | null;
+const postProcChromaVal = getEl("val-postproc-chroma");
 if (postProcChroma) {
   postProcChroma.addEventListener("input", () => {
     const val = Number(postProcChroma.value);
@@ -2950,8 +2964,8 @@ if (postProcChroma) {
 }
 
 // Toon Quantization Steps Slider
-const postProcToon = document.getElementById("settings-postproc-toon") as HTMLInputElement | null;
-const postProcToonVal = document.getElementById("val-postproc-toon");
+const postProcToon = getEl("settings-postproc-toon") as HTMLInputElement | null;
+const postProcToonVal = getEl("val-postproc-toon");
 if (postProcToon) {
   postProcToon.addEventListener("input", () => {
     const val = Number(postProcToon.value);
@@ -2963,7 +2977,7 @@ if (postProcToon) {
 }
 
 // Shader FX Mode Selector
-const postProcFxMode = document.getElementById("settings-postproc-fxmode") as HTMLSelectElement | null;
+const postProcFxMode = getEl("settings-postproc-fxmode") as HTMLSelectElement | null;
 if (postProcFxMode) {
   postProcFxMode.addEventListener("change", () => {
     const val = Number(postProcFxMode.value);
@@ -2973,7 +2987,7 @@ if (postProcFxMode) {
   });
 }
 
-const bgColorPicker = document.getElementById("settings-bg-color")! as HTMLInputElement;
+const bgColorPicker = getEl("settings-bg-color") as HTMLInputElement;
 bgColorPicker.addEventListener("input", () => {
   const color = bgColorPicker.value;
   document.body.style.backgroundColor = color;
@@ -2983,13 +2997,13 @@ bgColorPicker.addEventListener("input", () => {
   }
 });
 
-const gridToggle = document.getElementById("settings-toggle-grid")! as HTMLInputElement;
+const gridToggle = getEl("settings-toggle-grid") as HTMLInputElement;
 gridToggle.addEventListener("change", () => {
   grid.visible = gridToggle.checked;
 });
 
-const logoToggle = document.getElementById("settings-toggle-logo")! as HTMLInputElement;
-const viewerLogoEl = document.getElementById("viewer-logo") as HTMLImageElement | null;
+const logoToggle = getEl("settings-toggle-logo") as HTMLInputElement;
+const viewerLogoEl = getEl("viewer-logo") as HTMLImageElement | null;
 logoToggle.addEventListener("change", () => {
   try {
     if (world.renderer) {
@@ -3003,7 +3017,7 @@ logoToggle.addEventListener("change", () => {
   }
 });
 
-const shadowsToggle = document.getElementById("settings-toggle-shadows")! as HTMLInputElement;
+const shadowsToggle = getEl("settings-toggle-shadows") as HTMLInputElement;
 shadowsToggle.addEventListener("change", () => {
   const enabled = shadowsToggle.checked;
   world.scene.shadowsEnabled = enabled;
@@ -3021,7 +3035,7 @@ shadowsToggle.addEventListener("change", () => {
   fragments.core.update(true);
 });
 
-const clearCacheBtn = document.getElementById("btn-clear-cache")!;
+const clearCacheBtn = getEl("btn-clear-cache");
 clearCacheBtn.addEventListener("click", async () => {
   if (confirm("Are you sure you want to clear the offline fragments cache and reset the digital twin database? This will apply the new standard construction sequencing to all models.")) {
     await clearFragmentCache();
@@ -3034,7 +3048,7 @@ clearCacheBtn.addEventListener("click", async () => {
 });
 
 // Clear only localStorage (no fragment cache)
-const clearStorageBtn = document.getElementById("btn-clear-storage");
+const clearStorageBtn = getEl("btn-clear-storage");
 clearStorageBtn?.addEventListener("click", () => {
   if (confirm("Clear all localStorage entries? This will remove saved twin data and settings.")) {
     localStorage.clear();
@@ -3043,7 +3057,7 @@ clearStorageBtn?.addEventListener("click", () => {
 });
 
 // Selection Color Customizer Event Listeners
-const selectColorPicker = document.getElementById("settings-select-color")! as HTMLInputElement;
+const selectColorPicker = getEl("settings-select-color") as HTMLInputElement;
 selectColorPicker.addEventListener("input", () => {
   const colorHex = selectColorPicker.value;
   const style = highlighter.styles.get("select");
@@ -3052,7 +3066,7 @@ selectColorPicker.addEventListener("input", () => {
   }
 });
 
-const hoverColorPicker = document.getElementById("settings-hover-color")! as HTMLInputElement;
+const hoverColorPicker = getEl("settings-hover-color") as HTMLInputElement;
 hoverColorPicker.addEventListener("input", () => {
   const colorHex = hoverColorPicker.value;
   const style = highlighter.styles.get("hover");
@@ -3062,7 +3076,7 @@ hoverColorPicker.addEventListener("input", () => {
 });
 
 // Interactive 4D Simulation Status Color Pickers
-const plannedColorPicker = document.getElementById("4d-color-planned") as HTMLInputElement | null;
+const plannedColorPicker = getEl("4d-color-planned") as HTMLInputElement | null;
 if (plannedColorPicker) {
   plannedColorPicker.addEventListener("input", () => {
     ScheduleManager.statusColors['Planned'] = plannedColorPicker.value;
@@ -3070,7 +3084,7 @@ if (plannedColorPicker) {
   });
 }
 
-const activeColorPicker = document.getElementById("4d-color-active") as HTMLInputElement | null;
+const activeColorPicker = getEl("4d-color-active") as HTMLInputElement | null;
 if (activeColorPicker) {
   activeColorPicker.addEventListener("input", () => {
     ScheduleManager.statusColors['In Progress'] = activeColorPicker.value;
@@ -3078,7 +3092,7 @@ if (activeColorPicker) {
   });
 }
 
-const completeColorPicker = document.getElementById("4d-color-complete") as HTMLInputElement | null;
+const completeColorPicker = getEl("4d-color-complete") as HTMLInputElement | null;
 if (completeColorPicker) {
   completeColorPicker.addEventListener("input", () => {
     ScheduleManager.statusColors['Completed'] = completeColorPicker.value;
@@ -3086,7 +3100,7 @@ if (completeColorPicker) {
   });
 }
 
-const clearSelectionColorsBtn = document.getElementById("btn-clear-select-colors")!;
+const clearSelectionColorsBtn = getEl("btn-clear-select-colors");
 clearSelectionColorsBtn.addEventListener("click", async () => {
   await highlighter.clear("select");
   await highlighter.clear("hover");
@@ -3096,11 +3110,11 @@ clearSelectionColorsBtn.addEventListener("click", async () => {
 
 // Custom Highlighter Manager UI Integration
 const highlighterManager = HighlighterManager.getInstance();
-const customStyleSelect = document.getElementById("select-custom-highlighter-style") as HTMLSelectElement | null;
-const customStyleColorPicker = document.getElementById("picker-custom-highlighter-color") as HTMLInputElement | null;
-const btnApplyCustomHighlight = document.getElementById("btn-apply-custom-highlight") as HTMLButtonElement | null;
-const btnResetCustomHighlight = document.getElementById("btn-reset-custom-highlight") as HTMLButtonElement | null;
-const btnClearAllHighlighters = document.getElementById("btn-clear-all-highlighters") as HTMLButtonElement | null;
+const customStyleSelect = getEl("select-custom-highlighter-style") as HTMLSelectElement | null;
+const customStyleColorPicker = getEl("picker-custom-highlighter-color") as HTMLInputElement | null;
+const btnApplyCustomHighlight = getEl("btn-apply-custom-highlight") as HTMLButtonElement | null;
+const btnResetCustomHighlight = getEl("btn-reset-custom-highlight") as HTMLButtonElement | null;
+const btnClearAllHighlighters = getEl("btn-clear-all-highlighters") as HTMLButtonElement | null;
 
 if (customStyleSelect && customStyleColorPicker) {
   customStyleSelect.addEventListener("change", () => {
@@ -3158,7 +3172,7 @@ document.querySelectorAll(".btn-quick-highlight-preset").forEach((btn) => {
   });
 });
 
-const btnQuickHighlightClear = document.getElementById("btn-quick-highlight-clear");
+const btnQuickHighlightClear = getEl("btn-quick-highlight-clear");
 if (btnQuickHighlightClear) {
   btnQuickHighlightClear.addEventListener("click", async () => {
     await highlighterManager.clearAllCustomHighlights();
@@ -3166,7 +3180,7 @@ if (btnQuickHighlightClear) {
   });
 }
 
-const btnHighlightApplyTool = document.getElementById("btn-highlight-apply-tool");
+const btnHighlightApplyTool = getEl("btn-highlight-apply-tool");
 if (btnHighlightApplyTool && customStyleSelect) {
   btnHighlightApplyTool.addEventListener("click", async () => {
     const styleId = customStyleSelect.value || "Red";
@@ -3179,7 +3193,7 @@ if (btnHighlightApplyTool && customStyleSelect) {
   });
 }
 
-const btnHighlightClearTool = document.getElementById("btn-highlight-clear-tool");
+const btnHighlightClearTool = getEl("btn-highlight-clear-tool");
 if (btnHighlightClearTool) {
   btnHighlightClearTool.addEventListener("click", async () => {
     await highlighterManager.clearAllCustomHighlights();
@@ -3191,7 +3205,7 @@ if (btnHighlightClearTool) {
 const modelInfoManager = ModelInfoManager.getInstance();
 
 // 1. Log Attributes
-const btnQueryLogAttrs = document.getElementById("btn-query-log-attrs");
+const btnQueryLogAttrs = getEl("btn-query-log-attrs");
 if (btnQueryLogAttrs) {
   btnQueryLogAttrs.addEventListener("click", async () => {
     if (activeExpressId === null) {
@@ -3205,7 +3219,7 @@ if (btnQueryLogAttrs) {
 }
 
 // 2. Log Property Sets (IsDefinedBy)
-const btnQueryLogPsets = document.getElementById("btn-query-log-psets");
+const btnQueryLogPsets = getEl("btn-query-log-psets");
 if (btnQueryLogPsets) {
   btnQueryLogPsets.addEventListener("click", async () => {
     if (activeExpressId === null) {
@@ -3221,7 +3235,7 @@ if (btnQueryLogPsets) {
 }
 
 // 3. Log Geometry (BufferAttributes)
-const btnQueryLogGeom = document.getElementById("btn-query-log-geom");
+const btnQueryLogGeom = getEl("btn-query-log-geom");
 if (btnQueryLogGeom) {
   btnQueryLogGeom.addEventListener("click", async () => {
     if (activeExpressId === null) {
@@ -3235,7 +3249,7 @@ if (btnQueryLogGeom) {
 }
 
 // 4. Log Spatial Structure Hierarchy Tree
-const btnQueryLogStructure = document.getElementById("btn-query-log-structure");
+const btnQueryLogStructure = getEl("btn-query-log-structure");
 if (btnQueryLogStructure) {
   btnQueryLogStructure.addEventListener("click", async () => {
     const structure = await modelInfoManager.getSpatialStructure(activeModelId || undefined);
@@ -3245,8 +3259,8 @@ if (btnQueryLogStructure) {
 }
 
 // 5. Category: Log Names
-const selectQueryCategory = document.getElementById("select-query-category") as HTMLSelectElement | null;
-const btnCategoryLogNames = document.getElementById("btn-category-log-names");
+const selectQueryCategory = getEl("select-query-category") as HTMLSelectElement | null;
+const btnCategoryLogNames = getEl("btn-category-log-names");
 if (btnCategoryLogNames && selectQueryCategory) {
   btnCategoryLogNames.addEventListener("click", async () => {
     const category = selectQueryCategory.value;
@@ -3257,7 +3271,7 @@ if (btnCategoryLogNames && selectQueryCategory) {
 }
 
 // 6. Category: Extract & Render Three.js Meshes
-const btnCategoryExtractGeom = document.getElementById("btn-category-extract-geom");
+const btnCategoryExtractGeom = getEl("btn-category-extract-geom");
 if (btnCategoryExtractGeom && selectQueryCategory) {
   btnCategoryExtractGeom.addEventListener("click", async () => {
     const category = selectQueryCategory.value;
@@ -3274,7 +3288,7 @@ if (btnCategoryExtractGeom && selectQueryCategory) {
     }
 
     // Hide original geometry elements so extracted meshes are prominent
-    const fragments = components.get(OBC.FragmentsManager);
+    
     for (const [, model] of fragments.list) {
       if (typeof (model as any).setVisible === "function") {
         await (model as any).setVisible(localIds, false);
@@ -3288,7 +3302,7 @@ if (btnCategoryExtractGeom && selectQueryCategory) {
 }
 
 // 7. Spatial: First Level Children
-const btnSpatialFirstLevel = document.getElementById("btn-spatial-first-level");
+const btnSpatialFirstLevel = getEl("btn-spatial-first-level");
 if (btnSpatialFirstLevel) {
   btnSpatialFirstLevel.addEventListener("click", async () => {
     const children = await modelInfoManager.getFirstLevelChildren(activeModelId || undefined);
@@ -3298,7 +3312,7 @@ if (btnSpatialFirstLevel) {
 }
 
 // 8. Dispose Extracted Meshes
-const btnDisposeExtractedMeshes = document.getElementById("btn-dispose-extracted-meshes");
+const btnDisposeExtractedMeshes = getEl("btn-dispose-extracted-meshes");
 if (btnDisposeExtractedMeshes) {
   btnDisposeExtractedMeshes.addEventListener("click", async () => {
     await modelInfoManager.disposeExtractedMeshes(activeModelId || undefined);
@@ -3517,30 +3531,30 @@ function createCharacterMesh(): THREE.Group {
 }
 
 // --- EVENT BINDINGS FOR CAMERA PRESETS ---
-const gamePresetSelect = document.getElementById("settings-game-camera-preset") as HTMLSelectElement;
-const fpsFovSlider = document.getElementById("settings-fps-fov") as HTMLInputElement;
-const fpsFovVal = document.getElementById("val-fps-fov")!;
-const fpsShakeToggle = document.getElementById("settings-fps-shake") as HTMLInputElement;
-const fpsWeaponSelect = document.getElementById("settings-fps-weapon-style") as HTMLSelectElement;
+const gamePresetSelect = getEl("settings-game-camera-preset") as HTMLSelectElement;
+const fpsFovSlider = getEl("settings-fps-fov") as HTMLInputElement;
+const fpsFovVal = getEl("val-fps-fov");
+const fpsShakeToggle = getEl("settings-fps-shake") as HTMLInputElement;
+const fpsWeaponSelect = getEl("settings-fps-weapon-style") as HTMLSelectElement;
 
-const sportsHeightSlider = document.getElementById("settings-sports-height") as HTMLInputElement;
-const sportsHeightVal = document.getElementById("val-sports-height")!;
-const sportsZoomSlider = document.getElementById("settings-sports-zoom") as HTMLInputElement;
-const sportsZoomVal = document.getElementById("val-sports-zoom")!;
+const sportsHeightSlider = getEl("settings-sports-height") as HTMLInputElement;
+const sportsHeightVal = getEl("val-sports-height");
+const sportsZoomSlider = getEl("settings-sports-zoom") as HTMLInputElement;
+const sportsZoomVal = getEl("val-sports-zoom");
 
-const racingAttachmentSelect = document.getElementById("settings-racing-attachment") as HTMLSelectElement;
-const racingFovSlider = document.getElementById("settings-racing-fov") as HTMLInputElement;
-const racingFovVal = document.getElementById("val-racing-fov")!;
+const racingAttachmentSelect = getEl("settings-racing-attachment") as HTMLSelectElement;
+const racingFovSlider = getEl("settings-racing-fov") as HTMLInputElement;
+const racingFovVal = getEl("val-racing-fov");
 
-const tpDistanceSlider = document.getElementById("settings-thirdperson-distance") as HTMLInputElement;
-const tpDistanceVal = document.getElementById("val-thirdperson-distance")!;
-const tpAutoFollowToggle = document.getElementById("settings-thirdperson-autofollow") as HTMLInputElement;
+const tpDistanceSlider = getEl("settings-thirdperson-distance") as HTMLInputElement;
+const tpDistanceVal = getEl("val-thirdperson-distance");
+const tpAutoFollowToggle = getEl("settings-thirdperson-autofollow") as HTMLInputElement;
 
 const presetSubpanels = {
-  FPS: document.getElementById("preset-options-fps")!,
-  Sports: document.getElementById("preset-options-sports")!,
-  Racing: document.getElementById("preset-options-racing")!,
-  ThirdPerson: document.getElementById("preset-options-thirdperson")!,
+  FPS: getEl("preset-options-fps"),
+  Sports: getEl("preset-options-sports"),
+  Racing: getEl("preset-options-racing"),
+  ThirdPerson: getEl("preset-options-thirdperson"),
 };
 
 function updatePresetSubpanels(activeMode: string) {
@@ -3578,12 +3592,12 @@ function exitActivePreset() {
   firstPersonKeys.right = false;
   firstPersonKeys.up = false;
   firstPersonKeys.down = false;
-  const settingsCameraMode = document.getElementById("settings-camera-mode") as HTMLSelectElement | null;
+  const settingsCameraMode = getEl("settings-camera-mode") as HTMLSelectElement | null;
   if (settingsCameraMode) {
     settingsCameraMode.value = "Orbit";
     settingsCameraMode.disabled = false;
   }
-  const settingsCameraProjection = document.getElementById("settings-camera-projection") as HTMLSelectElement | null;
+  const settingsCameraProjection = getEl("settings-camera-projection") as HTMLSelectElement | null;
   if (settingsCameraProjection) {
     settingsCameraProjection.value = "Perspective";
   }
@@ -3598,7 +3612,7 @@ gamePresetSelect.addEventListener("change", () => {
     return;
   }
 
-  const settingsCameraMode = document.getElementById("settings-camera-mode") as HTMLSelectElement | null;
+  const settingsCameraMode = getEl("settings-camera-mode") as HTMLSelectElement | null;
   if (settingsCameraMode) settingsCameraMode.disabled = true;
 
   if (activePreset === "FPS") {
@@ -3659,12 +3673,12 @@ gamePresetSelect.addEventListener("change", () => {
     }
   } else if (activePreset === "Sports") {
     world.camera.set("Orbit");
-    const cameraModeEl = document.getElementById("settings-camera-mode") as HTMLSelectElement | null;
+    const cameraModeEl = getEl("settings-camera-mode") as HTMLSelectElement | null;
     if (cameraModeEl) cameraModeEl.value = "Orbit";
     world.camera.projection.set("Perspective");
   } else if (activePreset === "Racing") {
     world.camera.set("Orbit");
-    const cameraModeEl = document.getElementById("settings-camera-mode") as HTMLSelectElement | null;
+    const cameraModeEl = getEl("settings-camera-mode") as HTMLSelectElement | null;
     if (cameraModeEl) cameraModeEl.value = "Orbit";
     world.camera.projection.set("Perspective");
     if (!gameCarMesh) gameCarMesh = createCarMesh();
@@ -3682,7 +3696,7 @@ gamePresetSelect.addEventListener("change", () => {
     }
   } else if (activePreset === "ThirdPerson") {
     world.camera.set("Orbit");
-    const cameraModeEl = document.getElementById("settings-camera-mode") as HTMLSelectElement | null;
+    const cameraModeEl = getEl("settings-camera-mode") as HTMLSelectElement | null;
     if (cameraModeEl) cameraModeEl.value = "Orbit";
     if (!gameCharacterMesh) gameCharacterMesh = createCharacterMesh();
     world.scene.three.add(gameCharacterMesh);
@@ -3722,7 +3736,7 @@ tpDistanceSlider.addEventListener("input", () => {
   tpDistanceVal.innerText = Number(tpDistanceSlider.value).toFixed(1);
 });
 
-const settingsCameraModeSelect = document.getElementById("settings-camera-mode") as HTMLSelectElement | null;
+const settingsCameraModeSelect = getEl("settings-camera-mode") as HTMLSelectElement | null;
 if (settingsCameraModeSelect) {
   settingsCameraModeSelect.addEventListener("change", async () => {
     const mode = settingsCameraModeSelect.value as "Orbit" | "FirstPerson" | "Plan";
@@ -3740,17 +3754,17 @@ if (settingsCameraModeSelect) {
 
     if (mode === "Plan") {
       await world.camera.projection.set("Orthographic");
-      const projectionSelect = document.getElementById("settings-camera-projection") as HTMLSelectElement | null;
+      const projectionSelect = getEl("settings-camera-projection") as HTMLSelectElement | null;
       if (projectionSelect) projectionSelect.value = "Orthographic";
       updateViewportHint("2D Floorplan Mode Active — Mouse drag to Pan, wheel to Zoom");
     } else if (mode === "Orbit") {
       await world.camera.projection.set("Perspective");
-      const projectionSelect = document.getElementById("settings-camera-projection") as HTMLSelectElement | null;
+      const projectionSelect = getEl("settings-camera-projection") as HTMLSelectElement | null;
       if (projectionSelect) projectionSelect.value = "Perspective";
       updateViewportHint("3D Orbit Mode Active — Left-drag to Orbit, Right-drag to Pan, Wheel to Zoom");
     } else if (mode === "FirstPerson") {
       await world.camera.projection.set("Perspective");
-      const projectionSelect = document.getElementById("settings-camera-projection") as HTMLSelectElement | null;
+      const projectionSelect = getEl("settings-camera-projection") as HTMLSelectElement | null;
       if (projectionSelect) projectionSelect.value = "Perspective";
       updateViewportHint("First Person Walkthrough Active — Use WASD keys & Mouse to explore");
     }
@@ -3777,11 +3791,11 @@ const keyBindings = {
 const firstPersonKeys = { forward: false, left: false, backward: false, right: false, up: false, down: false };
 
 // UI Elements for Gaming settings
-const toggleWASD = document.getElementById("settings-enable-wasd") as HTMLInputElement;
-const wasdSpeedSlider = document.getElementById("settings-wasd-speed") as HTMLInputElement;
-const wasdSpeedVal = document.getElementById("val-wasd-speed")!;
-const mouseSensitivitySlider = document.getElementById("settings-mouse-sensitivity") as HTMLInputElement;
-const mouseSensitivityVal = document.getElementById("val-mouse-sensitivity")!;
+const toggleWASD = getEl("settings-enable-wasd") as HTMLInputElement;
+const wasdSpeedSlider = getEl("settings-wasd-speed") as HTMLInputElement;
+const wasdSpeedVal = getEl("val-wasd-speed");
+const mouseSensitivitySlider = getEl("settings-mouse-sensitivity") as HTMLInputElement;
+const mouseSensitivityVal = getEl("val-mouse-sensitivity");
 const keyBindBtns = document.querySelectorAll(".key-bind-btn");
 
 let activeBindingAction: string | null = null;
@@ -4209,7 +4223,7 @@ function animateFirstPerson() {
   const isAnyWASDPressed = firstPersonKeys.forward || firstPersonKeys.backward || firstPersonKeys.left || firstPersonKeys.right || firstPersonKeys.up || firstPersonKeys.down;
   if (!isAnyWASDPressed) return;
 
-  const cameraModeSelect = document.getElementById("settings-camera-mode") as HTMLSelectElement | null;
+  const cameraModeSelect = getEl("settings-camera-mode") as HTMLSelectElement | null;
   if (cameraModeSelect?.value === "FirstPerson") {
     if (firstPersonKeys.forward) controls.forward(movementSpeed, false);
     if (firstPersonKeys.backward) controls.forward(-movementSpeed, false);
@@ -4246,11 +4260,13 @@ function animateFirstPerson() {
 
   // Update real-time HUD overlays
   AnnotationModule.getInstance().updateOverlayPositions();
-  MinimapHUD.getInstance().update();
+  if (animateFrameCount % 2 === 0) {
+    MinimapHUD.getInstance().update();
+  }
 }
 animateFirstPerson();
 
-const settingsCameraProjection = document.getElementById("settings-camera-projection")! as HTMLSelectElement;
+const settingsCameraProjection = getEl("settings-camera-projection") as HTMLSelectElement;
 if (settingsCameraProjection) {
   settingsCameraProjection.addEventListener("change", async () => {
     const proj = settingsCameraProjection.value as "Perspective" | "Orthographic";
@@ -4266,12 +4282,12 @@ if (settingsCameraProjection) {
   });
 }
 
-const settingsCameraInput = document.getElementById("settings-camera-input")! as HTMLInputElement;
+const settingsCameraInput = getEl("settings-camera-input") as HTMLInputElement;
 settingsCameraInput.addEventListener("change", () => {
   world.camera.setUserInput(settingsCameraInput.checked);
 });
 
-const btnCameraFit = document.getElementById("btn-camera-fit")!;
+const btnCameraFit = getEl("btn-camera-fit");
 if (btnCameraFit) {
   btnCameraFit.addEventListener("click", async () => {
     await world.camera.fit(world.meshes);
@@ -4279,8 +4295,8 @@ if (btnCameraFit) {
 }
 
 // Camera Far Limit Slider
-const cameraFarInput = document.getElementById("settings-camera-far") as HTMLInputElement | null;
-const cameraFarVal = document.getElementById("val-camera-far");
+const cameraFarInput = getEl("settings-camera-far") as HTMLInputElement | null;
+const cameraFarVal = getEl("val-camera-far");
 if (cameraFarInput) {
   cameraFarInput.addEventListener("input", () => {
     const farVal = Number(cameraFarInput.value);
@@ -4310,8 +4326,8 @@ if (cameraFarInput) {
 }
 
 // Camera Near Limit Slider
-const cameraNearInput = document.getElementById("settings-camera-near") as HTMLInputElement | null;
-const cameraNearVal = document.getElementById("val-camera-near");
+const cameraNearInput = getEl("settings-camera-near") as HTMLInputElement | null;
+const cameraNearVal = getEl("val-camera-near");
 if (cameraNearInput) {
   cameraNearInput.addEventListener("input", () => {
     const nearVal = Number(cameraNearInput.value);
@@ -4341,8 +4357,8 @@ if (cameraNearInput) {
 }
 
 // Camera FOV Slider
-const cameraFovInput = document.getElementById("settings-camera-fov") as HTMLInputElement | null;
-const cameraFovVal = document.getElementById("val-camera-fov");
+const cameraFovInput = getEl("settings-camera-fov") as HTMLInputElement | null;
+const cameraFovVal = getEl("val-camera-fov");
 if (cameraFovInput) {
   cameraFovInput.addEventListener("input", () => {
     const fovVal = Number(cameraFovInput.value);
@@ -4359,8 +4375,8 @@ if (cameraFovInput) {
 }
 
 // Zoom & Dolly Speed Slider
-const cameraSpeedInput = document.getElementById("settings-camera-speed") as HTMLInputElement | null;
-const cameraSpeedVal = document.getElementById("val-camera-speed");
+const cameraSpeedInput = getEl("settings-camera-speed") as HTMLInputElement | null;
+const cameraSpeedVal = getEl("val-camera-speed");
 if (cameraSpeedInput) {
   cameraSpeedInput.addEventListener("input", () => {
     const speedVal = Number(cameraSpeedInput.value);
@@ -4374,10 +4390,10 @@ if (cameraSpeedInput) {
 }
 
 // Exploded Disassembly View Slider & Clustering Mode
-const explosionSlider = document.getElementById("settings-explosion-slider") as HTMLInputElement | null;
-const explosionVal = document.getElementById("val-explosion-factor");
-const explosionModeSelect = document.getElementById("select-explosion-mode") as HTMLSelectElement | null;
-const explosionModeBadge = document.getElementById("badge-explosion-mode");
+const explosionSlider = getEl("settings-explosion-slider") as HTMLInputElement | null;
+const explosionVal = getEl("val-explosion-factor");
+const explosionModeSelect = getEl("select-explosion-mode") as HTMLSelectElement | null;
+const explosionModeBadge = getEl("badge-explosion-mode");
 
 if (explosionModeSelect) {
   explosionModeSelect.addEventListener("change", () => {
@@ -4401,10 +4417,10 @@ if (explosionSlider) {
 }
 
 // Solar Sun Position Analysis Sliders
-const sunAzimuthInput = document.getElementById("settings-sun-azimuth") as HTMLInputElement | null;
-const sunAzimuthVal = document.getElementById("val-sun-azimuth");
-const sunElevationInput = document.getElementById("settings-sun-elevation") as HTMLInputElement | null;
-const sunElevationVal = document.getElementById("val-sun-elevation");
+const sunAzimuthInput = getEl("settings-sun-azimuth") as HTMLInputElement | null;
+const sunAzimuthVal = getEl("val-sun-azimuth");
+const sunElevationInput = getEl("settings-sun-elevation") as HTMLInputElement | null;
+const sunElevationVal = getEl("val-sun-elevation");
 
 const updateSunPosition = () => {
   const azimuthDeg = sunAzimuthInput ? Number(sunAzimuthInput.value) : 135;
@@ -4443,13 +4459,13 @@ if (sunAzimuthInput) sunAzimuthInput.addEventListener("input", updateSunPosition
 if (sunElevationInput) sunElevationInput.addEventListener("input", updateSunPosition);
 
 // 3D Pin Annotation Tool Controller & Sidebar Sync
-const toggleAnnotation = document.getElementById("settings-toggle-annotation") as HTMLInputElement | null;
-const pinOptionsPanel = document.getElementById("pin-annotation-options");
-const pinTitleInput = document.getElementById("pin-title-input") as HTMLInputElement | null;
-const pinCommentInput = document.getElementById("pin-comment-input") as HTMLTextAreaElement | null;
-const pinCategoryPills = document.getElementById("pin-category-pills");
-const pinListContainer = document.getElementById("pin-annotations-list");
-const pinsCountSpan = document.getElementById("pins-count");
+const toggleAnnotation = getEl("settings-toggle-annotation") as HTMLInputElement | null;
+const pinOptionsPanel = getEl("pin-annotation-options");
+const pinTitleInput = getEl("pin-title-input") as HTMLInputElement | null;
+const pinCommentInput = getEl("pin-comment-input") as HTMLTextAreaElement | null;
+const pinCategoryPills = getEl("pin-category-pills");
+const pinListContainer = getEl("pin-annotations-list");
+const pinsCountSpan = getEl("pins-count");
 
 let activePinCategory = "Inspection";
 
@@ -4524,21 +4540,21 @@ function refreshPinsList(pins: any[]) {
 }
 
 // Sidebar Selected Pin Details Card Bindings
-const selectedPinDetailsSidebar = document.getElementById("selected-pin-details-sidebar");
-const sidebarPinNumberBadge = document.getElementById("sidebar-pin-number-badge");
-const sidebarPinTitleDisplay = document.getElementById("sidebar-pin-title-display");
-const sidebarPinCategoryTag = document.getElementById("sidebar-pin-category-tag");
-const sidebarPinElementName = document.getElementById("sidebar-pin-element-name");
-const sidebarPinCommentEdit = document.getElementById("sidebar-pin-comment-edit") as HTMLTextAreaElement | null;
-const sidebarPinThumbContainer = document.getElementById("sidebar-pin-thumbnail-container");
-const sidebarPinThumbImg = document.getElementById("sidebar-pin-thumbnail-img") as HTMLImageElement | null;
-const btnSidebarInspectElement = document.getElementById("btn-sidebar-inspect-element");
-const btnSidebarSavePin = document.getElementById("btn-sidebar-save-pin");
-const btnSidebarFocusPin = document.getElementById("btn-sidebar-focus-pin");
-const btnSidebarXRayPin = document.getElementById("btn-sidebar-xray-pin");
-const btnSidebarDeletePin = document.getElementById("btn-sidebar-delete-pin");
-const pinFilterChips = document.getElementById("pin-filter-chips");
-const btnExportPins = document.getElementById("btn-export-pins");
+const selectedPinDetailsSidebar = getEl("selected-pin-details-sidebar");
+const sidebarPinNumberBadge = getEl("sidebar-pin-number-badge");
+const sidebarPinTitleDisplay = getEl("sidebar-pin-title-display");
+const sidebarPinCategoryTag = getEl("sidebar-pin-category-tag");
+const sidebarPinElementName = getEl("sidebar-pin-element-name");
+const sidebarPinCommentEdit = getEl("sidebar-pin-comment-edit") as HTMLTextAreaElement | null;
+const sidebarPinThumbContainer = getEl("sidebar-pin-thumbnail-container");
+const sidebarPinThumbImg = getEl("sidebar-pin-thumbnail-img") as HTMLImageElement | null;
+const btnSidebarInspectElement = getEl("btn-sidebar-inspect-element");
+const btnSidebarSavePin = getEl("btn-sidebar-save-pin");
+const btnSidebarFocusPin = getEl("btn-sidebar-focus-pin");
+const btnSidebarXRayPin = getEl("btn-sidebar-xray-pin");
+const btnSidebarDeletePin = getEl("btn-sidebar-delete-pin");
+const pinFilterChips = getEl("pin-filter-chips");
+const btnExportPins = getEl("btn-export-pins");
 
 let currentSelectedPin: any = null;
 
@@ -4683,7 +4699,7 @@ if (toggleAnnotation) {
   });
 }
 
-const btnClearAnnotations = document.getElementById("btn-clear-annotations");
+const btnClearAnnotations = getEl("btn-clear-annotations");
 if (btnClearAnnotations) {
   btnClearAnnotations.addEventListener("click", () => {
     AnnotationModule.getInstance().clearAll();
@@ -4691,9 +4707,9 @@ if (btnClearAnnotations) {
 }
 
 // Section Box Multi-Plane Clipping
-const toggleSectionBox = document.getElementById("settings-toggle-section-box") as HTMLInputElement | null;
-const sectionBoxControls = document.getElementById("section-box-controls");
-const sectionBoxYMaxInput = document.getElementById("section-box-ymax") as HTMLInputElement | null;
+const toggleSectionBox = getEl("settings-toggle-section-box") as HTMLInputElement | null;
+const sectionBoxControls = getEl("section-box-controls");
+const sectionBoxYMaxInput = getEl("section-box-ymax") as HTMLInputElement | null;
 
 if (toggleSectionBox) {
   toggleSectionBox.addEventListener("change", () => {
@@ -4729,7 +4745,7 @@ function resolveElementTag(expressId: number): string {
 }
 
 // Direct Button to drop pin on currently selected element or camera target
-const btnDropPinHere = document.getElementById("btn-drop-pin-here");
+const btnDropPinHere = getEl("btn-drop-pin-here");
 if (btnDropPinHere) {
   btnDropPinHere.addEventListener("click", () => {
     const annoMod = AnnotationModule.getInstance();
@@ -4872,7 +4888,7 @@ container.addEventListener("pointerup", (e: PointerEvent) => {
 });
 
 // --- TAPE MEASURE BINDINGS ---
-const settingsToggleMeasure = document.getElementById("settings-toggle-measure")! as HTMLInputElement;
+const settingsToggleMeasure = getEl("settings-toggle-measure") as HTMLInputElement;
 settingsToggleMeasure.addEventListener("change", () => {
   measurements.enabled = settingsToggleMeasure.checked;
 });
@@ -4893,7 +4909,7 @@ window.addEventListener("keydown", (e) => {
   }
 });
 
-const btnClearMeasurements = document.getElementById("btn-clear-measurements");
+const btnClearMeasurements = getEl("btn-clear-measurements");
 if (btnClearMeasurements) {
   btnClearMeasurements.addEventListener("click", () => {
     measurements.list.clear();
@@ -4902,13 +4918,13 @@ if (btnClearMeasurements) {
 }
 
 // --- BCF ISSUE MANAGEMENT BINDINGS ---
-const btnCreateBcfTopic = document.getElementById("btn-create-bcf-topic");
+const btnCreateBcfTopic = getEl("btn-create-bcf-topic");
 if (btnCreateBcfTopic) {
   btnCreateBcfTopic.addEventListener("click", () => {
-    const titleInput = document.getElementById("bcf-topic-title") as HTMLInputElement | null;
-    const descInput = document.getElementById("bcf-topic-desc") as HTMLTextAreaElement | null;
-    const typeSelect = document.getElementById("bcf-topic-type") as HTMLSelectElement | null;
-    const prioritySelect = document.getElementById("bcf-topic-priority") as HTMLSelectElement | null;
+    const titleInput = getEl("bcf-topic-title") as HTMLInputElement | null;
+    const descInput = getEl("bcf-topic-desc") as HTMLTextAreaElement | null;
+    const typeSelect = getEl("bcf-topic-type") as HTMLSelectElement | null;
+    const prioritySelect = getEl("bcf-topic-priority") as HTMLSelectElement | null;
 
     const title = titleInput?.value.trim() || "Untitled Issue";
     const description = descInput?.value.trim() || "Reported from 3D BIM Viewer";
@@ -4932,7 +4948,7 @@ if (btnCreateBcfTopic) {
   });
 }
 
-const btnExportBcf = document.getElementById("btn-export-bcf");
+const btnExportBcf = getEl("btn-export-bcf");
 if (btnExportBcf) {
   btnExportBcf.addEventListener("click", async () => {
     await bcfManager.exportBCF();
@@ -4940,6 +4956,8 @@ if (btnExportBcf) {
 }
 
 // --- DYNAMIC CATEGORY COLORING & THEME MAPPING ---
+const categoryMaterialCache = new Map<string, THREE.MeshStandardMaterial>();
+
 async function applyCategoryColors() {
   const currentTheme = document.documentElement.getAttribute('data-theme') || 'cozy';
   const categoriesGroup = classifier.list.get("Categories");
@@ -4947,7 +4965,20 @@ async function applyCategoryColors() {
 
   for (const [categoryName, groupData] of categoriesGroup) {
     const colorHex = getCategoryColor(currentTheme, categoryName);
-    const threeColor = new THREE.Color(colorHex);
+    
+    let material = categoryMaterialCache.get(colorHex);
+    if (!material) {
+      material = new THREE.MeshStandardMaterial({
+        color: new THREE.Color(colorHex),
+        roughness: 0.4,
+        metalness: 0.1,
+        polygonOffset: true,
+        polygonOffsetFactor: 1,
+        polygonOffsetUnits: 1,
+      });
+      categoryMaterialCache.set(colorHex, material);
+    }
+
     const map = await groupData.get();
 
     for (const modelId in map) {
@@ -4958,15 +4989,6 @@ async function applyCategoryColors() {
       if (!expressIds || expressIds.size === 0) continue;
 
       try {
-        const material = new THREE.MeshStandardMaterial({
-          color: threeColor,
-          roughness: 0.4,
-          metalness: 0.1,
-          polygonOffset: true,
-          polygonOffsetFactor: 1,
-          polygonOffsetUnits: 1,
-        });
-
         // Use fragment material styling or fallback if supported
         if ((model as any).setMaterial) {
           (model as any).setMaterial(expressIds, material);
@@ -4981,7 +5003,7 @@ async function applyCategoryColors() {
 
 // --- DYNAMIC CLASSIFICATION TREE BINDINGS ---
 async function updateClassificationUI() {
-  const treeContainer = document.getElementById("classification-tree");
+  const treeContainer = getEl("classification-tree");
   if (!treeContainer) return;
   treeContainer.innerHTML = "";
 
@@ -5077,7 +5099,7 @@ async function updateClassificationUI() {
 }
 
 // Scene search filtering for classification tree
-const sceneSearchInput = document.getElementById("scene-search") as HTMLInputElement;
+const sceneSearchInput = getEl("scene-search") as HTMLInputElement;
 if (sceneSearchInput) {
   sceneSearchInput.addEventListener("input", () => {
     const filterText = sceneSearchInput.value.toLowerCase();
@@ -5094,9 +5116,9 @@ if (sceneSearchInput) {
 }
 
 // --- 4D CONSTRUCTION TIMELINE SIMULATION ENGINE ---
-const timelineSlider = document.getElementById("timeline-slider") as HTMLInputElement | null;
-const timelinePlayBtn = document.getElementById("timeline-play-btn");
-const timelineSpeedSelect = document.getElementById("timeline-speed") as HTMLSelectElement | null;
+const timelineSlider = getEl("timeline-slider") as HTMLInputElement | null;
+const timelinePlayBtn = getEl("timeline-play-btn");
+const timelineSpeedSelect = getEl("timeline-speed") as HTMLSelectElement | null;
 
 function calculateTimelineBounds() {
   let minTime = Infinity;
@@ -5142,8 +5164,8 @@ function calculateTimelineBounds() {
     currentTimelineDate = new Date(timelineMinDate);
 
     // Enable inputs
-    const slider = document.getElementById("timeline-slider") as HTMLInputElement;
-    const playBtn = document.getElementById("timeline-play-btn");
+    const slider = getEl("timeline-slider") as HTMLInputElement;
+    const playBtn = getEl("timeline-play-btn");
 
     if (slider) {
       slider.removeAttribute("disabled");
@@ -5165,8 +5187,8 @@ function calculateTimelineBounds() {
     timelineMaxDate = end;
     currentTimelineDate = new Date(start);
 
-    const slider = document.getElementById("timeline-slider") as HTMLInputElement;
-    const playBtn = document.getElementById("timeline-play-btn");
+    const slider = getEl("timeline-slider") as HTMLInputElement;
+    const playBtn = getEl("timeline-play-btn");
 
     if (slider) {
       slider.removeAttribute("disabled");
@@ -5185,7 +5207,7 @@ function calculateTimelineBounds() {
 
 function updateTimelineDateUI() {
   if (!currentTimelineDate) return;
-  const badge = document.getElementById("timeline-date-badge");
+  const badge = getEl("timeline-date-badge");
   if (badge) {
     const year = currentTimelineDate.getFullYear();
     const month = String(currentTimelineDate.getMonth() + 1).padStart(2, '0');
@@ -5206,9 +5228,9 @@ async function updateTimelineVisualState() {
   await highlighter.clear("timeline-completed");
 
   // Sync highlighter colors dynamically with color pickers / statusColors
-  const plannedColor = (document.getElementById("4d-color-planned") as HTMLInputElement)?.value || ScheduleManager.statusColors['Planned'] || "#6b7280";
-  const activeColor = (document.getElementById("4d-color-active") as HTMLInputElement)?.value || ScheduleManager.statusColors['In Progress'] || "#f59e0b";
-  const completeColor = (document.getElementById("4d-color-complete") as HTMLInputElement)?.value || ScheduleManager.statusColors['Completed'] || "#10b981";
+  const plannedColor = (getEl("4d-color-planned") as HTMLInputElement)?.value || ScheduleManager.statusColors['Planned'] || "#6b7280";
+  const activeColor = (getEl("4d-color-active") as HTMLInputElement)?.value || ScheduleManager.statusColors['In Progress'] || "#f59e0b";
+  const completeColor = (getEl("4d-color-complete") as HTMLInputElement)?.value || ScheduleManager.statusColors['Completed'] || "#10b981";
 
   const plannedStyle = highlighter.styles.get("timeline-planned");
   if (plannedStyle) plannedStyle.color.set(plannedColor);
@@ -5306,10 +5328,10 @@ async function updateTimelineVisualState() {
       const ifcType = String(selectedModel.properties[activeExpressId].type ?? "").toUpperCase();
       const twinData = getOrGenerateTwinData(activeModelId, activeExpressId, ifcType);
 
-      const elStatus = document.getElementById("sched-status") as HTMLSelectElement;
+      const elStatus = getEl("sched-status") as HTMLSelectElement;
       if (elStatus) elStatus.value = twinData.status;
 
-      const elCostTotal = document.getElementById("cost-calculated-total");
+      const elCostTotal = getEl("cost-calculated-total");
       if (elCostTotal) elCostTotal.innerText = new Intl.NumberFormat("en-US", {
         style: "currency",
         currency: "USD"
@@ -5325,7 +5347,7 @@ async function updateTimelineVisualState() {
 }
 
 function updateScheduleWidgetUI() {
-  const container = document.getElementById("schedule-tasks-list");
+  const container = getEl("schedule-tasks-list");
   if (!container) return;
 
   if (fragments.list.size === 0) {
@@ -5536,7 +5558,7 @@ function stopTimelinePlayback() {
     cancelAnimationFrame(timelineTimer);
     timelineTimer = null;
   }
-  const btn = document.getElementById("timeline-play-btn");
+  const btn = getEl("timeline-play-btn");
   if (btn) {
     btn.classList.remove("playing");
     btn.innerHTML = `
@@ -5588,7 +5610,7 @@ calculateTimelineBounds();
 
 // --- 4D MODE TOGGLE ---
 function updateHeaderLabel() {
-  const labelEl = document.getElementById('project-header-label');
+  const labelEl = getEl('project-header-label');
   if (!labelEl) return;
 
   let projectName = "Projects";
@@ -5611,8 +5633,8 @@ function apply4dMode(active: boolean) {
   is4dMode = active;
   localStorage.setItem('bim-4d-mode', String(active));
 
-  const btn4dMode = document.getElementById('btn-4d-mode');
-  const btn4dLabel = document.getElementById('btn-4d-label');
+  const btn4dMode = getEl('btn-4d-mode');
+  const btn4dLabel = getEl('btn-4d-label');
 
   if (active) {
     document.body.classList.add('mode-4d');
@@ -5644,7 +5666,7 @@ function apply4dMode(active: boolean) {
 // Restore last 4D mode state on load
 apply4dMode(is4dMode);
 
-const btn4dToggle = document.getElementById('btn-4d-mode');
+const btn4dToggle = getEl('btn-4d-mode');
 if (btn4dToggle) {
   btn4dToggle.addEventListener('click', () => {
     apply4dMode(!is4dMode);
@@ -5694,7 +5716,7 @@ async function orientCameraToFace(face: string) {
   await world.camera.controls.setLookAt(posX, posY, posZ, center.x, center.y, center.z, true);
 }
 
-const viewCube = document.getElementById("view-cube") as any;
+const viewCube = getEl("view-cube") as any;
 if (viewCube) {
   viewCube.camera = world.camera.three;
 
@@ -5732,10 +5754,10 @@ async function setCameraProjection(projectionMode: "Orthographic" | "Perspective
   }
 }
 
-const btnViewFit = document.getElementById("btn-view-fit");
-const btnViewTop = document.getElementById("btn-view-top");
-const btnViewIso = document.getElementById("btn-view-iso");
-const tickerCamMode = document.getElementById("ticker-camera-mode");
+const btnViewFit = getEl("btn-view-fit");
+const btnViewTop = getEl("btn-view-top");
+const btnViewIso = getEl("btn-view-iso");
+const tickerCamMode = getEl("ticker-camera-mode");
 
 if (btnViewFit) {
   btnViewFit.addEventListener("click", async () => {
@@ -5795,20 +5817,20 @@ if (btnViewIso) {
   });
 }
 
-const btnViewSnapshot = document.getElementById("btn-view-snapshot");
+const btnViewSnapshot = getEl("btn-view-snapshot");
 if (btnViewSnapshot) {
   btnViewSnapshot.addEventListener("click", () => {
     SnapshotModule.getInstance().captureTechnicalSnapshot();
   });
 }
 
-const btnQuickExplode = document.getElementById("btn-quick-explode");
+const btnQuickExplode = getEl("btn-quick-explode");
 let isQuickExploded = false;
 if (btnQuickExplode) {
   btnQuickExplode.addEventListener("click", () => {
     isQuickExploded = !isQuickExploded;
     const targetVal = isQuickExploded ? 65 : 0;
-    const slider = document.getElementById("settings-explosion-slider") as HTMLInputElement | null;
+    const slider = getEl("settings-explosion-slider") as HTMLInputElement | null;
     if (slider) {
       slider.value = String(targetVal);
       slider.dispatchEvent(new Event("input"));
@@ -5816,7 +5838,7 @@ if (btnQuickExplode) {
       ExplosionModule.getInstance().setExplosionFactor(targetVal / 100);
     }
     btnQuickExplode.classList.toggle("active", isQuickExploded);
-    const txt = document.getElementById("quick-explode-text");
+    const txt = getEl("quick-explode-text");
     if (txt) txt.textContent = isQuickExploded ? "Assemble" : "Explode";
   });
 }
@@ -5903,7 +5925,7 @@ updateCumulative5DCost();
 // ============================================================
 // THEME SWITCHER HANDLER
 // ============================================================
-const themeSelect = document.getElementById("select-theme-toggle") as HTMLSelectElement | null;
+const themeSelect = getEl("select-theme-toggle") as HTMLSelectElement | null;
 if (themeSelect) {
   themeSelect.addEventListener("change", (e) => {
     const targetTheme = (e.target as HTMLSelectElement).value;
@@ -5924,7 +5946,7 @@ if (themeSelect) {
 // NEO-BRUTALIST TOAST NOTIFICATION QUEUE
 // ============================================================
 export function showToast(message: string, icon: string = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>`, durationMs: number = 3200) {
-  const container = document.getElementById("bim-toast-container");
+  const container = getEl("bim-toast-container");
   if (!container) return;
 
   const toast = document.createElement("div");
@@ -5963,7 +5985,7 @@ export function showToast(message: string, icon: string = `<svg width="14" heigh
 (window as any).showToast = showToast;
 
 // Wire Tour Button
-const btnStartPinTour = document.getElementById("btn-start-pin-tour");
+const btnStartPinTour = getEl("btn-start-pin-tour");
 if (btnStartPinTour) {
   btnStartPinTour.addEventListener("click", () => {
     AnnotationModule.getInstance().startTour();
@@ -5974,10 +5996,10 @@ if (btnStartPinTour) {
 // ============================================================
 // COMMAND PALETTE (CTRL+K / CMD+K) CONTROLLER
 // ============================================================
-const cmdModal = document.getElementById("command-palette-modal");
-const cmdInput = document.getElementById("command-palette-input") as HTMLInputElement | null;
-const cmdResults = document.getElementById("command-palette-results");
-const btnOpenCmd = document.getElementById("btn-open-command-palette");
+const cmdModal = getEl("command-palette-modal");
+const cmdInput = getEl("command-palette-input") as HTMLInputElement | null;
+const cmdResults = getEl("command-palette-results");
+const btnOpenCmd = getEl("btn-open-command-palette");
 
 let selectedCmdIndex = 0;
 
@@ -6003,7 +6025,7 @@ const getCommandRegistry = (): CommandItem[] => {
 
     // Viewport & Tools
     { id: "tool-fit", title: "Fit Geometry in View (Home)", category: "Viewport", icon: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>`, action: () => (window as any).fitView?.() },
-    { id: "tool-4d-toggle", title: "Toggle 4D Construction Simulation", category: "4D Simulation", icon: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`, action: () => document.getElementById("btn-4d-mode")?.click() },
+    { id: "tool-4d-toggle", title: "Toggle 4D Construction Simulation", category: "4D Simulation", icon: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`, action: () => getEl("btn-4d-mode")?.click() },
     { id: "tool-pin-tour", title: "Play Guided 3D Issue Tour", category: "Collaboration", icon: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polygon points="5 3 19 12 5 21 5 3"/></svg>`, action: () => AnnotationModule.getInstance().startTour() },
     { id: "tool-export-bcf", title: "Export Pins (BCF / JSON Report)", category: "Collaboration", icon: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>`, action: () => AnnotationModule.getInstance().exportBCFJSON() },
     { id: "tool-xray-toggle", title: "Toggle X-Ray Isolation Mode", category: "Display", icon: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M9 3H5a2 2 0 0 0-2 2v4m0 6v4a2 2 0 0 0 2 2h4m6 0h4a2 2 0 0 0 2-2v-4m0-6V5a2 2 0 0 0-2-2h-4"/><circle cx="12" cy="12" r="3"/></svg>`, action: () => AnnotationModule.getInstance().toggleXRay() },
@@ -6174,8 +6196,8 @@ if (cmdModal) {
 // ============================================================
 // RIGHT-CLICK SMART CONTEXT MENU FOR VIEWPORT
 // ============================================================
-const ctxMenu = document.getElementById("bim-context-menu");
-const ctxTitle = document.getElementById("ctx-element-title");
+const ctxMenu = getEl("bim-context-menu");
+const ctxTitle = getEl("ctx-element-title");
 
 let ctxHitPoint: THREE.Vector3 | null = null;
 let ctxModelId: string | undefined = undefined;
@@ -6266,7 +6288,7 @@ if (ctxMenu) {
         );
         showToast(`3D Pin placed on ${ctxElementName || "Model"}`, `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 2a7 7 0 0 0-7 7c0 5.25 7 13 7 13s7-7.75 7-13a7 7 0 0 0-7-7z"/><circle cx="12" cy="9" r="2.5"/></svg>`);
       } else if (action === "properties" && ctxModelId && ctxExpressId !== undefined) {
-        const fragments = components.get(OBC.FragmentsManager);
+        
         const model = fragments.list.get(ctxModelId);
         if (model) {
           displayElementProperties(model, ctxExpressId);

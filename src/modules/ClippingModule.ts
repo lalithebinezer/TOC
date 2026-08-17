@@ -55,7 +55,7 @@ export class ClippingModule {
     
     if (enabled) {
       rendererThree.clippingPlanes = this.sectionPlanes;
-      this.updateSectionBoxBounds(0, 0, 0, 50, 50, 50);
+      this.updateSectionBoxBounds(-50, 50, -10, 50, -50, 50);
     } else {
       rendererThree.clippingPlanes = [];
     }
