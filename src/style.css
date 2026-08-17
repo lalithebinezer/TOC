@@ -379,7 +379,14 @@ body {
 
 header,
 .sidebar,
-.tactical-ticker-bar {
+.tactical-ticker-bar,
+.bottom-toolbar,
+.quick-view-toolbar,
+.hud-anchor-top-left,
+.hud-anchor-bottom-center,
+.hud-anchor-bottom-right,
+.saved-views-flyout,
+.help-modal-card {
   pointer-events: auto;
 }
 
@@ -3072,20 +3079,26 @@ input[type="range"].custom-slider {
   height: 16px;
 }
 
-/* Sidebar Backdrops styling */
+/* Sidebar Backdrops styling (mobile/tablet drawer only) */
 .sidebar-backdrop {
+  display: none;
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.35);
+  background: rgba(0, 0, 0, 0.45);
   z-index: 95;
   opacity: 0;
   pointer-events: none;
   transition: opacity var(--ease-normal);
 }
 
-.sidebar-backdrop.active {
-  opacity: 1;
-  pointer-events: auto;
+@media (max-width: 1024px) {
+  .sidebar-backdrop {
+    display: block;
+  }
+  .sidebar-backdrop.active {
+    opacity: 1;
+    pointer-events: auto;
+  }
 }
 
 /* ============================================================
