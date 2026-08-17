@@ -382,17 +382,77 @@ header,
 .tactical-ticker-bar,
 .bottom-toolbar,
 .quick-view-toolbar,
+.bim-breadcrumbs-bar,
 .hud-anchor-top-left,
 .hud-anchor-bottom-center,
 .hud-anchor-bottom-right,
 .saved-views-flyout,
-.help-modal-card {
+.help-modal-card,
+button,
+input,
+select,
+label,
+a {
+  pointer-events: auto !important;
+}
+
+/* Desktop HUD Anchors positioning (inside Column 2) */
+.hud-anchor-top-left {
+  grid-column: 2;
+  grid-row: 2;
+  justify-self: start;
+  align-self: start;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  z-index: 25;
+  pointer-events: none;
+}
+
+.hud-anchor-top-left > * {
+  pointer-events: auto;
+}
+
+.hud-anchor-bottom-center {
+  grid-column: 2;
+  grid-row: 2;
+  justify-self: center;
+  align-self: end;
+  z-index: 30;
+  pointer-events: none;
+  margin-bottom: 0.2rem;
+}
+
+.hud-anchor-bottom-center > * {
+  pointer-events: auto;
+}
+
+.hud-anchor-bottom-right {
+  grid-column: 2;
+  grid-row: 2;
+  justify-self: end;
+  align-self: end;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.5rem;
+  z-index: 25;
+  pointer-events: none;
+  margin-bottom: 0.2rem;
+}
+
+.hud-anchor-bottom-right > * {
   pointer-events: auto;
 }
 
 .view-cube-layer {
-  pointer-events: none;
+  grid-column: 2;
+  grid-row: 2;
+  justify-self: end;
+  align-self: start;
   position: relative;
+  pointer-events: none;
+  z-index: 20;
 }
 
 /* ============================================================
