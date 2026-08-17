@@ -7,8 +7,6 @@ export class BimViewCube extends HTMLElement {
   private isDraggingCube = false;
   private startPointerX = 0;
   private startPointerY = 0;
-  private hasDraggedCube = false;
-  private clickedFace: string | null = null;
   public mouseSensitivity = 1.0;
 
   constructor() {
@@ -147,24 +145,32 @@ export class BimViewCube extends HTMLElement {
     matrix.extractRotation(this._camera.matrixWorldInverse);
 
     const e = matrix.elements;
-    // CSS 3D matrix3d (column-major) converting Three.js camera world inverse to screen space
+    // Standard CSS 3D matrix3d representing Three.js camera inverse rotation
     this.cubeElement.style.transform = `matrix3d(
       ${e[0].toFixed(6)}, ${-e[1].toFixed(6)}, ${e[2].toFixed(6)}, 0,
       ${-e[4].toFixed(6)}, ${e[5].toFixed(6)}, ${-e[6].toFixed(6)}, 0,
-      ${-e[8].toFixed(6)}, ${e[9].toFixed(6)}, ${-e[10].toFixed(6)}, 0,
+      ${e[8].toFixed(6)}, ${-e[9].toFixed(6)}, ${e[10].toFixed(6)}, 0,
       0, 0, 0, 1
     )`;
   }
 
   private setupEvents() {
     const container = this.shadowRoot!.querySelector(".view-cube-container") as HTMLDivElement;
-    
+    const faces = this.shadowRoot!.querySelectorAll(".cube-face");
+
+    // Direct click listeners on faces
+    faces.forEach((faceEl) => {
+      faceEl.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const faceName = (faceEl as HTMLElement).getAttribute("data-face");
+        if (faceName) {
+          this.dispatchEvent(new CustomEvent(`${faceName}click`));
+        }
+      });
+    });
+
     container.addEventListener("pointerdown", (e: PointerEvent) => {
-      const faceEl = (e.target as HTMLElement).closest(".cube-face");
-      this.clickedFace = faceEl ? faceEl.getAttribute("data-face") : null;
-      
       this.isDraggingCube = true;
-      this.hasDraggedCube = false;
       this.startPointerX = e.clientX;
       this.startPointerY = e.clientY;
       container.setPointerCapture(e.pointerId);
@@ -174,9 +180,6 @@ export class BimViewCube extends HTMLElement {
       if (!this.isDraggingCube) return;
       const dx = e.clientX - this.startPointerX;
       const dy = e.clientY - this.startPointerY;
-      if (Math.abs(dx) > 3 || Math.abs(dy) > 3) {
-        this.hasDraggedCube = true;
-      }
       
       const speed = this.mouseSensitivity * 0.005; 
       
@@ -191,21 +194,19 @@ export class BimViewCube extends HTMLElement {
     container.addEventListener("pointerup", (e: PointerEvent) => {
       if (this.isDraggingCube) {
         this.isDraggingCube = false;
-        container.releasePointerCapture(e.pointerId);
-        
-        if (!this.hasDraggedCube && this.clickedFace) {
-          this.dispatchEvent(new CustomEvent(`${this.clickedFace}click`));
-        }
+        try {
+          container.releasePointerCapture(e.pointerId);
+        } catch (_) {}
       }
-      this.clickedFace = null;
     });
 
     container.addEventListener("pointercancel", (e: PointerEvent) => {
       if (this.isDraggingCube) {
         this.isDraggingCube = false;
-        container.releasePointerCapture(e.pointerId);
+        try {
+          container.releasePointerCapture(e.pointerId);
+        } catch (_) {}
       }
-      this.clickedFace = null;
     });
   }
 }
