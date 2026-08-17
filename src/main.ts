@@ -2321,7 +2321,10 @@ async function loadModelData(name: string, buffer: Uint8Array) {
 
       // Run background metadata processing asynchronously without blocking viewport
       (async () => {
+        const yieldThread = () => new Promise((resolve) => setTimeout(resolve, 16));
         try {
+          await yieldThread();
+
           // 1. Dynamic classifications
           try {
             await classifier.byCategory({ classificationName: "Categories" });
@@ -2341,6 +2344,8 @@ async function loadModelData(name: string, buffer: Uint8Array) {
             console.warn("Classifier byModel info:", e);
           }
 
+          await yieldThread();
+
           // 2. Apply theme category colors
           try {
             await applyCategoryColors();
@@ -2348,12 +2353,16 @@ async function loadModelData(name: string, buffer: Uint8Array) {
             console.warn("applyCategoryColors skipped:", e);
           }
 
+          await yieldThread();
+
           // 3. Populate 4D/5D digital twin properties
           try {
             await initializeModelTwinData(model);
           } catch (e) {
             console.warn("initializeModelTwinData skipped:", e);
           }
+
+          await yieldThread();
 
           // 4. Auto-populate 4D Schedule tasks
           try {
@@ -2387,6 +2396,8 @@ async function loadModelData(name: string, buffer: Uint8Array) {
             }
           }
 
+          await yieldThread();
+
           // 6. Update Classification UI tree & ItemsFinder queries
           try {
             await updateClassificationUI();
@@ -2403,8 +2414,10 @@ async function loadModelData(name: string, buffer: Uint8Array) {
             (window as any).updateTimelineVisualState();
           }
 
+          await yieldThread();
+
           // 8. Build Global Search Index
-          GlobalSearchOverlay.getInstance().buildIndex();
+          await GlobalSearchOverlay.getInstance().buildIndex();
         } catch (bgErr) {
           console.warn("Background metadata post-processing warning:", bgErr);
         }

@@ -292,6 +292,9 @@ export class GlobalSearchOverlay {
 
       if (!properties || Object.keys(properties).length === 0) continue;
 
+      // Pre-index relation map once per model in O(N)
+      this.buildRelDefinesMap(properties);
+
       // Extract all element definitions from properties
       for (const idStr in properties) {
         const expressId = Number(idStr);
@@ -435,6 +438,51 @@ export class GlobalSearchOverlay {
     return name;
   }
 
+  /**
+   * Pre-indexed relation map for fast O(1) property set lookups
+   */
+  private relDefinesMap: Map<number, number[]> = new Map();
+
+  private buildRelDefinesMap(properties: any) {
+    this.relDefinesMap.clear();
+    if (!properties) return;
+
+    for (const id in properties) {
+      const rel = properties[id];
+      if (!rel || rel.type !== "IFCRELDEFINESBYPROPERTIES") continue;
+      const related = rel.RelatedObjects;
+      const relDef = rel.RelatingPropertyDefinition;
+      if (!related || !relDef) continue;
+
+      const psetId = Number(relDef.value ?? relDef);
+      if (isNaN(psetId)) continue;
+
+      if (Array.isArray(related)) {
+        for (const obj of related) {
+          const elId = Number(obj.value ?? obj);
+          if (!isNaN(elId)) {
+            let list = this.relDefinesMap.get(elId);
+            if (!list) {
+              list = [];
+              this.relDefinesMap.set(elId, list);
+            }
+            list.push(psetId);
+          }
+        }
+      } else {
+        const elId = Number(related.value ?? related);
+        if (!isNaN(elId)) {
+          let list = this.relDefinesMap.get(elId);
+          if (!list) {
+            list = [];
+            this.relDefinesMap.set(elId, list);
+          }
+          list.push(psetId);
+        }
+      }
+    }
+  }
+
   private resolveElementPropertySets(properties: any, elementId: number): Record<string, Record<string, string>> {
     const result: Record<string, Record<string, string>> = {};
     if (!properties) return result;
@@ -487,26 +535,13 @@ export class GlobalSearchOverlay {
       }
     }
 
-    // IFCRELDEFINESBYPROPERTIES
-    for (const id in properties) {
-      const rel = properties[id];
-      if (!rel || rel.type !== "IFCRELDEFINESBYPROPERTIES") continue;
-      const related = rel.RelatedObjects;
-      if (!related) continue;
-
-      let isRelated = false;
-      if (Array.isArray(related)) {
-        isRelated = related.some((obj: any) => Number(obj.value ?? obj) === elementId);
-      } else {
-        isRelated = Number(related.value ?? related) === elementId;
+    // Fast O(1) lookups using pre-built relation map
+    const psetIds = this.relDefinesMap.get(elementId);
+    if (psetIds) {
+      for (const psetId of psetIds) {
+        const pset = properties[psetId];
+        if (pset) parsePset(pset, psetId);
       }
-
-      if (!isRelated) continue;
-      const relDef = rel.RelatingPropertyDefinition;
-      if (!relDef) continue;
-      const psetId = Number(relDef.value ?? relDef);
-      const pset = properties[psetId];
-      if (pset) parsePset(pset, psetId);
     }
 
     return result;
