@@ -2499,8 +2499,15 @@ if (loadSampleBtn) {
 
 // Theme-to-3D mapping: paper (model fill), ink (edges), grid colors
 const themeVisualMap: Record<string, { paper: string; ink: string; jitter: number; gridMajor: string; gridMinor: string }> = {
-  // Zen Infrastructure Theme (Kintsugi Gold & Dark Void)
   zen: { paper: "#0D1516", ink: "#00E5FF", jitter: 0.0008, gridMajor: "#3B494C", gridMinor: "#151D1E" },
+  pencil: { paper: "#F8FAFC", ink: "#0F172A", jitter: 0.0035, gridMajor: "#64748B", gridMinor: "#CBD5E1" },
+  bluepen: { paper: "#0B1329", ink: "#60A5FA", jitter: 0.0022, gridMajor: "#3B82F6", gridMinor: "#1E3A8A" },
+  cozy: { paper: "#1C1917", ink: "#F59E0B", jitter: 0.0008, gridMajor: "#78716C", gridMinor: "#44403C" },
+  cyberpunk: { paper: "#11111B", ink: "#F5C2E7", jitter: 0.0005, gridMajor: "#CBA6F7", gridMinor: "#313244" },
+  amber: { paper: "#0F0500", ink: "#FBBF24", jitter: 0.0004, gridMajor: "#92400E", gridMinor: "#451A03" },
+  emerald: { paper: "#011711", ink: "#34D399", jitter: 0.0006, gridMajor: "#059669", gridMinor: "#064E3B" },
+  indigo: { paper: "#070619", ink: "#818CF8", jitter: 0.0010, gridMajor: "#4F46E5", gridMinor: "#312E81" },
+  light: { paper: "#F8FAFC", ink: "#0284C7", jitter: 0.0010, gridMajor: "#94A3B8", gridMinor: "#CBD5E1" },
 };
 
 function applyThemeToThreeMaterials(theme: string) {
@@ -5990,18 +5997,25 @@ updateCumulative5DCost();
 // ============================================================
 const themeSelect = getEl("select-theme-toggle") as HTMLSelectElement | null;
 if (themeSelect) {
-  themeSelect.addEventListener("change", (e) => {
+  themeSelect.addEventListener("change", async (e) => {
     const targetTheme = (e.target as HTMLSelectElement).value;
     document.documentElement.setAttribute("data-theme", targetTheme);
     (window as any).currentTheme = targetTheme;
 
-    // Apply theme materials if model manager exists
-    if ((window as any).modelManager && typeof (window as any).modelManager.applyThemePalette === 'function') {
-      (window as any).modelManager.applyThemePalette(targetTheme);
+    // 1. Re-apply category colors to all 3D mesh materials
+    try {
+      await applyCategoryColors();
+    } catch (err) {
+      console.warn("Error applying category colors on theme switch:", err);
     }
 
-    // Sync GLSL post-processing pass (vignette, bloom glow, toon steps, ink outline)
+    // 2. Update shader uniforms and background grid
+    updateThemeShaderUniforms(targetTheme);
+
+    // 3. Sync GLSL post-processing pass
     syncPostProcessingWithTheme(targetTheme);
+
+    showToast(`Theme Switched: ${targetTheme.toUpperCase()}`, `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"/><path d="M12 2a10 10 0 0 1 10 10c0 5.52-4.48 10-10 10"/></svg>`);
   });
 }
 
