@@ -953,18 +953,24 @@ async function initializeModelTwinData(model: any) {
   }
 
   // Pre-build a map of expressId -> storeyName from classifier Storeys classification
-  const storeys = classifier.list.get("Storeys");
-  if (storeys) {
-    for (const [storeyName, groupData] of storeys) {
-      const map = await groupData.get();
-      for (const mId in map) {
-        if (mId === modelId || fragments.list.get(mId) === model) {
-          for (const id of map[mId]) {
-            globalElementStoreysMap[`${mId}-${id}`] = storeyName;
+  try {
+    const storeys = classifier.list.get("Storeys");
+    if (storeys) {
+      for (const [storeyName, groupData] of storeys) {
+        if (!groupData || typeof groupData.get !== "function") continue;
+        const map = await groupData.get();
+        if (!map) continue;
+        for (const mId in map) {
+          if (mId === modelId || fragments.list.get(mId) === model) {
+            for (const id of map[mId]) {
+              globalElementStoreysMap[`${mId}-${id}`] = storeyName;
+            }
           }
         }
       }
     }
+  } catch (err) {
+    console.warn("Error reading storeys classification in initializeModelTwinData:", err);
   }
 
   const projectStart = new Date("2026-06-18");
@@ -2287,50 +2293,84 @@ async function loadModelData(name: string, buffer: Uint8Array) {
         }
       });
 
-      // Run dynamic classifications
-      console.log("CLASSIFIER: starting byCategory");
-      await classifier.byCategory({ classificationName: "Categories" });
-      console.log("CLASSIFIER: byCategory done");
-      console.log("CLASSIFIER: starting byIfcBuildingStorey");
-      await classifier.byIfcBuildingStorey({ classificationName: "Storeys" });
-      console.log("CLASSIFIER: byIfcBuildingStorey done");
-      console.log("CLASSIFIER: starting byModel");
+      // Run dynamic classifications safely
       try {
+        console.log("CLASSIFIER: starting byCategory");
+        await classifier.byCategory({ classificationName: "Categories" });
+        console.log("CLASSIFIER: byCategory done");
+      } catch (e) {
+        console.warn("Classifier byCategory info:", e);
+      }
+
+      try {
+        console.log("CLASSIFIER: starting byIfcBuildingStorey");
+        await classifier.byIfcBuildingStorey({ classificationName: "Storeys" });
+        console.log("CLASSIFIER: byIfcBuildingStorey done");
+      } catch (e) {
+        console.warn("Classifier byIfcBuildingStorey info:", e);
+      }
+
+      try {
+        console.log("CLASSIFIER: starting byModel");
         await classifier.byModel({ classificationName: "Models" });
+        console.log("CLASSIFIER: byModel done");
       } catch (e) {
         console.warn("Classifier byModel info:", e);
       }
-      console.log("CLASSIFIER: byModel done");
 
       // Apply category-based theme colors to three.js mesh materials
-      await applyCategoryColors();
+      try {
+        await applyCategoryColors();
+      } catch (e) {
+        console.warn("applyCategoryColors skipped:", e);
+      }
 
       // Sync/generate local database twin properties using classifications
-      await initializeModelTwinData(model);
+      try {
+        await initializeModelTwinData(model);
+      } catch (e) {
+        console.warn("initializeModelTwinData skipped:", e);
+      }
 
       // Auto-populate 4D Schedule tasks for all elements and categories in loaded model
-      const categoriesGroup = classifier.list.get("Categories");
-      if (categoriesGroup) {
-        const catMap = new Map<string, { modelId: string; elementIds: number[] }[]>();
-        for (const [catName, groupData] of categoriesGroup) {
-          const res = await groupData.get();
-          const itemsArr: { modelId: string; elementIds: number[] }[] = [];
-          for (const mId in res) {
-            itemsArr.push({ modelId: mId, elementIds: Array.from(res[mId]) });
+      try {
+        const categoriesGroup = classifier.list.get("Categories");
+        if (categoriesGroup) {
+          const catMap = new Map<string, { modelId: string; elementIds: number[] }[]>();
+          for (const [catName, groupData] of categoriesGroup) {
+            if (!groupData || typeof groupData.get !== "function") continue;
+            const res = await groupData.get();
+            if (!res) continue;
+            const itemsArr: { modelId: string; elementIds: number[] }[] = [];
+            for (const mId in res) {
+              if (res[mId]) {
+                itemsArr.push({ modelId: mId, elementIds: Array.from(res[mId]) });
+              }
+            }
+            catMap.set(catName, itemsArr);
           }
-          catMap.set(catName, itemsArr);
+          scheduleManager.generateFromCategories(catMap);
         }
-        scheduleManager.generateFromCategories(catMap);
+      } catch (e) {
+        console.warn("ScheduleManager generation skipped:", e);
       }
 
       // Update 5D cumulative project budget now that twin data is populated
       if (typeof (window as any).updateCumulative5DCost === 'function') {
-        (window as any).updateCumulative5DCost();
+        try {
+          (window as any).updateCumulative5DCost();
+        } catch (e) {
+          console.warn("updateCumulative5DCost skipped:", e);
+        }
       }
 
-      console.log("CLASSIFIER: starting updateClassificationUI");
-      await updateClassificationUI();
-      console.log("CLASSIFIER: updateClassificationUI done");
+      try {
+        console.log("CLASSIFIER: starting updateClassificationUI");
+        await updateClassificationUI();
+        console.log("CLASSIFIER: updateClassificationUI done");
+      } catch (e) {
+        console.warn("updateClassificationUI skipped:", e);
+      }
       calculateTimelineBounds();
 
       // Force renderer to resize and update layout
@@ -4964,6 +5004,7 @@ async function applyCategoryColors() {
   if (!categoriesGroup) return;
 
   for (const [categoryName, groupData] of categoriesGroup) {
+    if (!groupData || typeof groupData.get !== "function") continue;
     const colorHex = getCategoryColor(currentTheme, categoryName);
     
     let material = categoryMaterialCache.get(colorHex);
@@ -4980,6 +5021,7 @@ async function applyCategoryColors() {
     }
 
     const map = await groupData.get();
+    if (!map) continue;
 
     for (const modelId in map) {
       const model = fragments.list.get(modelId);
